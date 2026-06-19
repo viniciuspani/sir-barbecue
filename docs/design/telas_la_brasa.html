@@ -1,0 +1,2132 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>La Brasa Espetinhos — Design de Telas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* =============================================
+       CSS DESIGN TOKENS — La Brasa Espetinhos
+       ============================================= */
+    :root {
+      --bg-primary:    #1A1A1A;
+      --gold:          #D4A017;
+      --gold-light:    #E8BA2A;
+      --red:           #8B1E1E;
+      --red-hover:     #A32323;
+      --text-primary:  #FFFFFF;
+      --text-secondary:#B0B0B0;
+      --surface:       #252525;
+      --surface-hover: #2E2E2E;
+      --divider:       #333333;
+      --green:         #27AE60;
+      --yellow:        #F39C12;
+      --font:          'Inter', 'Nunito', sans-serif;
+    }
+
+    /* =============================================
+       PAGE LAYOUT
+       ============================================= */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #111111;
+      font-family: var(--font);
+      min-height: 100vh;
+      padding: 48px 40px;
+    }
+
+    h1.page-title {
+      text-align: center;
+      color: var(--gold);
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+    }
+    p.page-subtitle {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 16px;
+      margin-bottom: 48px;
+    }
+
+    .screens-grid {
+      display: grid;
+      grid-template-columns: repeat(3, auto);
+      gap: 48px;
+      justify-content: center;
+      align-items: start;
+    }
+
+    .screen-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .screen-label {
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* =============================================
+       PHONE FRAME
+       ============================================= */
+    .phone-frame {
+      width: 390px;
+      height: 844px;
+      overflow: hidden;
+      position: relative;
+      border-radius: 44px;
+      background: var(--bg-primary);
+      border: 2px solid #2A2A2A;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px #1A1A1A;
+      font-family: var(--font);
+    }
+
+    /* Status bar simulation */
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 28px 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      flex-shrink: 0;
+    }
+    .status-bar .time { font-size: 15px; font-weight: 700; }
+    .status-icons { display: flex; gap: 6px; align-items: center; }
+
+    /* Screen content scroll area */
+    .screen-content {
+      height: calc(844px - 44px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+    }
+    .screen-content::-webkit-scrollbar { display: none; }
+
+    /* Screen content with bottom nav */
+    .screen-content.has-nav {
+      height: calc(844px - 44px - 72px);
+      padding-bottom: 8px;
+    }
+
+    /* =============================================
+       REUSABLE COMPONENTS
+       ============================================= */
+
+    /* Logo CSS Component */
+    .logo-component {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: #000000;
+      border: 3px solid var(--gold);
+      box-shadow: 0 0 24px rgba(212,160,23,0.3);
+    }
+    .logo-component .flame { font-size: 22px; margin-bottom: 2px; }
+    .logo-component .logo-name {
+      font-size: 18px;
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: 1.5px;
+      font-family: 'Inter', sans-serif;
+      line-height: 1;
+    }
+    .logo-component .logo-sub {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--gold);
+      letter-spacing: 2px;
+      margin-top: 2px;
+    }
+    .logo-component .logo-icons {
+      font-size: 11px;
+      margin-top: 4px;
+      letter-spacing: 2px;
+    }
+    .logo-component .logo-tagline {
+      font-size: 7px;
+      color: var(--gold);
+      letter-spacing: 1.5px;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .logo-small {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: #000;
+      border: 2px solid var(--gold);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .logo-small .flame { font-size: 9px; }
+    .logo-small .logo-name { font-size: 7px; font-weight: 800; color: #fff; letter-spacing: 0.5px; }
+    .logo-small .logo-sub { font-size: 5px; color: var(--gold); font-weight: 600; letter-spacing: 1px; }
+
+    /* Buttons */
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-radius: 14px;
+      font-family: var(--font);
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+      padding: 0 24px;
+      min-height: 56px;
+      width: 100%;
+      letter-spacing: 0.3px;
+    }
+    .btn-gold { background: var(--gold); color: #000; }
+    .btn-gold:hover { background: var(--gold-light); }
+    .btn-outline-gold { background: transparent; color: var(--gold); border: 2px solid var(--gold); }
+    .btn-outline-gold:hover { background: rgba(212,160,23,0.1); }
+    .btn-red { background: var(--red); color: #fff; }
+    .btn-red:hover { background: var(--red-hover); }
+    .btn-outline-white { background: transparent; color: #fff; border: 2px solid rgba(255,255,255,0.4); }
+    .btn-outline-white:hover { background: rgba(255,255,255,0.06); }
+    .btn-text { background: transparent; color: var(--gold); font-size: 16px; font-weight: 500; min-height: 44px; }
+    .btn-sm {
+      min-height: 40px;
+      font-size: 14px;
+      padding: 0 16px;
+      border-radius: 10px;
+      width: auto;
+    }
+
+    /* Input fields */
+    .input-group {
+      position: relative;
+      margin-bottom: 20px;
+    }
+    .input-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      letter-spacing: 0.3px;
+    }
+    .input-field {
+      width: 100%;
+      background: var(--surface);
+      border: 2px solid var(--divider);
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-size: 17px;
+      font-weight: 500;
+      color: var(--text-primary);
+      font-family: var(--font);
+      outline: none;
+    }
+    .input-field:focus { border-color: var(--gold); }
+    .input-field.active { border-color: var(--gold); }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 20px;
+    }
+    .card-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: 0.3px;
+      margin-bottom: 6px;
+    }
+    .card-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .card-value.gold { color: var(--gold); }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: var(--divider);
+      margin: 20px 0;
+    }
+    .divider-text {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 500;
+      margin: 20px 0;
+    }
+    .divider-text::before,
+    .divider-text::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--divider);
+    }
+
+    /* Bottom Navigation */
+    .bottom-nav {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 72px;
+      background: #0E0E0E;
+      border-top: 1px solid var(--divider);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 8px 8px;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      min-width: 52px;
+    }
+    .nav-item .nav-icon { font-size: 22px; }
+    .nav-item .nav-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+    .nav-item.active .nav-label { color: var(--gold); }
+    .nav-item.active .nav-icon { filter: none; }
+
+    /* Chips */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 16px;
+      border-radius: 100px;
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+    .chip-gold { background: rgba(212,160,23,0.15); color: var(--gold); border-color: rgba(212,160,23,0.3); }
+    .chip-active { background: var(--gold); color: #000; }
+    .chip-outline { background: transparent; color: var(--text-secondary); border-color: var(--divider); }
+    .chip-pay { background: var(--surface); color: var(--text-primary); border-color: var(--divider); padding: 12px 16px; border-radius: 12px; font-size: 15px; flex: 1; justify-content: center; }
+    .chip-pay.selected { border-color: var(--gold); color: var(--gold); background: rgba(212,160,23,0.1); }
+
+    /* Badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .badge-red { background: rgba(139,30,30,0.25); color: #FF6B6B; }
+    .badge-green { background: rgba(39,174,96,0.2); color: #2ECC71; }
+    .badge-yellow { background: rgba(243,156,18,0.2); color: #F39C12; }
+    .badge-gold { background: rgba(212,160,23,0.15); color: var(--gold); }
+
+    /* Toggle switch */
+    .toggle {
+      width: 44px;
+      height: 26px;
+      background: var(--divider);
+      border-radius: 100px;
+      position: relative;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      background: var(--text-secondary);
+      border-radius: 50%;
+      top: 3px;
+      left: 3px;
+      transition: all 0.2s;
+    }
+    .toggle.on { background: var(--green); }
+    .toggle.on::after { background: #fff; left: 21px; }
+
+    /* Progress bar */
+    .progress-bar {
+      height: 8px;
+      background: var(--divider);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 100px;
+    }
+    .progress-green { background: var(--green); }
+    .progress-yellow { background: var(--yellow); }
+    .progress-red { background: #E74C3C; }
+
+    /* Section header */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    /* =============================================
+       TELA 1 — SPLASH / ONBOARDING
+       ============================================= */
+    #splash .screen-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 60px 32px 48px;
+      height: 100%;
+    }
+    #splash .top-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      justify-content: center;
+    }
+    #splash .tagline {
+      font-size: 17px;
+      font-weight: 500;
+      color: var(--gold);
+      letter-spacing: 0.5px;
+      margin-top: 24px;
+      text-align: center;
+    }
+    #splash .quality {
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      margin-top: 8px;
+      text-align: center;
+    }
+    /* Fade-in suggestion: @keyframes fadeIn { from { opacity:0; transform:translateY(20px) } to { opacity:1; transform:translateY(0) } }
+       .logo-component { animation: fadeIn 0.8s ease forwards; }
+       .tagline { animation: fadeIn 0.8s 0.3s ease both; }
+       .btn { animation: fadeIn 0.8s 0.6s ease both; } */
+    #splash .btn-area {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* =============================================
+       TELA 2 — LOGIN
+       ============================================= */
+    #login .screen-content {
+      padding: 24px 28px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    #login .login-logo-row {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 36px;
+      gap: 12px;
+    }
+    #login .login-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    #login .login-sub {
+      font-size: 15px;
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+    #login .forgot-link {
+      text-align: right;
+      margin-top: -8px;
+      margin-bottom: 24px;
+    }
+    #login .forgot-link a {
+      color: var(--gold);
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+    }
+    #login .footer-text {
+      margin-top: 32px;
+      text-align: center;
+      font-size: 15px;
+      color: var(--text-secondary);
+    }
+    #login .footer-text span { color: var(--gold); font-weight: 600; }
+    #login .g-icon {
+      width: 22px;
+      height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      border-radius: 50%;
+      font-size: 13px;
+      font-weight: 800;
+      color: #4285F4;
+    }
+    #login .terms {
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 20px;
+      line-height: 1.6;
+    }
+
+    /* =============================================
+       TELA 3 — DASHBOARD
+       ============================================= */
+    #dashboard .screen-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px 12px;
+      background: var(--bg-primary);
+    }
+    #dashboard .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #dashboard .store-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    #dashboard .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    #dashboard .icon-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      cursor: pointer;
+    }
+    #dashboard .sync-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface);
+      border-radius: 100px;
+      padding: 6px 12px;
+      margin: 0 20px 12px;
+    }
+    #dashboard .sync-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+    #dashboard .sync-text {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--green);
+    }
+    #dashboard .dash-body {
+      padding: 4px 20px 20px;
+    }
+    #dashboard .card-day {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+      border: 1px solid rgba(212,160,23,0.2);
+    }
+    #dashboard .card-day .label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    #dashboard .card-day .day-value {
+      font-size: 38px;
+      font-weight: 800;
+      color: var(--gold);
+      letter-spacing: -0.5px;
+      margin: 4px 0 2px;
+    }
+    #dashboard .card-day .day-sub {
+      font-size: 14px;
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+    #dashboard .cards-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    #dashboard .mini-card {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 14px 12px;
+    }
+    #dashboard .mini-card .mc-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      line-height: 1.3;
+    }
+    #dashboard .mini-card .mc-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    #dashboard .mini-card .mc-value.gold { color: var(--gold); }
+    #dashboard .alert-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+    #dashboard .alert-item:last-child { border-bottom: none; }
+    #dashboard .alert-name { font-size: 16px; font-weight: 500; color: var(--text-primary); }
+    #dashboard .alert-qty { font-size: 14px; color: var(--text-secondary); margin-top: 2px; }
+    #dashboard .bar-row {
+      margin-bottom: 12px;
+    }
+    #dashboard .bar-label-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    #dashboard .bar-label { font-size: 15px; font-weight: 500; color: var(--text-primary); }
+    #dashboard .bar-pct { font-size: 15px; font-weight: 700; color: var(--gold); }
+    #dashboard .h-bar {
+      height: 10px;
+      background: var(--divider);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+    #dashboard .h-bar-fill { height: 100%; border-radius: 100px; }
+
+    /* =============================================
+       TELA 4 — REGISTRAR VENDA
+       ============================================= */
+    #nova-venda .venda-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px 12px;
+    }
+    #nova-venda .venda-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    #nova-venda .close-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      border: none;
+      font-family: var(--font);
+    }
+    #nova-venda .offline-bar {
+      background: rgba(243,156,18,0.15);
+      border: 1px solid rgba(243,156,18,0.3);
+      border-radius: 8px;
+      margin: 0 20px 12px;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #F39C12;
+    }
+    #nova-venda .cat-scroll {
+      display: flex;
+      gap: 10px;
+      padding: 0 20px 16px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    #nova-venda .cat-scroll::-webkit-scrollbar { display: none; }
+    #nova-venda .prod-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 0 20px 160px;
+    }
+    #nova-venda .prod-card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 16px;
+      border: 2px solid transparent;
+      transition: border-color 0.2s;
+    }
+    #nova-venda .prod-card.selected {
+      border-color: var(--gold);
+      background: rgba(212,160,23,0.05);
+    }
+    #nova-venda .prod-emoji { font-size: 36px; margin-bottom: 8px; display: block; }
+    #nova-venda .prod-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+      line-height: 1.3;
+    }
+    #nova-venda .prod-price {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 12px;
+    }
+    #nova-venda .qty-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    #nova-venda .qty-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--divider);
+      border: none;
+      font-size: 20px;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-family: var(--font);
+      flex-shrink: 0;
+    }
+    #nova-venda .qty-btn.add { background: var(--gold); color: #000; font-weight: 700; }
+    #nova-venda .qty-num {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+      min-width: 24px;
+      text-align: center;
+    }
+    #nova-venda .resumo-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #161616;
+      border-top: 1px solid var(--divider);
+      padding: 16px 20px 24px;
+      box-shadow: 0 -8px 32px rgba(0,0,0,0.5);
+    }
+    #nova-venda .resumo-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    #nova-venda .resumo-qty {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+    #nova-venda .resumo-total {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--gold);
+    }
+
+    /* =============================================
+       TELA 5 — FECHAR VENDA (modal sheet)
+       ============================================= */
+    #fechar-venda .sheet-handle {
+      width: 40px;
+      height: 4px;
+      background: var(--divider);
+      border-radius: 100px;
+      margin: 12px auto 0;
+    }
+    #fechar-venda .sheet-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-primary);
+      padding: 20px 24px 0;
+    }
+    #fechar-venda .sheet-body {
+      padding: 16px 24px 32px;
+    }
+    #fechar-venda .item-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+    #fechar-venda .item-line:last-child { border-bottom: none; }
+    #fechar-venda .item-name { font-size: 16px; font-weight: 500; color: var(--text-primary); }
+    #fechar-venda .item-qty { font-size: 14px; color: var(--text-secondary); }
+    #fechar-venda .item-sub { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+    #fechar-venda .total-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0 8px;
+    }
+    #fechar-venda .total-label { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+    #fechar-venda .total-value { font-size: 32px; font-weight: 800; color: var(--gold); }
+    #fechar-venda .pay-grid {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    #fechar-venda .mode-toggle {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    #fechar-venda .mode-btn {
+      flex: 1;
+      padding: 14px 12px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      border: 2px solid var(--divider);
+      color: var(--text-secondary);
+      background: transparent;
+      font-family: var(--font);
+    }
+    #fechar-venda .mode-btn.selected {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: rgba(212,160,23,0.1);
+    }
+
+    /* =============================================
+       TELA 6 — PRODUTOS
+       ============================================= */
+    #produtos .prod-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+    }
+    #produtos .prod-page-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    #produtos .add-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--gold);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: #000;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      font-family: var(--font);
+    }
+    #produtos .tab-row {
+      display: flex;
+      border-bottom: 1px solid var(--divider);
+      padding: 0 20px;
+      margin-bottom: 8px;
+    }
+    #produtos .tab {
+      padding: 10px 16px;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+    #produtos .tab.active {
+      color: var(--gold);
+      border-bottom-color: var(--gold);
+    }
+    #produtos .cat-sep {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px 8px;
+    }
+    #produtos .cat-sep .cat-label {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    #produtos .cat-sep::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--divider);
+    }
+    #produtos .prod-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--divider);
+    }
+    #produtos .prod-emoji-sm { font-size: 28px; flex-shrink: 0; }
+    #produtos .prod-info { flex: 1; }
+    #produtos .prod-item-name { font-size: 17px; font-weight: 600; color: var(--text-primary); }
+    #produtos .prod-item-price { font-size: 15px; font-weight: 700; color: var(--gold); margin-top: 2px; }
+    #produtos .prod-item.inactive { opacity: 0.45; }
+    #produtos .prod-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    #produtos .edit-icon { font-size: 18px; cursor: pointer; padding: 8px; }
+    #produtos .fab {
+      position: absolute;
+      bottom: 90px;
+      right: 20px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: var(--red);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      color: #fff;
+      font-weight: 700;
+      box-shadow: 0 4px 20px rgba(139,30,30,0.5);
+      cursor: pointer;
+      border: none;
+      font-family: var(--font);
+    }
+
+    /* =============================================
+       TELA 7 — ESTOQUE
+       ============================================= */
+    #estoque .est-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+    }
+    #estoque .est-title { font-size: 24px; font-weight: 700; color: var(--text-primary); }
+    #estoque .est-summary {
+      display: flex;
+      gap: 12px;
+      padding: 0 20px 16px;
+    }
+    #estoque .sum-card {
+      flex: 1;
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 16px;
+    }
+    #estoque .sum-label { font-size: 13px; color: var(--text-secondary); font-weight: 500; margin-bottom: 4px; }
+    #estoque .sum-value { font-size: 26px; font-weight: 800; color: var(--text-primary); }
+    #estoque .sum-value.red { color: #FF6B6B; }
+    #estoque .est-body { padding: 0 20px 100px; }
+    #estoque .est-item {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    #estoque .est-item-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+    #estoque .est-item-name { font-size: 17px; font-weight: 600; color: var(--text-primary); }
+    #estoque .est-item-qty { font-size: 22px; font-weight: 800; color: var(--text-primary); }
+    #estoque .est-item-unit { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+    #estoque .est-item-bot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+    }
+    #estoque .est-alert-text { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+    #estoque .est-add-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(212,160,23,0.1);
+      border: 1px solid rgba(212,160,23,0.3);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gold);
+      cursor: pointer;
+    }
+
+    /* =============================================
+       TELA 8 — RELATÓRIOS
+       ============================================= */
+    #relatorios .rel-header {
+      padding: 16px 20px;
+    }
+    #relatorios .rel-title { font-size: 24px; font-weight: 700; color: var(--text-primary); }
+    #relatorios .rel-body { padding: 0 20px 100px; }
+    #relatorios .rel-cards-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    #relatorios .rel-card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 18px 16px;
+    }
+    #relatorios .rel-card-icon { font-size: 28px; margin-bottom: 10px; display: block; }
+    #relatorios .rel-card-title { font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+    #relatorios .rel-card-sub { font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.4; }
+    #relatorios .rel-list-item {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    #relatorios .rel-list-info { flex: 1; }
+    #relatorios .rel-list-type { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+    #relatorios .rel-list-period { font-size: 14px; color: var(--text-secondary); margin-top: 2px; }
+    #relatorios .rel-list-date { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    #relatorios .ver-btn {
+      background: transparent;
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font);
+    }
+
+    /* =============================================
+       TELA 9 — FORNECEDORES
+       ============================================= */
+    #fornecedores .forn-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+    }
+    #fornecedores .forn-title { font-size: 24px; font-weight: 700; color: var(--text-primary); }
+    #fornecedores .forn-list { padding: 0 20px 100px; }
+    #fornecedores .forn-item {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+    }
+    #fornecedores .forn-item:hover { background: var(--surface-hover); }
+    #fornecedores .forn-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: var(--gold);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 800;
+      color: #000;
+      flex-shrink: 0;
+    }
+    #fornecedores .forn-info { flex: 1; }
+    #fornecedores .forn-name { font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+    #fornecedores .forn-phone { font-size: 15px; color: var(--text-secondary); margin-bottom: 8px; }
+    #fornecedores .forn-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    #fornecedores .forn-chip {
+      background: rgba(212,160,23,0.12);
+      border: 1px solid rgba(212,160,23,0.3);
+      border-radius: 100px;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gold);
+    }
+    #fornecedores .forn-arrow { font-size: 20px; color: var(--text-secondary); flex-shrink: 0; }
+    #fornecedores .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      text-align: center;
+    }
+    #fornecedores .empty-icon { font-size: 64px; margin-bottom: 16px; }
+    #fornecedores .empty-title { font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+    #fornecedores .empty-sub { font-size: 16px; color: var(--text-secondary); line-height: 1.5; }
+
+    /* =============================================
+       SCREEN PAGE HEADERS (generic)
+       ============================================= */
+    .page-header {
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .page-header-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+  </style>
+</head>
+<body>
+  <h1 class="page-title">🔥 La Brasa Espetinhos</h1>
+  <p class="page-subtitle">Design de Telas — 9 telas do app mobile (390 × 844 px)</p>
+
+  <div class="screens-grid">
+
+    <!-- ==========================================
+         TELA 1 — SPLASH / ONBOARDING
+         ========================================== -->
+    <div class="screen-wrapper">
+      <div class="phone-frame" id="splash">
+        <div class="status-bar">
+          <span class="time">9:41</span>
+          <div class="status-icons">
+            <span>●●●</span>
+            <span>WiFi</span>
+            <span>🔋</span>
+          </div>
+        </div>
+        <div class="screen-content" style="display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:40px 32px 52px;height:calc(844px - 44px);">
+          <!-- Top spacer -->
+          <div></div>
+
+          <!-- Logo area -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:0;">
+            <div class="logo-component">
+              <span class="flame">🔥</span>
+              <span class="logo-name">LA BRASA</span>
+              <span class="logo-sub">ESPETINHOS</span>
+              <span class="logo-icons">🐂🐔❤️</span>
+              <span class="logo-tagline">CARNE • FRANGO • CORAÇÃO</span>
+            </div>
+            <p style="font-size:18px;font-weight:600;color:var(--gold);margin-top:28px;text-align:center;letter-spacing:0.3px;">Sabor que você confia.</p>
+            <p style="font-size:15px;font-weight:400;color:var(--text-secondary);margin-top:8px;text-align:center;">Gestão completa do seu trailer</p>
+          </div>
+
+          <!-- Buttons -->
+          <div style="width:100%;display:flex;flex-direction:column;gap:14px;">
+            <button class="btn btn-gold">Entrar</button>
+            <button class="btn btn-outline-gold">Criar conta</button>
+          </div>
+        </div>
+      </div>
+      <span class="screen-label">1 · Splash / Onboarding</span>
+    </div>
+
+    <!-- ==========================================
+         TELA 2 — LOGIN
+         ========================================== -->
+    <div class="screen-wrapper">
+      <div class="phone-frame" id="login">
+        <div class="status-bar">
+          <span class="time">9:41</span>
+          <div class="status-icons">
+            <span>●●●</span>
+            <span>WiFi</span>
+            <span>🔋</span>
+          </div>
+        </div>
+        <div class="screen-content" style="padding:16px 28px 40px;">
+          <!-- Logo -->
+          <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:32px;gap:10px;">
+            <div class="logo-small">
+              <span class="flame">🔥</span>
+              <span class="logo-name">LA BRASA</span>
+              <span class="logo-sub">ESPETINHOS</span>
+            </div>
+            <p style="font-size:24px;font-weight:700;color:var(--text-primary);">Bem-vinda de volta</p>
+            <p style="font-size:15px;color:var(--text-secondary);">Entre com sua conta</p>
+          </div>
+
+          <!-- Email -->
+          <div class="input-group">
+            <label class="input-label">E-mail</label>
+            <div style="position:relative;">
+              <input class="input-field active" type="email" value="maria@labrasa.com.br" readonly style="padding-right:48px;" />
+              <span style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:18px;">✉️</span>
+            </div>
+          </div>
+
+          <!-- Senha -->
+          <div class="input-group">
+            <label class="input-label">Senha</label>
+            <div style="position:relative;">
+              <input class="input-field" type="password" value="••••••••" readonly style="padding-right:48px;" />
+              <span style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:18px;cursor:pointer;">👁️</span>
+            </div>
+          </div>
+
+          <!-- Esqueci -->
+          <div style="text-align:right;margin-top:-8px;margin-bottom:24px;">
+            <span style="color:var(--gold);font-size:15px;font-weight:500;cursor:pointer;">Esqueci minha senha</span>
+          </div>
+
+          <!-- Botão entrar -->
+          <button class="btn btn-red" style="margin-bottom:20px;">Entrar</button>
+
+          <!-- Divisor -->
+          <div class="divider-text">ou</div>
+
+          <!-- Google -->
+          <button class="btn btn-outline-white" style="margin-bottom:28px;font-size:16px;font-weight:600;">
+            <span style="width:24px;height:24px;background:#fff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#4285F4;flex-shrink:0;">G</span>
+            Continuar com Google
+          </button>
+
+          <!-- Rodapé -->
+          <p style="text-align:center;font-size:15px;color:var(--text-secondary);">Não tem conta? <span style="color:var(--gold);font-weight:600;cursor:pointer;">Criar conta</span></p>
+          <p style="text-align:center;font-size:13px;color:var(--text-secondary);margin-top:20px;line-height:1.6;">Ao entrar, você aceita os<br/><span style="color:var(--gold);">Termos de Uso</span> e a <span style="color:var(--gold);">Política de Privacidade</span></p>
+        </div>
+      </div>
+      <span class="screen-label">2 · Login</span>
+    </div>
+
+    <!-- ==========================================
+         TELA 3 — DASHBOARD
+         ========================================== -->
+    <div class="screen-wrapper">
+      <div class="phone-frame" id="dashboard">
+        <div class="status-bar">
+          <span class="time">9:41</span>
+          <div class="status-icons">
+            <span>●●●</span>
+            <span>WiFi</span>
+            <span>🔋</span>
+          </div>
+        </div>
+
+        <!-- Header -->
+        <div class="screen-header">
+          <div class="header-left">
+            <div class="logo-small">
+              <span class="flame">🔥</span>
+              <span class="logo-name">LA BRASA</span>
+              <span class="logo-sub">ESP.</span>
+            </div>
+            <span class="store-name">La Brasa</span>
+          </div>
+          <div class="header-right">
+            <div class="icon-btn" title="Notificações">🔔</div>
+            <div class="icon-btn" title="Perfil">👤</div>
+          </div>
+        </div>
+
+        <!-- Sync badge -->
+        <div style="display:flex;align-items:center;gap:6px;background:var(--surface);border-radius:100px;padding:6px 14px;margin:0 20px 12px;width:fit-content;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--green);"></div>
+          <span style="font-size:13px;font-weight:500;color:var(--green);">Online — sincronizado</span>
+        </div>
+
+        <div class="screen-content has-nav" style="padding:4px 0 0;">
+          <div style="padding:0 20px 20px;">
+
+            <!-- Card dia -->
+            <div style="background:var(--surface);border-radius:20px;padding:20px 24px;margin-bottom:16px;border:1px solid rgba(212,160,23,0.25);">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                  <p style="font-size:13px;font-weight:500;color:var(--text-secondary);letter-spacing:0.5px;text-transform:uppercase;">HOJE — TER, 17 JUN</p>
+                  <p style="font-size:38px;font-weight:800;color:var(--gold);letter-spacing:-0.5px;margin:4px 0 2px;">R$ 1.240,50</p>
+                  <p style="font-size:14px;color:var(--text-secondary);">↑ 12% em relação a ontem</p>
+                </div>
+                <span style="font-size:36px;">💰</span>
+              </div>
+            </div>
+
+            <!-- Cards row -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">
+              <div style="background:var(--surface);border-radius:14px;padding:14px 12px;">
+                <p style="font-size:11px;font-weight:500;color:var(--text-secondary);margin-bottom:6px;line-height:1.3;">Total de vendas</p>
+                <p style="font-size:22px;font-weight:800;color:var(--text-primary);">34</p>
+              </div>
+              <div style="background:var(--surface);border-radius:14px;padding:14px 12px;">
+                <p style="font-size:11px;font-weight:500;color:var(--text-secondary);margin-bottom:6px;line-height:1.3;">Ticket médio</p>
+                <p style="font-size:18px;font-weight:800;color:var(--gold);">R$ 36,48</p>
+              </div>
+              <div style="background:var(--surface);border-radius:14px;padding:14px 12px;">
+                <p style="font-size:11px;font-weight:500;color:var(--text-secondary);margin-bottom:6px;line-height:1.3;">Itens vendidos</p>
+                <p style="font-size:22px;font-weight:800;color:var(--text-primary);">87</p>
+              </div>
+            </div>
+
+            <!-- Estoque alerta -->
+            <div style="background:var(--surface);border-radius:16px;padding:16px 18px;margin-bottom:16px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <span style="font-size:17px;font-weight:700;color:var(--text-primary);">⚠️ Estoque em alerta</span>
+                <span class="badge badge-red">3 itens</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--divider);">
+                <div>
+                  <p style="font-size:16px;font-weight:600;color:var(--text-primary);">Espeto Coração</p>
+                  <p style="font-size:13px;color:var(--text-secondary);">Restam 5 unidades</p>
+                </div>
+                <span class="badge badge-red">Crítico</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--divider);">
+                <div>
+                  <p style="font-size:16px;font-weight:600;color:var(--text-primary);">Refrigerante Lata</p>
+                  <p style="font-size:13px;color:var(--text-secondary);">Restam 8 unidades</p>
+                </div>
+                <span class="badge badge-yellow">Atenção</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
+                <div>
+                  <p style="font-size:16px;font-weight:600;color:var(--text-primary);">Pão de Alho</p>
+                  <p style="font-size:13px;color:var(--text-secondary);">Restam 12 unidades</p>
+                </div>
+                <span class="badge badge-yellow">Atenção</span>
+              </div>
+            </div>
+
+            <!-- Vendas por pagamento -->
+            <div style="background:var(--surface);border-radius:16px;padding:16px 18px;">
+              <p style="font-size:17px;font-weight:700;color:var(--text-primary);margin-bottom:14px;">💳 Vendas por pagamento</p>
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                  <span style="font-size:15px;font-weight:500;color:var(--text-primary);">Pix</span>
+                  <span style="font-size:15px;font-weight:700;color:var(--gold);">58%</span>
+                </div>
+                <div style="height:10px;background:var(--divider);border-radius:100px;overflow:hidden;">
+                  <div style="width:58%;height:100%;background:var(--gold);border-radius:100px;"></div>
+                </div>
+              </div>
+              <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                  <span style="font-size:15px;font-weight:500;color:var(--text-primary);">Dinheiro</span>
+                  <span style="font-size:15px;font-weight:700;color:var(--green);">28%</span>
+                </div>
+                <div style="height:10px;background:var(--divider);border-radius:100px;overflow:hidden;">
+                  <div style="width:28%;height:100%;background:var(--green);border-radius:100px;"></div>
+                </div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                  <span style="font-size:15px;font-weight:500;color:var(--text-primary);">Cartão</span>
+                  <span style="font-size:15px;font-weight:700;color:#6C9BE8;">14%</span>
+                </div>
+                <div style="height:10px;background:var(--divider);border-radius:100px;overflow:hidden;">
+                  <div style="width:14%;height:100%;background:#6C9BE8;border-radius:100px;"></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Bottom Nav -->
+        <div class="bottom-nav">
+          <div class="nav-item active">
+            <span class="nav-icon">🏠</span>
+            <span class="nav-label" style="color:var(--gold);">Início</span>
+          </div>
+          <div class="nav-item">
+            <span class="nav-icon">➕</span>
+            <span class="nav-label">Venda</span>
+          </div>
+          <div class="nav-item">
+            <span class="nav-icon">🍖</span>
+            <span class="nav-label">Produtos</span>
+          </div>
+          <div class="nav-item">
+            <span class="nav-icon">📦</span>
+            <span class="nav-label">Estoque</span>
+          </div>
+          <div class="nav-item">
+            <span class="nav-icon">⋯</span>
+            <span class="nav-label">Mais</span>
+          </div>
+        </div>
+      </div>
+      <span class="screen-label">3 · Dashboard</span>
+    </div>
+
+    <!-- ==========================================
+         TELA 4 — REGISTRAR VENDA
+         ========================================== -->
+    <div class="screen-wrapper">
+      <div class="phone-frame" id="nova-venda">
+        <div class="status-bar">
+          <span class="time">9:41</span>
+          <div class="status-icons">
+            <span>●●●</span>
+            <span>WiFi</span>
+            <span>🔋</span>
+          </div>
+        </div>
+
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px 12px;">
+          <span style="font-size:22px;font-weight:700;color:var(--text-primary);">Nova Venda</span>
+          <button style="width:44px;height:44px;border-radius:50%;background:var(--surface);border:none;font-size:20px;color:var(--text-secondary);display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:var(--font);">✕</button>
+        </div>
+
+        <!-- Offline indicator (hidden in online mode — shown as example) -->
+        <div style="background:rgba(243,156,18,0.12);border:1px solid rgba(243,156,18,0.3);border-radius:8px;margin:0 20px 12px;padding:7px 12px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:#F39C12;">
+          <span>⚡</span> Modo offline — venda será sincronizada depois
+        </div>
+
+        <!-- Categorias -->
+        <div style="display:flex;gap:10px;padding:0 20px 16px;overflow-x:auto;scrollbar-width:none;">
+          <div class="chip chip-active">🔥 Churrasquinho</div>
+          <div class="chip chip-outline">🥤 Bebidas</div>
+          <div class="chip chip-outline">🥪 Lanches</div>
+          <div class="chip chip-outline">⭐ Especiais</div>
+        </div>
+
+        <!-- Scroll content with product grid -->
+        <div style="height:calc(844px - 44px - 50px - 40px - 36px - 120px);overflow-y:auto;overflow-x:hidden;scrollbar-width:none;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 20px 16px;">
+
+            <!-- Produto 1 — selecionado -->
+            <div style="background:var(--surface);border-radius:16px;padding:16px;border:2px solid var(--gold);background:rgba(212,160,23,0.05);">
+              <span style="font-size:34px;display:block;margin-bottom:8px;">🥩</span>
+              <p style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px;line-height:1.3;">Espeto de Carne</p>
+              <p style="font-size:17px;font-weight:700;color:var(--gold);margin-bottom:12px;">R$ 8,00</p>
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <button style="width:36px;height:36px;border-radius:50%;background:var(--divider);border:none;font-size:20px;color:var(--text-primary);display:flex;align-items:center;justify-content:center;cursor:pointer;">−</button>
+                <span style="font-size:18px;font-weight:700;color:var(--text-primary);">3</span>
+                <button style="width:36px;height:36px;border-radius:50%;background:var(--gold);border:none;font-size:20px;color:#000;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;">+</button>
+              </div>
+            </div>
+
+            <!-- Produto 2 -->
+            <div style="background:var(--surface);border-radius:16px;padding:16px;border:2px solid transparent;">
+              <span style="font-size:34px;display:block;margin-bottom:8px;">🐔</span>
+              <p style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px;line-height:1.3;">Espeto de Frango</p>
+              <p style="font-size:17px;font-weight:700;color:var(--gold);margin-bottom:12px;">R$ 7,00</p>
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <button style="width:36px;height:36px;border-radius:50%;background:var(--divider);border:none;font-size:20px;color:var(--text-secondary);display:flex;align-items:center;justify-content:center;cursor:pointer;">−</button>
+                <span style="font-size:18px;font-weight:700;color:var(--text-primary);">0</span>
+                <button style="width:36px;height:36px;border-radius:50%;background:var(--gold);border:none;font-size:20px;color:#000;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;">+</button>
+              </div>
+            </div>
+
+            <!-- Produto 3 — selecionado -->
+            <div style="background:var(--surface);border-radius:16px;padding:16px;border:2px solid var(--gold);background:rgba(212,160,23,0.05);">
+              <span style="font-size:34px;display:block;margin-bottom:8px;">❤️</span>
+              <p style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px;line-height:1.3;">Espeto Coração</p>
+              <p style="font-size:17px;font-weight:700;color:var(--gold);margin-bottom:12px;">R$ 9,00</p>
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <button style="width:36px;height:36px;border-radius:50%;background:var(--divider);border:none;font-size:20px;color:var(--text-primary);display:flex;align-items:center;justify-content:center;cursor:pointer;">−</button>
+                <span style="font-size:18px;font-weight:700;color:var(--text-primary);">2</span>
+                <button style="width:36px;height:36px;border-radius:50%;background:var(--gold);border:none;font-size:20px;color:#000;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;">+</button>
+              </div>
+            </div>
+
+            <!-- Produto 4 -->
+            <div style="background:var(--surface);border-radius:16px;padding:16px;border:2px solid transparent;">
+              <span style="font-size:34px;display:block;margin-bottom:8px;">🌿</span>
+              <p style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px;line-height:1.3;">Espeto Misto</p>
+              <p style="font-size:17px;font-weight:700;color:var(--gold);margin-bottom:12px;">R$ 10,00</p>
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <button style="width:36px;height:36px;border-radius:50%;background:var(--divider);border:none;font-size:20px;color:var(--text-secondary);display:flex;align-items:center;justify-content:center;cursor:pointer;">−</button>
+                <span style="font-size:18px;font-weight:700;color:var(--text-primary);">0</span>
+                <button style="width:36px;height:36px;border-radius:50%;background:var(--gold);border:none;font-size:20px;color:#000;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;">+</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Barra resumo flutuante -->
+        <div style="position:absolute;bottom:0;left:0;right:0;background:#161616;border-top:1px solid var(--divider);padding:16px 20px 28px;box-shadow:0 -8px 32px rgba(0,0,0,0.5);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <span style="font-size:16px;font-weight:500;color:var(--text-secondary);">5 itens selecionados</span>
+            <span style="font-size:30px;font-weight:800;color:var(--gold);">R$ 42,00</span>
+          </div>
+          <button class="btn btn-red">Fechar Venda</button>
+        </div>
+
+      </div>
+      <span class="screen-label">4 · Registrar Venda</span>
+    </div>
+
+    <!-- ==========================================
+         TELA 5 — FECHAR VENDA (sheet)
+         ========================================== -->
+    <div class="screen-wrapper">
+      <div class="phone-frame" id="fechar-venda">
+        <div class="status-bar">
+          <span class="time">9:41</span>
+          <div class="status-icons">
+            <span>●●●</span>
+            <span>WiFi</span>
+            <span>🔋</span>
+          </div>
+        </div>
+
+        <!-- Background dim -->
+        <div style="position:absolute;top:44px;left:0;right:0;height:160px;background:rgba(0,0,0,0.6);"></div>
+
+        <!-- Sheet -->
+        <div style="position:absolute;bottom:0;left:0;right:0;background:#1E1E1E;border-radius:28px 28px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.6);">
+          <!-- Handle -->
+          <div style="width:40px;height:4px;background:var(--divider);border-radius:100px;margin:14px auto 0;"></div>
+
+          <div style="padding:20px 24px 36px;">
+            <h2 style="font-size:22px;font-weight:700;color:var(--text-primary);margin-bottom:16px;">Confirmar Venda</h2>
+
+            <!-- Itens -->
+            <div style="margin-bottom:4px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--divider);">
+                <div>
+                  <p style="font-size:16px;font-weight:500;color:var(--text-primary);">Espeto de Carne</p>
+                  <p style="font-size:13px;color:var(--text-secondary);">3 × R$ 8,00</p>
+                </div>
+                <span style="font-size:16px;font-weight:700;color:var(--text-primary);">R$ 24,00</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--divider);">
+                <div>
+                  <p style="font-size:16px;font-weight:500;color:var(--text-primary);">Espeto Coração</p>
+                  <p style="font-size:13px;color:var(--text-secondary);">2 × R$ 9,00</p>
+                </div>
+                <span style="font-size:16px;font-weight:700;color:var(--text-primary);">R$ 18,00</span>
+              </div>
+            </div>
+
+            <!-- Total -->
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0 4px;">
+              <span style="font-size:18px;font-weight:700;color:var(--text-primary);">Total</span>
+              <span style="font-size:32px;font-weight:800;color:var(--gold);">R$ 42,00</span>
+            </div>
+
+            <div style="height:1px;background:var(--divider);margin:8px 0 16px;"></div>
+
+            <!-- Pagamento -->
+            <p style="font-size:15px;font-weight:600;color:var(--text-secondary);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Forma de pagamento</p>
+            <div style="display:flex;gap:8px;margin-bottom:16px;">
+              <div style="flex:1;padding:12px 8px;border-radius:12px;border:2px solid var(--gold);color:var(--gold);background:rgba(212,160,23,0.1);font-size:14px;font-weight:700;text-align:center;cursor:pointer;">
+                <div style="font-size:20px;margin-bottom:4px;">📱</div>Pix
+              </div>
+              <div style="flex:1;padding:12px 8px;border-radius:12px;border:2px solid var(--divider);color:var(--text-secondary);background:var(--surface);font-size:14px;font-weight:600;text-align:center;cursor:pointer;">
+                <div style="font-size:20px;margin-bottom:4px;">💵</div>Dinheiro
+              </div>
+              <div style="flex:1;padding:12px 8px;border-radius:12px;border:2px solid var(--divider);color:var(--text-secondary);background:var(--surface);font-size:14px;font-weight:600;text-align:center;cursor:pointer;">
+                <div style="font-size:20px;margin-bottom:4px;">💳</div>Crédito
+              </div>
+              <div style="flex:1;padding:12px 8px;border-radius:12px;border:2px solid var(--divider);color:var(--text-secondary);background:var(--surface);font-size:14px;font-weight:600;text-align:center;cursor:pointer;">
+                <div style="font-size:20px;margin-bottom:4px;">💳</div>Débito
+              </div>
+            </div>
+
+            <!-- Modo -->
+            <p style="font-size:15px;font-weight:600;color:var(--text-secondary);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Consumo</p>
+            <div style="display:flex;gap:10px;margin-bottom:20px;">
+              <button style="flex:1;padding:14px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;border:2px solid var(--gold);color:var(--gold);background:rgba(212,160,23,0.1);font-family:var(--font);">🪑 Comer aqui</button>
+              <button style="flex:1;padding:14px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;border:2px solid var(--divider);color:var(--text-secondary);background:transparent;font-family:var(--font);">🛍️ Para levar</button>
+            </div>
+
+            <!-- Botões -->
+            <button class="btn btn-red" style="margin-bottom:12px;">✅ Confirmar Venda</button>
+            <button class="btn btn-text" style="font-size:16px;color:var(--text-secondary);">Voltar</button>
+          </div>
+        </div>
+      </div>
+      <span class="screen-label">5 · Fechar Venda</span>
+    </div>
+
+    <!-- ==========================================
+         TELA 6 — PRODUTOS
+         ========================================== -->
+    <div class="screen-wrapper">
+      <div class="phone-frame" id="produtos">
+        <div class="status-bar">
+          <span class="time">9:41</span>
+          <div class="status-icons">
+            <span>●●●</span>
+            <span>WiFi</span>
+            <span>🔋</span>
+          </div>
+        </div>
+
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 0;">
+          <span style="font-size:24px;font-weight:700;color:var(--text-primary);">Produtos</span>
+          <button style="width:44px;height:44px;border-radius:50%;background:var(--gold);border:none;font-size:22px;color:#000;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:var(--font);">+</button>
+        </div>
+
+        <!-- Tabs -->
+        <div style="display:flex;border-bottom:1px solid var(--divider);padding:0 20px;margin-top:12px;">
+          <div style="padding:10px 16px;font-size:16px;font-weight:700;color:var(--gold);border-bottom:2px solid var(--gold);margin-bottom:-1px;cursor:pointer;">Todos</div>
+          <div style="padding:10px 16px;font-size:16px;font-weight:500;color:var(--text-secondary);cursor:pointer;">Ativos</div>
+          <div style="padding:10px 16px;font-size:16px;font-weight:500;color:var(--text-secondary);cursor:pointer;">Inativos</div>
+        </div>
+
+        <div class="screen-content has-nav" style="height:calc(844px - 44px - 72px - 58px - 44px);overflow-y:auto;scrollbar-width:none;">
+          <!-- Categoria Churrasquinho -->
+          <div style="display:flex;align-items:center;gap:10px;padding:16px 20px 8px;">
+            <span style="font-size:13px;font-weight:700;color:var(--gold);letter-spacing:1px;text-transform:uppercase;white-space:nowrap;">🔥 Churrasquinho</span>
+            <div style="flex:1;height:1px;background:var(--divider);"></div>
+          </div>
+
+          <!-- Produto ativo -->
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--divider);">
+            <span style="font-size:28px;">🥩</span>
+            <div style="flex:1;">
+              <p style="font-size:17px;font-weight:600;color:var(--text-primary);">Espeto de Carne</p>
+              <p style="font-size:15px;font-weight:700;color:var(--gold);margin-top:2px;">R$ 8,00</p>
+            </div>
+            <span class="badge badge-gold" style="font-size:11px;">Churrasquinho</span>
+            <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+              <div class="toggle on"></div>
+              <span style="font-size:18px;cursor:pointer;padding:6px;">✏️</span>
+            </div>
+          </div>
+
+          <!-- Produto ativo -->
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--divider);">
+            <span style="font-size:28px;">🐔</span>
+            <div style="flex:1;">
+              <p style="font-size:17px;font-weight:600;color:var(--text-primary);">Espeto de Frango</p>
+              <p style="font-size:15px;font-weight:700;color:var(--gold);margin-top:2px;">R$ 7,00</p>
+            </div>
+            <span class="badge badge-gold" style="font-size:11px;">Churrasquinho</span>
+            <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+              <div class="toggle on"></div>
+              <span style="font-size:18px;cursor:pointer;padding:6px;">✏️</span>
+            </div>
+          </div>
+
+          <!-- Produto INATIVO -->
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--divider);opacity:0.4;">
+            <span style="font-size:28px;">🫀</span>
+            <div style="flex:1;">
+              <p style="font-size:17px;font-weight:600;color:var(--text-primary);">Espeto Coração</p>
+              <p style="font-size:15px;font-weight:700;color:var(--gold);margin-top:2px;">R$ 9,00</p>
+              <p style="font-size:12px;font-weight:600;color:#FF6B6B;margin-top:2px;">Inativo</p>
+            </div>
+            <span class="badge badge-gold" style="font-size:11px;">Churrasquinho</span>
+            <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+              <div class="toggle"></div>
+              <span style="font-size:18px;cursor:pointer;padding:6px;">✏️</span>
+            </div>
+          </div>
+
+          <!-- Categoria Bebidas -->
+          <div style="display:flex;align-items:center;gap:10px;padding:16px 20px 8px;">
+            <span style="font-size:13px;font-weight:700;color:var(--gold);letter-spacing:1px;text-transform:uppercase;white-space:nowrap;">🥤 Bebidas</span>
+            <div style="flex:1;height:1px;background:var(--divider);"></div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--divider);">
+            <span style="font-size:28px;">🥤</span>
+            <div style="flex:1;">
+              <p style="font-size:17px;font-weight:600;color:var(--text-primary);">Refrigerante Lata</p>
+              <p style="font-size:15px;font-weight:700;color:var(--gold);margin-top:2px;">R$ 5,00</p>
+            </div>
+            <span class="badge badge-gold" style="font-size:11px;">Bebidas</span>
+            <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+              <div class="toggle on"></div>
+              <span style="font-size:18px;cursor:pointer;padding:6px;">✏️</span>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--divider);">
+            <span style="font-size:28px;">💧</span>
+            <div style="flex:1;">
+              <p style="font-size:17px;font-weight:600;color:var(--text-primary);">Água Mineral</p>
+              <p style="font-size:15px;font-weight:700;color:var(--gold);margin-top:2px;">R$ 3,00</p>
+            </div>
+            <span class="badge badge-gold" style="font-size:11px;">Bebidas</span>
+            <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+              <div class="toggle on"></div>
+              <span style="font-size:18px;cursor:pointer;padding:6px;">✏️</span>
+            </div>
+          </div>
+
+          <!-- Categoria Lanches -->
+          <div style="display:flex;align-items:center;gap:10px;padding:16px 20px 8px;">
+            <span style="font-size:13px;font-weight:700;color:var(--gold);letter-spacing:1px;text-transform:uppercase;white-space:nowrap;">🥪 Lanches</span>
+            <div style="flex:1;height:1px;background:var(--divider);"></div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--divider);">
+            <span style="font-size:28px;">🧄</span>
+            <div style="flex:1;">
+              <p style="font-size:17px;font-weight:600;color:var(--text-primary);">Pão de Alho</p>
+              <p style="font-size:15px;font-weight:700;color:var(--gold);margin-top:2px;">R$ 6,00</p>
+            </div>
+            <span class="badge badge-gold" style="font-size:11px;">Lanches</span>
+            <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+              <div class="toggle on"></div>
+              <span style="font-size:18px;cursor:pointer;padding:6px;">✏️</span>
+            </div>
+          </div>
+
+          <div style="height:20px;"></div>
+        </div>
+
+        <!-- FAB -->
+        <button style="position:absolute;bottom:90px;right:20px;width:60px;height:60px;border-radius:50%;background:var(--red);border:none;font-size:28px;color:#fff;font-weight:700;box-shadow:0 4px 20px rgba(139,30,30,0.5);cursor:pointer;font-family:var(--font);">+</button>
+
+        <!-- Bottom Nav -->
+        <div class="bottom-nav">
+          <div class="nav-item"><span class="nav-icon">🏠</span><span class="nav-label">Início</span></div>
+          <div class="nav-item"><span class="nav-icon">➕</span><span class="nav-label">Venda</span></div>
+          <div class="nav-item active"><span class="nav-icon">🍖</span><span class="nav-label" style="color:var(--gold);">Produtos</span></div>
+          <div class="nav-item"><span class="nav-icon">📦</span><span class="nav-label">Estoque</span></div>
+          <div class="nav-item"><span class="nav-icon">⋯</span><span class="nav-label">Mais</span></div>
+        </div>
+      </div>
+      <span class="screen-label">6 · Produtos</span>
+    </div>
+
+    <!-- ==========================================
+         TELA 7 — ESTOQUE
+         ========================================== -->
+    <div class="screen-wrapper">
+      <div class="phone-frame" id="estoque">
+        <div class="status-bar">
+          <span class="time">9:41</span>
+          <div class="status-icons">
+            <span>●●●</span>
+            <span>WiFi</span>
+            <span>🔋</span>
+          </div>
+        </div>
+
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;">
+          <span style="font-size:24px;font-weight:700;color:var(--text-primary);">Estoque</span>
+        </div>
+
+        <!-- Summary cards -->
+        <div style="display:flex;gap:12px;padding:0 20px 16px;">
+          <div style="flex:1;background:var(--surface);border-radius:14px;padding:16px;">
+            <p style="font-size:13px;color:var(--text-secondary);font-weight:500;margin-bottom:4px;">Total de itens</p>
+            <p style="font-size:28px;font-weight:800;color:var(--text-primary);">12</p>
+          </div>
+          <div style="flex:1;background:var(--surface);border-radius:14px;padding:16px;border:1px solid rgba(255,107,107,0.3);">
+            <p style="font-size:13px;color:var(--text-secondary);font-weight:500;margin-bottom:4px;">Em alerta</p>
+            <p style="font-size:28px;font-weight:800;color:#FF6B6B;">3</p>
+          </div>
+        </div>
+
+        <!-- Botão entrada -->
+        <div style="padding:0 20px 16px;">
+          <button class="btn btn-gold">📥 Registrar Entrada</button>
+        </div>
+
+        <div style="height:1px;background:var(--divider);margin:0 20px 16px;"></div>
+
+        <!-- Lista estoque -->
+        <div style="height:calc(844px - 44px - 72px - 62px - 104px - 56px - 17px);overflow-y:auto;scrollbar-width:none;padding:0 20px 16px;">
+
+          <!-- Item crítico -->
+          <div style="background:var(--surface);border-radius:14px;padding:16px;margin-bottom:12px;border-left:4px solid #E74C3C;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+              <div>
+                <p style="font-size:17px;font-weight:600;color:var(--text-primary);">Espeto Coração</p>
+                <span class="badge badge-red" style="margin-top:4px;font-size:11px;">Crítico</span>
+              </div>
+              <div style="text-align:right;">
+                <p style="font-size:24px;font-weight:800;color:#FF6B6B;">5</p>
+                <p style="font-size:12px;color:var(--text-secondary);">unidades</p>
+              </div>
+            </div>
+            <div style="height:8px;background:var(--divider);border-radius:100px;overflow:hidden;margin-bottom:8px;">
+              <div style="width:16%;height:100%;background:#E74C3C;border-radius:100px;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:13px;color:var(--text-secondary);">Alerta: 15 un · Mínimo: 10 un</span>
+              <div style="display:flex;align-items:center;gap:6px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--gold);cursor:pointer;">+ Entrada</div>
+            </div>
+          </div>
+
+          <!-- Item atenção -->
+          <div style="background:var(--surface);border-radius:14px;padding:16px;margin-bottom:12px;border-left:4px solid var(--yellow);">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+              <div>
+                <p style="font-size:17px;font-weight:600;color:var(--text-primary);">Refrigerante Lata</p>
+                <span class="badge badge-yellow" style="margin-top:4px;font-size:11px;">Atenção</span>
+              </div>
+              <div style="text-align:right;">
+                <p style="font-size:24px;font-weight:800;color:var(--yellow);">8</p>
+                <p style="font-size:12px;color:var(--text-secondary);">unidades</p>
+              </div>
+            </div>
+            <div style="height:8px;background:var(--divider);border-radius:100px;overflow:hidden;margin-bottom:8px;">
+              <div style="width:32%;height:100%;background:var(--yellow);border-radius:100px;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:13px;color:var(--text-secondary);">Alerta: 12 un · Mínimo: 5 un</span>
+              <div style="display:flex;align-items:center;gap:6px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--gold);cursor:pointer;">+ Entrada</div>
+            </div>
+          </div>
+
+          <!-- Item ok -->
+          <div style="background:var(--surface);border-radius:14px;padding:16px;margin-bottom:12px;border-left:4px solid var(--green);">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+              <div>
+                <p style="font-size:17px;font-weight:600;color:var(--text-primary);">Espeto de Carne</p>
+                <span class="badge badge-green" style="margin-top:4px;font-size:11px;">OK</span>
+              </div>
+              <div style="text-align:right;">
+                <p style="font-size:24px;font-weight:800;color:var(--green);">48</p>
+                <p style="font-size:12px;color:var(--text-secondary);">unidades</p>
+              </div>
+            </div>
+            <div style="height:8px;background:var(--divider);border-radius:100px;overflow:hidden;margin-bottom:8px;">
+              <div style="width:80%;height:100%;background:var(--green);border-radius:100px;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:13px;color:var(--text-secondary);">Alerta: 20 un · Mínimo: 10 un</span>
+              <div style="display:flex;align-items:center;gap:6px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--gold);cursor:pointer;">+ Entrada</div>
+            </div>
+          </div>
+
+          <!-- Item ok -->
+          <div style="background:var(--surface);border-radius:14px;padding:16px;margin-bottom:12px;border-left:4px solid var(--green);">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+              <div>
+                <p style="font-size:17px;font-weight:600;color:var(--text-primary);">Espeto de Frango</p>
+                <span class="badge badge-green" style="margin-top:4px;font-size:11px;">OK</span>
+              </div>
+              <div style="text-align:right;">
+                <p style="font-size:24px;font-weight:800;color:var(--green);">35</p>
+                <p style="font-size:12px;color:var(--text-secondary);">unidades</p>
+              </div>
+            </div>
+            <div style="height:8px;background:var(--divider);border-radius:100px;overflow:hidden;margin-bottom:8px;">
+              <div style="width:65%;height:100%;background:var(--green);border-radius:100px;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:13px;color:var(--text-secondary);">Alerta: 15 un · Mínimo: 8 un</span>
+              <div style="display:flex;align-items:center;gap:6px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--gold);cursor:pointer;">+ Entrada</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Bottom Nav -->
+        <div class="bottom-nav">
+          <div class="nav-item"><span class="nav-icon">🏠</span><span class="nav-label">Início</span></div>
+          <div class="nav-item"><span class="nav-icon">➕</span><span class="nav-label">Venda</span></div>
+          <div class="nav-item"><span class="nav-icon">🍖</span><span class="nav-label">Produtos</span></div>
+          <div class="nav-item active"><span class="nav-icon">📦</span><span class="nav-label" style="color:var(--gold);">Estoque</span></div>
+          <div class="nav-item"><span class="nav-icon">⋯</span><span class="nav-label">Mais</span></div>
+        </div>
+      </div>
+      <span class="screen-label">7 · Estoque</span>
+    </div>
+
+    <!-- ==========================================
+         TELA 8 — RELATÓRIOS
+         ========================================== -->
+    <div class="screen-wrapper">
+      <div class="phone-frame" id="relatorios">
+        <div class="status-bar">
+          <span class="time">9:41</span>
+          <div class="status-icons">
+            <span>●●●</span>
+            <span>WiFi</span>
+            <span>🔋</span>
+          </div>
+        </div>
+
+        <!-- Header -->
+        <div style="padding:16px 20px 12px;">
+          <span style="font-size:24px;font-weight:700;color:var(--text-primary);">Relatórios</span>
+        </div>
+
+        <div style="height:calc(844px - 44px - 72px - 58px);overflow-y:auto;scrollbar-width:none;padding:0 20px 16px;">
+
+          <!-- Cards de ação -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:28px;">
+            <!-- Diário -->
+            <div style="background:var(--surface);border-radius:16px;padding:18px 16px;">
+              <span style="font-size:28px;display:block;margin-bottom:10px;">📅</span>
+              <p style="font-size:17px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">Diário</p>
+              <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;line-height:1.4;">Vendas e faturamento do dia</p>
+              <button class="btn btn-gold btn-sm" style="border:none;cursor:pointer;">Gerar</button>
+            </div>
+            <!-- Mensal -->
+            <div style="background:var(--surface);border-radius:16px;padding:18px 16px;">
+              <span style="font-size:28px;display:block;margin-bottom:10px;">🗓️</span>
+              <p style="font-size:17px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">Mensal</p>
+              <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;line-height:1.4;">Resumo completo do mês</p>
+              <button class="btn btn-gold btn-sm" style="border:none;cursor:pointer;">Gerar</button>
+            </div>
+            <!-- Produtos -->
+            <div style="background:var(--surface);border-radius:16px;padding:18px 16px;">
+              <span style="font-size:28px;display:block;margin-bottom:10px;">🍖</span>
+              <p style="font-size:17px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">Produtos</p>
+              <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;line-height:1.4;">Mais vendidos e estoque</p>
+              <button class="btn btn-gold btn-sm" style="border:none;cursor:pointer;">Gerar</button>
+            </div>
+            <!-- Gerencial -->
+            <div style="background:var(--surface);border-radius:16px;padding:18px 16px;">
+              <span style="font-size:28px;display:block;margin-bottom:10px;">📊</span>
+              <p style="font-size:17px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">Gerencial</p>
+              <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;line-height:1.4;">Visão geral do negócio</p>
+              <button class="btn btn-gold btn-sm" style="border:none;cursor:pointer;">Gerar</button>
+            </div>
+          </div>
+
+          <!-- Relatórios gerados -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <span style="font-size:18px;font-weight:700;color:var(--text-primary);">Relatórios gerados</span>
+          </div>
+
+          <!-- Relatório pronto -->
+          <div style="background:var(--surface);border-radius:14px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;">
+            <span style="font-size:24px;">📅</span>
+            <div style="flex:1;">
+              <p style="font-size:16px;font-weight:700;color:var(--text-primary);">Diário</p>
+              <p style="font-size:14px;color:var(--text-secondary);margin-top:2px;">17 Jun 2026</p>
+              <p style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Gerado às 09:38</p>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+              <span class="badge badge-green">✓ Pronto</span>
+              <button style="background:transparent;border:1px solid var(--gold);color:var(--gold);border-radius:8px;padding:6px 14px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font);">Ver</button>
+            </div>
+          </div>
+
+          <!-- Relatório gerando -->
+          <div style="background:var(--surface);border-radius:14px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;">
+            <span style="font-size:24px;">🗓️</span>
+            <div style="flex:1;">
+              <p style="font-size:16px;font-weight:700;color:var(--text-primary);">Mensal</p>
+              <p style="font-size:14px;color:var(--text-secondary);margin-top:2px;">Jun 2026</p>
+              <p style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Solicitado às 09:40</p>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+              <span class="badge badge-yellow">⏳ Gerando</span>
+            </div>
+          </div>
+
+          <!-- Relatório falhou -->
+          <div style="background:var(--surface);border-radius:14px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;opacity:0.7;">
+            <span style="font-size:24px;">📊</span>
+            <div style="flex:1;">
+              <p style="font-size:16px;font-weight:700;color:var(--text-primary);">Gerencial</p>
+              <p style="font-size:14px;color:var(--text-secondary);margin-top:2px;">Mai 2026</p>
+              <p style="font-size:12px;color:var(--text-secondary);margin-top:2px;">16 Jun 2026</p>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+              <span class="badge badge-red">✗ Falhou</span>
+            </div>
+          </div>
+
+          <!-- Relatório pronto -->
+          <div style="background:var(--surface);border-radius:14px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;">
+            <span style="font-size:24px;">🍖</span>
+            <div style="flex:1;">
+              <p style="font-size:16px;font-weight:700;color:var(--text-primary);">Produtos</p>
+              <p style="font-size:14px;color:var(--text-secondary);margin-top:2px;">Jun 2026</p>
+              <p style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Gerado às 08:15</p>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+              <span class="badge badge-green">✓ Pronto</span>
+              <button style="background:transparent;border:1px solid var(--gold);color:var(--gold);border-radius:8px;padding:6px 14px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font);">Ver</button>
+            </div>
+          </div>
+
+          <div style="height:16px;"></div>
+        </div>
+
+        <!-- Bottom Nav -->
+        <div class="bottom-nav">
+          <div class="nav-item"><span class="nav-icon">🏠</span><span class="nav-label">Início</span></div>
+          <div class="nav-item"><span class="nav-icon">➕</span><span class="nav-label">Venda</span></div>
+          <div class="nav-item"><span class="nav-icon">🍖</span><span class="nav-label">Produtos</span></div>
+          <div class="nav-item"><span class="nav-icon">📦</span><span class="nav-label">Estoque</span></div>
+          <div class="nav-item active"><span class="nav-icon">⋯</span><span class="nav-label" style="color:var(--gold);">Mais</span></div>
+        </div>
+      </div>
+      <span class="screen-label">8 · Relatórios</span>
+    </div>
+
+    <!-- ==========================================
+         TELA 9 — FORNECEDORES
+         ========================================== -->
+    <div class="screen-wrapper">
+      <div class="phone-frame" id="fornecedores">
+        <div class="status-bar">
+          <span class="time">9:41</span>
+          <div class="status-icons">
+            <span>●●●</span>
+            <span>WiFi</span>
+            <span>🔋</span>
+          </div>
+        </div>
+
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;">
+          <span style="font-size:24px;font-weight:700;color:var(--text-primary);">Fornecedores</span>
+          <button style="width:44px;height:44px;border-radius:50%;background:var(--gold);border:none;font-size:22px;color:#000;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:var(--font);">+</button>
+        </div>
+
+        <!-- Search bar -->
+        <div style="padding:0 20px 16px;">
+          <div style="position:relative;">
+            <span style="position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:18px;">🔍</span>
+            <input style="width:100%;background:var(--surface);border:2px solid var(--divider);border-radius:12px;padding:14px 16px 14px 46px;font-size:16px;font-weight:500;color:var(--text-primary);font-family:var(--font);outline:none;" type="text" placeholder="Buscar fornecedor..." readonly />
+          </div>
+        </div>
+
+        <div style="height:calc(844px - 44px - 72px - 62px - 56px);overflow-y:auto;scrollbar-width:none;padding:0 20px 16px;">
+
+          <!-- Fornecedor 1 -->
+          <div style="background:var(--surface);border-radius:16px;padding:18px;margin-bottom:12px;display:flex;align-items:center;gap:14px;cursor:pointer;">
+            <div style="width:52px;height:52px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#000;flex-shrink:0;">F</div>
+            <div style="flex:1;">
+              <p style="font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:2px;">Frigorífico Central</p>
+              <p style="font-size:15px;color:var(--text-secondary);margin-bottom:8px;">📞 (11) 9 8765-4321</p>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                <span style="background:rgba(212,160,23,0.12);border:1px solid rgba(212,160,23,0.3);border-radius:100px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--gold);">Espetos Carne</span>
+                <span style="background:rgba(212,160,23,0.12);border:1px solid rgba(212,160,23,0.3);border-radius:100px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--gold);">Coração</span>
+              </div>
+            </div>
+            <span style="font-size:20px;color:var(--text-secondary);">›</span>
+          </div>
+
+          <!-- Fornecedor 2 -->
+          <div style="background:var(--surface);border-radius:16px;padding:18px;margin-bottom:12px;display:flex;align-items:center;gap:14px;cursor:pointer;">
+            <div style="width:52px;height:52px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#000;flex-shrink:0;">A</div>
+            <div style="flex:1;">
+              <p style="font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:2px;">Avícola São Jorge</p>
+              <p style="font-size:15px;color:var(--text-secondary);margin-bottom:8px;">📞 (11) 9 7654-3210</p>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                <span style="background:rgba(212,160,23,0.12);border:1px solid rgba(212,160,23,0.3);border-radius:100px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--gold);">Espetos Frango</span>
+                <span style="background:rgba(212,160,23,0.12);border:1px solid rgba(212,160,23,0.3);border-radius:100px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--gold);">Frango Misto</span>
+              </div>
+            </div>
+            <span style="font-size:20px;color:var(--text-secondary);">›</span>
+          </div>
+
+          <!-- Fornecedor 3 -->
+          <div style="background:var(--surface);border-radius:16px;padding:18px;margin-bottom:12px;display:flex;align-items:center;gap:14px;cursor:pointer;">
+            <div style="width:52px;height:52px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#000;flex-shrink:0;">D</div>
+            <div style="flex:1;">
+              <p style="font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:2px;">Distribuidora Bom Beba</p>
+              <p style="font-size:15px;color:var(--text-secondary);margin-bottom:8px;">📞 (11) 9 6543-2109</p>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                <span style="background:rgba(212,160,23,0.12);border:1px solid rgba(212,160,23,0.3);border-radius:100px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--gold);">Refrigerantes</span>
+                <span style="background:rgba(212,160,23,0.12);border:1px solid rgba(212,160,23,0.3);border-radius:100px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--gold);">Água Mineral</span>
+                <span style="background:rgba(212,160,23,0.12);border:1px solid rgba(212,160,23,0.3);border-radius:100px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--gold);">Cerveja</span>
+              </div>
+            </div>
+            <span style="font-size:20px;color:var(--text-secondary);">›</span>
+          </div>
+
+          <!-- Fornecedor 4 -->
+          <div style="background:var(--surface);border-radius:16px;padding:18px;margin-bottom:12px;display:flex;align-items:center;gap:14px;cursor:pointer;">
+            <div style="width:52px;height:52px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#000;flex-shrink:0;">P</div>
+            <div style="flex:1;">
+              <p style="font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:2px;">Padaria e Mercearia Pão</p>
+              <p style="font-size:15px;color:var(--text-secondary);margin-bottom:8px;">📞 (11) 9 5432-1098</p>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                <span style="background:rgba(212,160,23,0.12);border:1px solid rgba(212,160,23,0.3);border-radius:100px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--gold);">Pão de Alho</span>
+              </div>
+            </div>
+            <span style="font-size:20px;color:var(--text-secondary);">›</span>
+          </div>
+
+          <!-- Empty state example (commented, shown only when empty)
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;">
+            <span style="font-size:64px;margin-bottom:16px;">🤝</span>
+            <p style="font-size:20px;font-weight:700;color:var(--text-primary);margin-bottom:8px;">Nenhum fornecedor</p>
+            <p style="font-size:16px;color:var(--text-secondary);line-height:1.5;">Adicione seu primeiro fornecedor tocando no botão "+" acima</p>
+          </div>
+          -->
+
+          <div style="height:16px;"></div>
+        </div>
+
+        <!-- Bottom Nav -->
+        <div class="bottom-nav">
+          <div class="nav-item"><span class="nav-icon">🏠</span><span class="nav-label">Início</span></div>
+          <div class="nav-item"><span class="nav-icon">➕</span><span class="nav-label">Venda</span></div>
+          <div class="nav-item"><span class="nav-icon">🍖</span><span class="nav-label">Produtos</span></div>
+          <div class="nav-item"><span class="nav-icon">📦</span><span class="nav-label">Estoque</span></div>
+          <div class="nav-item active"><span class="nav-icon">⋯</span><span class="nav-label" style="color:var(--gold);">Mais</span></div>
+        </div>
+      </div>
+      <span class="screen-label">9 · Fornecedores</span>
+    </div>
+
+  </div><!-- end .screens-grid -->
+
+  <div style="text-align:center;margin-top:64px;padding-bottom:48px;color:var(--text-secondary);font-size:14px;line-height:2;">
+    <p style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:8px;">La Brasa Espetinhos — Design System v1.0</p>
+    <p>9 telas · React Native + Expo · Paleta escura com ouro e vermelho</p>
+    <p>Tipografia Inter/Nunito · Contraste WCAG 2.1 AA · Touch targets ≥ 52dp</p>
+    <p style="margin-top:12px;color:var(--divider);">c:\develop\MOBILE\sir-barbecue\docs\design\telas_la_brasa.html</p>
+  </div>
+
+</body>
+</html>

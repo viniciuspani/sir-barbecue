@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arquitetura de Software — Sir Barbecue | Fase 2: Componentes e APIs</title>
+  <style>
+    :root { --primary: #b91c1c; --primary-light: #fef2f2; --bg: #f8fafc; --surface: #ffffff; --text: #1e293b; --border: #e2e8f0; --code-bg: #1e293b; --code-text: #e2e8f0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+    header { background: var(--primary); color: white; padding: 2.5rem 1.5rem; margin-bottom: 2rem; }
+    header h1 { font-size: 1.8rem; font-weight: 700; }
+    header p { opacity: 0.85; margin-top: 0.5rem; font-size: 0.95rem; }
+    .phase-banner { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 2rem; font-size: 0.95rem; color: #92400e; }
+    .phase-banner a { color: #c2410c; }
+    nav { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; }
+    nav h2 { font-size: 1rem; font-weight: 600; color: var(--primary); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    nav ol { padding-left: 1.5rem; }
+    nav li { margin-bottom: 0.4rem; }
+    nav a { color: var(--primary); text-decoration: none; font-size: 0.95rem; }
+    nav a:hover { text-decoration: underline; }
+    section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 2rem; margin-bottom: 1.5rem; }
+    h2 { font-size: 1.4rem; color: var(--primary); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+    h3 { font-size: 1.1rem; color: var(--text); margin: 1.5rem 0 0.75rem; font-weight: 600; }
+    h4 { font-size: 1rem; color: var(--primary); margin: 1.25rem 0 0.5rem; font-weight: 600; }
+    p { margin-bottom: 1rem; color: #334155; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+    thead { background: #fef2f2; }
+    th { padding: 0.6rem 0.8rem; text-align: left; font-weight: 600; border: 1px solid var(--border); color: var(--primary); }
+    td { padding: 0.55rem 0.8rem; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) { background: #f8fafc; }
+    code { background: #f1f5f9; border: 1px solid var(--border); border-radius: 4px; padding: 0.15em 0.4em; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 0.875em; color: #be185d; }
+    pre { background: var(--code-bg); color: var(--code-text); border-radius: 8px; padding: 1.25rem; overflow-x: auto; margin: 1rem 0; }
+    pre code { background: none; border: none; color: inherit; font-size: 0.875rem; padding: 0; }
+    blockquote { border-left: 4px solid var(--primary); background: var(--primary-light); padding: 1rem 1.25rem; border-radius: 0 6px 6px 0; margin: 1rem 0; color: #7f1d1d; }
+    ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+    li { margin-bottom: 0.3rem; }
+    .component-card { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1.5rem; overflow: hidden; }
+    .component-header { background: #fef2f2; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); }
+    .component-header h3 { margin: 0; color: var(--primary); }
+    .component-body { padding: 1.5rem; }
+    .mermaid-note { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; padding: 0.75rem 1rem; margin: 0.5rem 0 1rem; font-size: 0.875rem; color: #0369a1; }
+    footer { text-align: center; padding: 2rem; color: #94a3b8; font-size: 0.85rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+    @media (max-width: 768px) { .container { padding: 1rem; } section { padding: 1.25rem; } table { font-size: 0.8rem; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Arquitetura de Software — Sir Barbecue</h1>
+      <p>Versão 1.1 · 07/06/2026 (revisado em 19/06/2026 — Expo SDK 55) · Gerado via /arquiteto-solucoes-sistema · Baseado em DDIA — Martin Kleppmann</p>
+    </div>
+  </header>
+  <div class="container">
+
+    <div class="phase-banner">
+      <strong>Fase 2 de 3</strong> — Componentes, Diagramas e Design de APIs &nbsp;|&nbsp;
+      Anterior: <a href="./01a_ARQUITETURA_SOFTWARE_VISAO_GERAL.html">01a — Visão Geral</a> &nbsp;|&nbsp;
+      Próximo: <a href="./01c_ARQUITETURA_SOFTWARE_INFRA_OPERACOES.html">01c — Infra e Operações</a>
+    </div>
+
+    <div class="phase-banner" style="background:#f0fdf4;border-color:#86efac;color:#166534;">
+      <strong>Revisão 19/06/2026 — Expo SDK 55</strong> &nbsp;|&nbsp; Versões de libs e navegação atualizadas: <strong>Expo Router v7</strong>; download de relatório com a nova API <code>File</code>/<code>Directory</code> do <code>expo-file-system</code>. Base: <a href="../plano/ANALISE_IMPACTO_EXPO_SDK_55.html">ANALISE_IMPACTO_EXPO_SDK_55.html</a>.
+    </div>
+
+    <nav>
+      <h2>Índice desta Fase</h2>
+      <ol>
+        <li><a href="#componentes">Componentes e Responsabilidades</a></li>
+        <li><a href="#diagramas">Diagrama de Arquitetura</a></li>
+        <li><a href="#apis">Design de APIs e Contratos</a></li>
+        <li><a href="#comunicacao">Comunicação entre Componentes</a></li>
+      </ol>
+    </nav>
+
+    <!-- Seção 4 -->
+    <section id="componentes">
+      <h2>4. Componentes e Responsabilidades</h2>
+
+      <div class="component-card">
+        <div class="component-header"><h3>4.1 Mobile App (React Native + Expo)</h3></div>
+        <div class="component-body">
+          <table>
+            <tbody>
+              <tr><td><strong>Responsabilidade</strong></td><td>Interface do usuário, lógica de negócio local, persistência offline e orquestração de sync</td></tr>
+              <tr><td><strong>Tipo</strong></td><td>Frontend Mobile</td></tr>
+              <tr><td><strong>Tecnologia</strong></td><td>React Native 0.83.1, Expo SDK 55, TypeScript, WatermelonDB, Zustand</td></tr>
+              <tr><td><strong>Escala</strong></td><td>Stateful — estado local (SQLite) reside no dispositivo</td></tr>
+            </tbody>
+          </table>
+          <h4>Sub-componentes Internos</h4>
+          <table>
+            <thead><tr><th>Sub-componente</th><th>Tecnologia</th><th>Responsabilidade</th></tr></thead>
+            <tbody>
+              <tr><td>Navigation</td><td>Expo Router v7 (sobre React Navigation 7)</td><td>Roteamento file-based entre telas — máx. 3 níveis (RNF-06)</td></tr>
+              <tr><td>Auth Module</td><td>Supabase Auth SDK</td><td>Login email/senha, Google OAuth, gestão de sessão JWT</td></tr>
+              <tr><td>Local Database</td><td>WatermelonDB (SQLite)</td><td>Persistência offline de todos os dados operacionais</td></tr>
+              <tr><td>Sync Engine</td><td>Custom + Supabase Realtime</td><td>Sincronização bidirecional com servidor</td></tr>
+              <tr><td>Notification Handler</td><td>Expo Notifications</td><td>Tokens push, recebimento e navegação por notificação</td></tr>
+              <tr><td>Report Requester</td><td>Supabase Functions SDK</td><td>Disparo e polling de geração de relatórios</td></tr>
+              <tr><td>PDF Viewer</td><td>react-native-webview + expo-file-system (API File/Directory)</td><td>Visualização e download de relatórios gerados (RF-23/24)</td></tr>
+              <tr><td>State Manager</td><td>Zustand</td><td>Auth state, connectivity state, sync status</td></tr>
+              <tr><td>Accessibility Layer</td><td>RN Accessibility API</td><td>Labels VoiceOver/TalkBack, toque mínimo 48×48dp (RNF-05)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="component-card">
+        <div class="component-header"><h3>4.2 Supabase Platform (BaaS)</h3></div>
+        <div class="component-body">
+          <table>
+            <tbody>
+              <tr><td><strong>Responsabilidade</strong></td><td>Persistência durável na nuvem, autenticação, storage de relatórios, processamento assíncrono e sincronização em tempo real</td></tr>
+              <tr><td><strong>Tipo</strong></td><td>Backend as a Service</td></tr>
+              <tr><td><strong>Tecnologia</strong></td><td>Supabase (PostgreSQL, Auth, Storage, Edge Functions, Realtime)</td></tr>
+            </tbody>
+          </table>
+          <h4>Sub-componentes</h4>
+          <table>
+            <thead><tr><th>Sub-componente</th><th>Tecnologia</th><th>Responsabilidade</th></tr></thead>
+            <tbody>
+              <tr><td>PostgreSQL DB</td><td>PostgreSQL 15</td><td>Armazenamento durável de todos os dados</td></tr>
+              <tr><td>Supabase Auth</td><td>GoTrue (JWT)</td><td>Auth email/senha + Google OAuth, tokens JWT</td></tr>
+              <tr><td>Supabase Storage</td><td>S3-compatible</td><td>Armazenamento de PDFs e HTMLs de relatórios</td></tr>
+              <tr><td>Edge Functions</td><td>Deno + TypeScript</td><td>Geração assíncrona de relatórios, cálculos de margem</td></tr>
+              <tr><td>Realtime</td><td>Phoenix Channels</td><td>Notificação de mudanças de dados para sync</td></tr>
+              <tr><td>Row Level Security</td><td>PostgreSQL RLS</td><td>Isolamento por usuário — proprietário acessa só seus dados</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="component-card">
+        <div class="component-header"><h3>4.3 Push Notification Pipeline</h3></div>
+        <div class="component-body">
+          <p><strong>Fluxo:</strong> Edge Function → Expo Push API → FCM (Android) / APNs (iOS) → Dispositivo</p>
+          <p>Usado para: notificação de relatório pronto (RF-22) e alerta de estoque baixo (RF-11).</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Seção 5 -->
+    <section id="diagramas">
+      <h2>5. Diagramas de Arquitetura</h2>
+      <div class="mermaid-note">Os diagramas abaixo estão em sintaxe Mermaid. Renderizáveis no GitHub, GitLab, Notion e VSCode (extensão Markdown Preview Mermaid).</div>
+
+      <h3>5.1 Diagrama de Contexto (C4 Level 1)</h3>
+      <pre><code>graph TB
+    Owner["👤 Proprietária (usuário único)"]
+    App(["📱 Sir Barbecue App Mobile"])
+    Supabase["☁️ Supabase (BaaS)"]
+    Google["🔑 Google OAuth 2.0"]
+    Push["🔔 Expo Push / FCM / APNs"]
+
+    Owner -->|"Registra vendas, gerencia estoque, consulta relatórios"| App
+    App &lt;-->|"Sync de dados, Auth JWT, Storage PDF"| Supabase
+    App -->|"OAuth 2.0"| Google
+    Supabase -->|"Dispara notificação"| Push
+    Push -->|"Notificação push"| App</code></pre>
+
+      <h3>5.2 Diagrama de Containers (C4 Level 2)</h3>
+      <pre><code>graph TB
+    subgraph Dispositivo["📱 Dispositivo do Usuário"]
+        UI["UI Layer — React Native Screens"]
+        Domain["Domain Layer — Use Cases / Entities"]
+        LocalDB["WatermelonDB (SQLite Local)"]
+        SyncEngine["Sync Engine — Offline Queue"]
+        ZustandStore["Zustand Store"]
+    end
+
+    subgraph SupabasePlatform["☁️ Supabase Platform"]
+        SupaAuth["Auth Service (email + Google OAuth)"]
+        PgDB[("PostgreSQL — Dados do negócio")]
+        EdgeFn["Edge Functions — Geração de Relatórios"]
+        FileStorage["Storage — PDFs / HTMLs"]
+        Realtime["Realtime — WebSocket Sync"]
+    end
+
+    UI --> Domain
+    Domain --> LocalDB
+    Domain --> SyncEngine
+    SyncEngine &lt;-->|"REST / Realtime"| PgDB
+    SyncEngine &lt;-->|"WebSocket"| Realtime
+    UI -->|"Auth JWT"| SupaAuth
+    Domain -->|"Solicitar relatório"| EdgeFn
+    EdgeFn -->|"Salvar PDF/HTML"| FileStorage</code></pre>
+
+      <h3>5.3 Fluxo — Registro de Venda (Offline-First)</h3>
+      <pre><code>sequenceDiagram
+    actor Owner as Proprietária
+    participant App as App (UI + Domain)
+    participant Local as WatermelonDB (Local)
+    participant Queue as Offline Queue
+    participant Sync as Sync Engine
+    participant Remote as Supabase PostgreSQL
+
+    Owner->>App: Seleciona produtos + quantidade + pagamento
+    App->>App: Valida disponibilidade em estoque local
+    App->>Local: Salva venda + itens (INSERT)
+    Local-->>App: Confirmado
+    App->>Local: Decrementa estoque (UPDATE)
+    App-->>Owner: "Venda registrada ✓"
+
+    alt Online
+        Sync->>Remote: Sync venda para servidor
+        Remote-->>Sync: Confirmado
+    else Offline
+        App->>Queue: Adiciona venda à fila de sync
+        Queue-->>Owner: Indicação visual "modo offline"
+    end
+
+    Note over Sync: Ao reconectar: processa fila
+    Sync->>Remote: Envia vendas pendentes
+    Remote-->>Sync: ACK
+    Sync-->>Owner: "Sincronização concluída ✓"</code></pre>
+
+      <h3>5.4 Fluxo — Geração de Relatório Assíncrono</h3>
+      <pre><code>sequenceDiagram
+    actor Owner as Proprietária
+    participant App as App Mobile
+    participant DB as PostgreSQL
+    participant EdgeFn as Edge Function
+    participant Storage as Supabase Storage
+    participant Push as Expo Push / FCM
+
+    Owner->>App: Solicita relatório (tipo + período)
+    App->>DB: INSERT reports (status='pending')
+    App-->>Owner: "Relatório em geração... ⏳"
+    Note over Owner: Continua usando o app normalmente
+
+    DB->>EdgeFn: Trigger (novo relatório pendente)
+    EdgeFn->>DB: SELECT vendas + produtos + custos
+    EdgeFn->>EdgeFn: Gera PDF/HTML com gráficos
+    EdgeFn->>Storage: Upload PDF + HTML
+    EdgeFn->>DB: UPDATE reports (status='ready')
+    EdgeFn->>Push: Envia notificação push
+    Push-->>App: "Relatório pronto! Toque para ver 📄"
+    Owner->>App: Toca na notificação
+    App-->>Owner: Exibe relatório na tela</code></pre>
+    </section>
+
+    <!-- Seção 6 -->
+    <section id="apis">
+      <h2>6. Design de APIs e Contratos</h2>
+      <blockquote><strong>Referência DDIA:</strong> Cap. 4 — evolução de APIs sem quebrar compatibilidade. Supabase expõe REST API auto-gerada via PostgREST, complementada por Edge Functions para lógica complexa.</blockquote>
+
+      <h3>6.1 Estratégia de API</h3>
+      <ul>
+        <li>CRUD simples → Supabase REST API (auto-gerada via PostgREST)</li>
+        <li>Lógica complexa (geração de relatório, cálculo de margens) → Edge Functions</li>
+        <li>Realtime (sync, dashboard) → Supabase Realtime WebSocket</li>
+        <li>Base URL: <code>https://&lt;project&gt;.supabase.co/rest/v1/</code></li>
+        <li>Autenticação: <code>Authorization: Bearer &lt;jwt_token&gt;</code> em todos os requests</li>
+        <li>Row Level Security (RLS) garante isolamento por usuário</li>
+      </ul>
+
+      <h3>6.2 Endpoints por Domínio</h3>
+
+      <h4>Produtos</h4>
+      <table>
+        <thead><tr><th>Método</th><th>Endpoint</th><th>Descrição</th><th>Cache Local</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td><code>/rest/v1/products?select=*</code></td><td>Listar todos os produtos</td><td>Sim (WatermelonDB)</td></tr>
+          <tr><td>POST</td><td><code>/rest/v1/products</code></td><td>Criar produto</td><td>Invalida local</td></tr>
+          <tr><td>PATCH</td><td><code>/rest/v1/products?id=eq.{id}</code></td><td>Atualizar produto</td><td>Invalida local</td></tr>
+          <tr><td>GET</td><td><code>/rest/v1/categories?select=*,products(*)</code></td><td>Listar categorias com produtos</td><td>Sim</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Vendas</h4>
+      <table>
+        <thead><tr><th>Método</th><th>Endpoint</th><th>Descrição</th><th>Observação</th></tr></thead>
+        <tbody>
+          <tr><td>POST</td><td><code>/rest/v1/sales</code> + <code>/rest/v1/sale_items</code></td><td>Registrar venda</td><td>Operação em batch</td></tr>
+          <tr><td>GET</td><td><code>/rest/v1/sales?select=*,sale_items(*)&amp;date=gte.{data}</code></td><td>Listar vendas por data</td><td>Filtro server-side</td></tr>
+        </tbody>
+      </table>
+
+      <p><strong>Payload — Registrar Venda:</strong></p>
+      <pre><code>{
+  "sale": {
+    "sale_date": "2026-06-07T19:30:00Z",
+    "total_amount": 24.00,
+    "payment_method": "pix",
+    "consumption_mode": "on_site"
+  },
+  "items": [
+    { "product_id": "uuid", "quantity": 2, "unit_price": 8.00 },
+    { "product_id": "uuid", "quantity": 1, "unit_price": 8.00 }
+  ]
+}</code></pre>
+
+      <h4>Relatórios (Edge Functions)</h4>
+      <table>
+        <thead><tr><th>Método</th><th>Endpoint</th><th>Descrição</th></tr></thead>
+        <tbody>
+          <tr><td>POST</td><td><code>/functions/v1/generate-report</code></td><td>Solicitar geração (assíncrono)</td></tr>
+          <tr><td>GET</td><td><code>/rest/v1/reports?id=eq.{id}</code></td><td>Verificar status</td></tr>
+          <tr><td>GET</td><td><code>/rest/v1/reports?select=*&amp;order=created_at.desc</code></td><td>Listar relatórios gerados</td></tr>
+        </tbody>
+      </table>
+
+      <p><strong>Tipos suportados:</strong> <code>daily_sales</code>, <code>monthly_sales</code>, <code>products_sold</code>, <code>financial_summary</code></p>
+
+      <pre><code>// Payload — Solicitar Relatório
+{
+  "type": "daily_sales",
+  "period": { "start": "2026-06-07", "end": "2026-06-07" },
+  "format": ["pdf", "html"]
+}
+
+// Resposta — Status
+{
+  "id": "uuid",
+  "status": "ready",
+  "pdf_url": "https://storage.supabase.co/...",
+  "html_url": "https://storage.supabase.co/...",
+  "completed_at": "2026-06-07T20:00:45Z"
+}</code></pre>
+    </section>
+
+    <!-- Seção 7 -->
+    <section id="comunicacao">
+      <h2>7. Comunicação entre Componentes</h2>
+
+      <h3>7.1 Comunicação Síncrona</h3>
+      <table>
+        <thead><tr><th>De</th><th>Para</th><th>Protocolo</th><th>Quando Usar</th></tr></thead>
+        <tbody>
+          <tr><td>App Mobile</td><td>Supabase Auth</td><td>HTTPS/REST</td><td>Login, logout, refresh token</td></tr>
+          <tr><td>App Mobile</td><td>Supabase REST API</td><td>HTTPS/REST</td><td>CRUD quando online</td></tr>
+          <tr><td>App Mobile</td><td>Supabase Edge Functions</td><td>HTTPS/POST</td><td>Solicitar geração de relatório</td></tr>
+          <tr><td>App Mobile</td><td>Supabase Storage</td><td>HTTPS/GET</td><td>Download de PDF gerado</td></tr>
+          <tr><td>Edge Function</td><td>Expo Push API</td><td>HTTPS/POST</td><td>Notificar relatório pronto ou estoque baixo</td></tr>
+        </tbody>
+      </table>
+
+      <h3>7.2 Comunicação Assíncrona</h3>
+      <blockquote><strong>Referência DDIA:</strong> Cap. 11 — sistemas de streaming. Supabase Realtime usa PostgreSQL logical replication como fonte de eventos.</blockquote>
+      <table>
+        <thead><tr><th>Producer</th><th>Canal/Evento</th><th>Consumer</th><th>Quando</th></tr></thead>
+        <tbody>
+          <tr><td>Supabase DB (trigger)</td><td><code>reports:status_change</code></td><td>App Mobile (Realtime)</td><td>Relatório muda para <code>ready</code></td></tr>
+          <tr><td>Supabase DB</td><td><code>stock_items:update</code></td><td>App Mobile (Realtime)</td><td>Estoque atualizado remotamente</td></tr>
+          <tr><td>Sync Engine (app)</td><td>Offline Queue</td><td>Supabase REST API</td><td>Ao reconectar, envia vendas pendentes</td></tr>
+        </tbody>
+      </table>
+
+      <h3>7.3 Fluxo de Sincronização Offline</h3>
+      <pre><code>OFFLINE:
+  Operação → WatermelonDB local (write) → marcado como "needs_sync=true"
+
+RECONEXÃO DETECTADA:
+  Sync Engine lê registros com needs_sync=true
+  → POST/PATCH no Supabase para cada registro
+  → 200 OK: marca needs_sync=false
+  → Conflito: "client wins" para vendas; "server wins" para catálogo
+  → Zustand: sync_status = 'synced'
+  → UI: confirmação visual
+
+ONLINE CONTÍNUO:
+  Realtime WebSocket → mudanças do servidor → WatermelonDB local
+  → UI atualiza via WatermelonDB observables</code></pre>
+
+      <h3>7.4 Estratégia de Retry e Idempotência</h3>
+      <pre><code>Tentativas: 3 (backoff exponencial: 1s → 2s → 4s)
+Falha definitiva: operação permanece na fila para próxima sync
+
+Idempotência: todas as operações incluem client_id (UUID gerado offline)
+  → Servidor: ON CONFLICT (client_id) DO NOTHING</code></pre>
+    </section>
+
+    <footer>
+      Documento gerado via /arquiteto-solucoes-sistema — Claude Code Architecture Skill<br>
+      Baseado em: Designing Data-Intensive Applications — Martin Kleppmann (1ª e 2ª ed.)
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arquitetura de BD — Sir Barbecue | Fase 2: Operações e Escala</title>
+  <style>
+    :root { --primary: #1e40af; --primary-light: #eff6ff; --bg: #f8fafc; --surface: #ffffff; --text: #1e293b; --border: #e2e8f0; --code-bg: #1e293b; --code-text: #e2e8f0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+    header { background: var(--primary); color: white; padding: 2.5rem 1.5rem; margin-bottom: 2rem; }
+    header h1 { font-size: 1.8rem; font-weight: 700; }
+    header p { opacity: 0.85; margin-top: 0.5rem; font-size: 0.95rem; }
+    .phase-banner { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 2rem; font-size: 0.95rem; color: #1e40af; }
+    .phase-banner a { color: #1d4ed8; }
+    nav { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; }
+    nav h2 { font-size: 1rem; font-weight: 600; color: var(--primary); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    nav ol { padding-left: 1.5rem; }
+    nav li { margin-bottom: 0.4rem; }
+    nav a { color: var(--primary); text-decoration: none; font-size: 0.95rem; }
+    nav a:hover { text-decoration: underline; }
+    section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 2rem; margin-bottom: 1.5rem; }
+    h2 { font-size: 1.4rem; color: var(--primary); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+    h3 { font-size: 1.1rem; color: var(--text); margin: 1.5rem 0 0.75rem; font-weight: 600; }
+    h4 { font-size: 1rem; color: var(--primary); margin: 1.25rem 0 0.5rem; font-weight: 600; }
+    p { margin-bottom: 1rem; color: #334155; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+    thead { background: #eff6ff; }
+    th { padding: 0.6rem 0.8rem; text-align: left; font-weight: 600; border: 1px solid var(--border); color: var(--primary); }
+    td { padding: 0.55rem 0.8rem; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) { background: #f8fafc; }
+    code { background: #f1f5f9; border: 1px solid var(--border); border-radius: 4px; padding: 0.15em 0.4em; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 0.875em; color: #be185d; }
+    pre { background: var(--code-bg); color: var(--code-text); border-radius: 8px; padding: 1.25rem; overflow-x: auto; margin: 1rem 0; }
+    pre code { background: none; border: none; color: inherit; font-size: 0.875rem; padding: 0; }
+    blockquote { border-left: 4px solid var(--primary); background: var(--primary-light); padding: 1rem 1.25rem; border-radius: 0 6px 6px 0; margin: 1rem 0; color: #1e40af; }
+    ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+    li { margin-bottom: 0.3rem; }
+    .highlight-box { background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 1rem 1.25rem; margin: 1rem 0; }
+    .warning-box { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px; padding: 1rem 1.25rem; margin: 1rem 0; color: #92400e; }
+    footer { text-align: center; padding: 2rem; color: #94a3b8; font-size: 0.85rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+    @media (max-width: 768px) { .container { padding: 1rem; } section { padding: 1.25rem; } table { font-size: 0.8rem; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Arquitetura de Banco de Dados — Sir Barbecue</h1>
+      <p>Versão 1.0 · 07/06/2026 · Gerado via /arquiteto-solucoes-sistema · Baseado em DDIA — Martin Kleppmann</p>
+    </div>
+  </header>
+  <div class="container">
+
+    <div class="phase-banner">
+      <strong>Fase 2 de 2</strong> — Índices, Transações, Sync, Backup, Migrations, Queries, Segurança e Monitoramento &nbsp;|&nbsp;
+      Anterior: <a href="./02a_ARQUITETURA_BD_MODELO_DADOS.html">02a — Modelo de Dados</a>
+    </div>
+
+    <nav>
+      <h2>Índice desta Fase</h2>
+      <ol>
+        <li><a href="#indices">Estratégia de Índices</a></li>
+        <li><a href="#transacoes">Transações e Concorrência</a></li>
+        <li><a href="#cap">Consistência e CAP</a></li>
+        <li><a href="#sync">Sincronização Offline</a></li>
+        <li><a href="#backup">Backup e Recuperação</a></li>
+        <li><a href="#migrations">Migrations e Evolução</a></li>
+        <li><a href="#queries">Queries Críticas</a></li>
+        <li><a href="#pool">Connection Pooling</a></li>
+        <li><a href="#seguranca">Segurança</a></li>
+        <li><a href="#monitoramento">Monitoramento</a></li>
+      </ol>
+    </nav>
+
+    <!-- Seção 5 -->
+    <section id="indices">
+      <h2>5. Estratégia de Índices</h2>
+      <blockquote><strong>Referência DDIA:</strong> Cap. 3 — B-Trees vs LSM-Trees e como índices afetam performance de leitura e escrita.</blockquote>
+
+      <h3>Índices: tabela <code>sales</code></h3>
+      <pre><code>-- Índice principal: consultas de relatório (user + data)
+CREATE INDEX idx_sales_user_date ON sales(user_id, sale_date DESC)
+WHERE deleted_at IS NULL;
+
+-- Por forma de pagamento (relatório diário RF-17)
+CREATE INDEX idx_sales_user_payment ON sales(user_id, payment_method, sale_date);
+
+-- Vendas não sincronizadas (sync offline)
+CREATE INDEX idx_sales_not_synced ON sales(user_id, synced_at)
+WHERE synced_at IS NULL;</code></pre>
+
+      <h3>Índices: tabela <code>sale_items</code></h3>
+      <pre><code>CREATE INDEX idx_sale_items_sale    ON sale_items(sale_id);
+CREATE INDEX idx_sale_items_product ON sale_items(product_id);</code></pre>
+
+      <h3>Índices: tabela <code>stock_items</code></h3>
+      <pre><code>CREATE INDEX idx_stock_items_user  ON stock_items(user_id);
+CREATE INDEX idx_stock_items_alert ON stock_items(user_id, quantity, alert_threshold)
+WHERE alert_threshold > 0;</code></pre>
+
+      <h3>Índices: tabela <code>products</code></h3>
+      <pre><code>CREATE INDEX idx_products_user_active ON products(user_id, is_active, category_id)
+WHERE is_active = true;</code></pre>
+
+      <h3>Justificativa e Trade-offs</h3>
+      <table>
+        <thead><tr><th>Índice</th><th>Query que otimiza</th><th>Custo de escrita</th><th>Benefício</th></tr></thead>
+        <tbody>
+          <tr><td><code>idx_sales_user_date</code></td><td><code>WHERE user_id = ? ORDER BY sale_date DESC</code></td><td>Baixo</td><td>Elimina seq scan em todos os relatórios</td></tr>
+          <tr><td><code>idx_sale_items_sale</code></td><td>JOIN <code>sale_items ON sale_id</code></td><td>Baixo</td><td>JOIN O(log n)</td></tr>
+          <tr><td><code>idx_stock_items_alert</code></td><td>Verificação de alertas de estoque</td><td>Baixíssimo</td><td>Partial index — só indexa produtos com threshold configurado</td></tr>
+          <tr><td><code>idx_products_user_active</code></td><td>Tela de vendas — listar produtos ativos</td><td>Baixo</td><td>Partial index — só indexa ativos</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Seção 6 -->
+    <section id="transacoes">
+      <h2>6. Transações e Controle de Concorrência</h2>
+      <blockquote><strong>Referência DDIA:</strong> Cap. 7 — Kleppmann desmistifica ACID, níveis de isolamento e write skew.</blockquote>
+
+      <h3>Nível de Isolamento: READ COMMITTED</h3>
+      <p>Padrão do PostgreSQL. Suficiente para 1 usuário com baixíssimo volume. Idempotência por <code>client_id</code> cobre os casos de retry.</p>
+
+      <h3>Fluxo: Registro de Venda (RF-12 + RF-10)</h3>
+      <pre><code>BEGIN;
+
+-- 1. Inserir venda (idempotente)
+INSERT INTO sales (user_id, total_amount, payment_method, consumption_mode, sale_date, client_id)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (client_id) DO NOTHING
+RETURNING id;
+
+-- 2. Inserir itens — trigger deduct_stock_on_sale executa automaticamente
+INSERT INTO sale_items (sale_id, product_id, quantity, unit_price)
+VALUES ($sale_id, $pid1, $qty1, $price1), ($sale_id, $pid2, $qty2, $price2);
+
+COMMIT;
+-- Garantia: venda + itens + dedução de estoque ocorrem atomicamente</code></pre>
+
+      <h3>Proteções contra Race Conditions</h3>
+      <table>
+        <thead><tr><th>Cenário</th><th>Proteção</th></tr></thead>
+        <tbody>
+          <tr><td>Mesma venda enviada duas vezes (retry)</td><td><code>UNIQUE (client_id)</code> + <code>ON CONFLICT DO NOTHING</code></td></tr>
+          <tr><td>Saldo negativo de estoque</td><td><code>CHECK (quantity >= 0)</code> em <code>stock_items</code></td></tr>
+          <tr><td>Produto duplicado por nome</td><td><code>UNIQUE (user_id, name)</code> em <code>products</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Seção 7 -->
+    <section id="cap">
+      <h2>7. Consistência e Modelo CAP</h2>
+      <blockquote><strong>Referência DDIA:</strong> Cap. 9 — o teorema CAP e as garantias reais de sistemas modernos.</blockquote>
+      <p><strong>PostgreSQL (remoto):</strong> CP — Consistência + Tolerância a Partição. Em partição de rede, servidor não aceita escritas inconsistentes.</p>
+      <p><strong>App Mobile (offline):</strong> AP — Disponibilidade + Tolerância a Partição. WatermelonDB garante operação local ininterrupta.</p>
+      <table>
+        <thead><tr><th>Domínio</th><th>Garantia</th><th>Implementação</th></tr></thead>
+        <tbody>
+          <tr><td>Vendas</td><td>Read-your-writes</td><td>Escrita local primeiro; leitura local imediata</td></tr>
+          <tr><td>Estoque</td><td>Linearizabilidade (server)</td><td>Triggers garantem consistência no PostgreSQL</td></tr>
+          <tr><td>Relatórios</td><td>Eventual</td><td>Gerado sobre snapshot de dados do servidor</td></tr>
+          <tr><td>Catálogo</td><td>Eventual</td><td>Sync bidirecional com last-writer-wins</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Seção 8 -->
+    <section id="sync">
+      <h2>8. Sincronização Offline — Modelo de Dados</h2>
+      <blockquote><strong>Referência DDIA:</strong> Cap. 5 — o dispositivo age como réplica follower; o servidor como single leader.</blockquote>
+
+      <h3>Estratégia de Idempotência por Tabela</h3>
+      <table>
+        <thead><tr><th>Tabela</th><th>Chave de Idempotência</th><th>SQL de Upsert</th></tr></thead>
+        <tbody>
+          <tr><td><code>sales</code></td><td><code>client_id</code> (UNIQUE)</td><td><code>ON CONFLICT (client_id) DO NOTHING</code></td></tr>
+          <tr><td><code>stock_entries</code></td><td><code>client_id</code> (UNIQUE)</td><td><code>ON CONFLICT (client_id) DO NOTHING</code></td></tr>
+          <tr><td><code>products</code></td><td><code>(user_id, name)</code> (UNIQUE)</td><td><code>ON CONFLICT (...) DO UPDATE SET ...</code></td></tr>
+          <tr><td><code>product_day_visibility</code></td><td><code>(product_id, day_of_week)</code></td><td><code>ON CONFLICT (...) DO UPDATE SET is_visible = EXCLUDED.is_visible</code></td></tr>
+          <tr><td><code>stock_items</code></td><td><code>product_id</code> (UNIQUE)</td><td><code>ON CONFLICT (product_id) DO UPDATE SET quantity = ...</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Seção 9 -->
+    <section id="backup">
+      <h2>9. Estratégia de Backup e Recuperação</h2>
+      <blockquote><strong>Referência DDIA:</strong> Cap. 1 — durabilidade como pilar da confiabilidade.</blockquote>
+
+      <table>
+        <thead><tr><th>Tipo</th><th>Frequência</th><th>Retenção</th><th>Destino</th></tr></thead>
+        <tbody>
+          <tr><td>Full backup automático (Supabase)</td><td>Diário</td><td>7 dias (free) / 30 dias (Pro)</td><td>Supabase managed storage</td></tr>
+          <tr><td>WAL archiving (PITR)</td><td>Contínuo</td><td>7 dias (Pro tier)</td><td>Supabase managed storage</td></tr>
+          <tr><td>Export manual (<code>pg_dump</code>)</td><td>Mensal (recomendado)</td><td>Indefinido</td><td>Google Drive / local</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Objetivos de Recuperação</h3>
+      <table>
+        <thead><tr><th>Métrica</th><th>Valor</th><th>Estratégia</th></tr></thead>
+        <tbody>
+          <tr><td>RPO</td><td>&lt; 24h (free) / &lt; 1min (Pro PITR)</td><td>Backup diário automático</td></tr>
+          <tr><td>RTO</td><td>&lt; 4h</td><td>Restore via Supabase Dashboard</td></tr>
+        </tbody>
+      </table>
+
+      <div class="highlight-box">
+        <strong>Retenção Fiscal — 5 anos (RNF-11):</strong> dados de <code>sales</code> e <code>sale_items</code> são retidos integralmente. Sem deleção automática. Em v2: considerar particionamento por ano e export anual em CSV/JSON para armazenamento independente.
+      </div>
+    </section>
+
+    <!-- Seção 10 -->
+    <section id="migrations">
+      <h2>10. Migrations e Evolução do Schema</h2>
+      <blockquote><strong>Referência DDIA:</strong> Cap. 4 — forward e backward compatibility em schemas.</blockquote>
+
+      <h3>Ferramenta: Supabase CLI</h3>
+      <pre><code>supabase/migrations/
+  20260607000001_initial_schema.sql
+  20260607000002_create_products_table.sql
+  20260607000003_add_client_id_to_sales.sql
+
+# Aplicar em desenvolvimento
+supabase db push
+
+# Aplicar em produção
+supabase db push --db-url $SUPABASE_DB_URL</code></pre>
+
+      <h3>Boas Práticas</h3>
+      <ul>
+        <li><strong>Sempre fazer:</strong> migrations aditivas (<code>ADD COLUMN</code>, <code>ADD TABLE</code>, <code>ADD INDEX</code>)</li>
+        <li><strong>Sempre fazer:</strong> <code>ADD COLUMN ... DEFAULT value</code> em PostgreSQL 11+ é O(1)</li>
+        <li><strong>Evitar:</strong> <code>DROP COLUMN</code> sem período de deprecação (mínimo 1 sprint)</li>
+        <li><strong>Evitar:</strong> renomear colunas diretamente — adicionar nova → migrar → remover antiga após 1 deploy</li>
+      </ul>
+    </section>
+
+    <!-- Seção 11 -->
+    <section id="queries">
+      <h2>11. Queries Críticas</h2>
+      <blockquote><strong>Referência DDIA:</strong> Cap. 3 — B-Tree indexes e quando cada abordagem é eficiente.</blockquote>
+
+      <h4>Relatório Diário de Vendas (RF-17)</h4>
+      <pre><code>SELECT
+    payment_method,
+    COUNT(*)          AS total_transactions,
+    SUM(total_amount) AS total_revenue
+FROM sales
+WHERE
+    user_id = $1
+    AND sale_date >= $date_start
+    AND sale_date &lt;  $date_end
+GROUP BY payment_method
+ORDER BY payment_method;
+-- Usa: idx_sales_user_date → Index Scan</code></pre>
+
+      <h4>Relatório de Produtos com Margem (RF-19, RF-20)</h4>
+      <pre><code>SELECT
+    p.name                                           AS product_name,
+    SUM(si.quantity)                                 AS total_quantity,
+    SUM(si.subtotal)                                 AS total_revenue,
+    COALESCE(ps.purchase_price, 0)                   AS unit_cost,
+    SUM(si.subtotal) -
+      (COALESCE(ps.purchase_price, 0) * SUM(si.quantity)) AS gross_profit,
+    ROUND(
+      ((SUM(si.subtotal) - COALESCE(ps.purchase_price, 0) * SUM(si.quantity))
+       / NULLIF(SUM(si.subtotal), 0)) * 100, 2
+    ) AS margin_pct
+FROM sale_items si
+JOIN sales s   ON s.id = si.sale_id
+JOIN products p ON p.id = si.product_id
+LEFT JOIN product_suppliers ps
+    ON ps.product_id = p.id AND ps.is_preferred = true
+WHERE s.user_id = $1
+  AND s.sale_date >= $date_start
+  AND s.sale_date &lt;  $date_end
+GROUP BY p.id, p.name, ps.purchase_price
+ORDER BY total_revenue DESC;</code></pre>
+
+      <h4>Paginação por Cursor (histórico de vendas)</h4>
+      <pre><code>-- ❌ Ruim (offset): performance degrada em páginas altas
+SELECT * FROM sales WHERE user_id = $1 ORDER BY sale_date DESC LIMIT 20 OFFSET 10000;
+
+-- ✅ Bom (cursor): performance constante
+SELECT * FROM sales
+WHERE user_id = $1
+  AND sale_date &lt; $cursor_date  -- timestamp da última venda da página anterior
+ORDER BY sale_date DESC
+LIMIT 20;</code></pre>
+    </section>
+
+    <!-- Seção 12 -->
+    <section id="pool">
+      <h2>12. Connection Pooling</h2>
+      <p>Gerenciado pelo Supabase via PgBouncer interno. O app mobile usa HTTP (PostgREST) — sem conexões diretas ao PostgreSQL, eliminando risco de connection exhaustion em v1.</p>
+      <table>
+        <thead><tr><th>Parâmetro</th><th>Supabase Free</th><th>Supabase Pro</th></tr></thead>
+        <tbody>
+          <tr><td>Max conexões</td><td>60</td><td>200+</td></tr>
+          <tr><td>Modo de pool</td><td>Transaction mode</td><td>Transaction mode</td></tr>
+          <tr><td>Timeout de conexão</td><td>10s</td><td>10s</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Seção 13 -->
+    <section id="seguranca">
+      <h2>13. Segurança do Banco de Dados</h2>
+
+      <h3>Row Level Security — Usuários de Banco</h3>
+      <table>
+        <thead><tr><th>Role</th><th>Acesso</th><th>Uso</th></tr></thead>
+        <tbody>
+          <tr><td><code>anon</code></td><td>Apenas endpoints públicos (auth)</td><td>Usuários não autenticados</td></tr>
+          <tr><td><code>authenticated</code></td><td>Tabelas com RLS permitindo <code>auth.uid()</code></td><td>Proprietária logada</td></tr>
+          <tr><td><code>service_role</code></td><td>Bypass RLS</td><td>Edge Functions apenas — NUNCA expor ao cliente</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Criptografia</h3>
+      <table>
+        <thead><tr><th>Dado</th><th>Tratamento</th><th>Justificativa</th></tr></thead>
+        <tbody>
+          <tr><td>Senha do usuário</td><td>Bcrypt via Supabase Auth — nunca texto plano</td><td>Segurança padrão</td></tr>
+          <tr><td>Dados financeiros em trânsito</td><td>TLS 1.3 (Supabase enforça)</td><td>RNF-07</td></tr>
+          <tr><td>Dados em repouso</td><td>AES-256 na infraestrutura Supabase</td><td>Infraestrutura gerenciada</td></tr>
+          <tr><td>Tokens JWT no dispositivo</td><td>Keychain (iOS) / Keystore (Android)</td><td>RNF-07 — expo-secure-store</td></tr>
+        </tbody>
+      </table>
+
+      <h3>LGPD — Exclusão de Conta (RNF-08)</h3>
+      <pre><code>-- Exclusão hard de dados pessoais a pedido
+DELETE FROM reports       WHERE user_id = $user_id;
+DELETE FROM stock_entries WHERE user_id = $user_id;
+DELETE FROM sales         WHERE user_id = $user_id; -- CASCADE → sale_items
+DELETE FROM stock_items   WHERE user_id = $user_id;
+DELETE FROM products      WHERE user_id = $user_id; -- CASCADE → visibilidade
+DELETE FROM suppliers     WHERE user_id = $user_id;
+DELETE FROM categories    WHERE user_id = $user_id;
+SELECT auth.delete_user($user_id); -- Remove de auth.users</code></pre>
+      <div class="warning-box">
+        <strong>Atenção:</strong> para compliance fiscal (RNF-11), os dados de <code>sales</code> e <code>sale_items</code> devem ser retidos por 5 anos. Em exclusão de conta, avaliar <strong>anonimização</strong> dos registros (NULL no <code>user_id</code>) ao invés de deleção hard.
+      </div>
+    </section>
+
+    <!-- Seção 14 -->
+    <section id="monitoramento">
+      <h2>14. Monitoramento do Banco de Dados</h2>
+
+      <h3>Métricas Essenciais</h3>
+      <table>
+        <thead><tr><th>Métrica</th><th>Como Verificar</th><th>Alerta</th></tr></thead>
+        <tbody>
+          <tr><td>Tamanho do banco</td><td>Supabase Dashboard → Settings → Database</td><td>&gt; 400MB (limite free: 500MB)</td></tr>
+          <tr><td>Queries lentas</td><td>Supabase → Reports → Query Performance</td><td>Qualquer query &gt; 2s</td></tr>
+          <tr><td>Conexões ativas</td><td>Supabase → Database → Connections</td><td>&gt; 50</td></tr>
+          <tr><td>Dead tuples</td><td><code>pg_stat_user_tables.n_dead_tup</code></td><td>&gt; 20% de live tuples</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Queries de Monitoramento</h3>
+      <pre><code>-- Top queries mais lentas
+SELECT LEFT(query, 100) AS query_preview, calls,
+       ROUND(mean_exec_time::numeric, 2) AS avg_ms
+FROM pg_stat_statements
+ORDER BY mean_exec_time DESC LIMIT 10;
+
+-- Tamanho das tabelas
+SELECT relname AS table_name,
+       pg_size_pretty(pg_total_relation_size(oid)) AS total_size
+FROM pg_class
+WHERE relkind = 'r' AND relnamespace = 'public'::regnamespace
+ORDER BY pg_total_relation_size(oid) DESC;
+
+-- Alertas de estoque ativo (RF-11)
+SELECT p.name, si.quantity, si.alert_threshold
+FROM stock_items si
+JOIN products p ON p.id = si.product_id
+WHERE si.quantity &lt;= si.alert_threshold
+  AND si.alert_threshold > 0
+  AND p.is_active = true;</code></pre>
+    </section>
+
+    <footer>
+      Documento gerado via /arquiteto-solucoes-sistema — Claude Code Architecture Skill<br>
+      Baseado em: Designing Data-Intensive Applications — Martin Kleppmann (1ª e 2ª ed.)
+    </footer>
+  </div>
+</body>
+</html>

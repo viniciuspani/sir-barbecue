@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native (gerados por `expo prebuild` — Continuous Native Generation)
+/android
+/ios
+
+# Metro
+.metro-health-check*
+
+# Env / segredos
+.env
+.env*.local
+
+# Logs / OS
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+*.orig.*
+
+# IDE
+.vscode/
+.idea/

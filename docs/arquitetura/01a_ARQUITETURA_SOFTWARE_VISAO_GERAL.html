@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arquitetura de Software — Sir Barbecue | Fase 1: Visão Geral e ADRs</title>
+  <style>
+    :root { --primary: #b91c1c; --primary-light: #fef2f2; --bg: #f8fafc; --surface: #ffffff; --text: #1e293b; --border: #e2e8f0; --code-bg: #1e293b; --code-text: #e2e8f0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+    header { background: var(--primary); color: white; padding: 2.5rem 1.5rem; margin-bottom: 2rem; }
+    header h1 { font-size: 1.8rem; font-weight: 700; }
+    header p { opacity: 0.85; margin-top: 0.5rem; font-size: 0.95rem; }
+    .phase-banner { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 2rem; font-size: 0.95rem; color: #92400e; }
+    .phase-banner strong { color: #c2410c; }
+    nav { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; }
+    nav h2 { font-size: 1rem; font-weight: 600; color: var(--primary); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    nav ol { padding-left: 1.5rem; }
+    nav li { margin-bottom: 0.4rem; }
+    nav a { color: var(--primary); text-decoration: none; font-size: 0.95rem; }
+    nav a:hover { text-decoration: underline; }
+    section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 2rem; margin-bottom: 1.5rem; }
+    h2 { font-size: 1.4rem; color: var(--primary); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+    h3 { font-size: 1.1rem; color: var(--text); margin: 1.5rem 0 0.75rem; font-weight: 600; }
+    h4 { font-size: 1rem; color: var(--primary); margin: 1.25rem 0 0.5rem; font-weight: 600; }
+    p { margin-bottom: 1rem; color: #334155; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+    thead { background: #fef2f2; }
+    th { padding: 0.6rem 0.8rem; text-align: left; font-weight: 600; border: 1px solid var(--border); color: var(--primary); }
+    td { padding: 0.55rem 0.8rem; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) { background: #f8fafc; }
+    code { background: #f1f5f9; border: 1px solid var(--border); border-radius: 4px; padding: 0.15em 0.4em; font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace; font-size: 0.875em; color: #be185d; }
+    pre { background: var(--code-bg); color: var(--code-text); border-radius: 8px; padding: 1.25rem; overflow-x: auto; margin: 1rem 0; }
+    pre code { background: none; border: none; color: inherit; font-size: 0.875rem; padding: 0; }
+    blockquote { border-left: 4px solid var(--primary); background: var(--primary-light); padding: 1rem 1.25rem; border-radius: 0 6px 6px 0; margin: 1rem 0; color: #7f1d1d; }
+    ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+    li { margin-bottom: 0.3rem; }
+    .adr-card { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1.5rem; overflow: hidden; }
+    .adr-header { background: #fef2f2; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); }
+    .adr-header h3 { margin: 0; color: var(--primary); }
+    .adr-body { padding: 1.5rem; }
+    .decision-box { background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 1rem 1.25rem; margin: 1rem 0; }
+    .decision-box strong { color: #15803d; }
+    footer { text-align: center; padding: 2rem; color: #94a3b8; font-size: 0.85rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+    @media (max-width: 768px) { .container { padding: 1rem; } section { padding: 1.25rem; } table { font-size: 0.8rem; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Arquitetura de Software — Sir Barbecue</h1>
+      <p>Versão 1.1 · 07/06/2026 (revisado em 19/06/2026 — Expo SDK 55) · Gerado via /arquiteto-solucoes-sistema · Baseado em DDIA — Martin Kleppmann</p>
+    </div>
+  </header>
+  <div class="container">
+
+    <div class="phase-banner">
+      <strong>Fase 1 de 3</strong> — Visão Geral e Decisões Arquiteturais &nbsp;|&nbsp;
+      Próximo: <a href="./01b_ARQUITETURA_SOFTWARE_COMPONENTES_API.html">01b — Componentes e APIs</a>
+    </div>
+
+    <div class="phase-banner" style="background:#f0fdf4;border-color:#86efac;color:#166534;">
+      <strong>Revisão 19/06/2026 — Expo SDK 55</strong> &nbsp;|&nbsp; Stack atualizada de SDK 54 → <strong>SDK 55</strong> (RN 0.83.1 / React 19.2); New Architecture agora <strong>obrigatória</strong>. Base: <a href="../plano/ANALISE_IMPACTO_EXPO_SDK_55.html">ANALISE_IMPACTO_EXPO_SDK_55.html</a> (veredito: viável).
+    </div>
+
+    <nav>
+      <h2>Índice desta Fase</h2>
+      <ol>
+        <li><a href="#visao-geral">Visão Geral do Sistema</a></li>
+        <li><a href="#adr">Decisões Arquiteturais (ADR)</a></li>
+        <li><a href="#estilo">Estilo e Padrão Arquitetural</a></li>
+      </ol>
+    </nav>
+
+    <!-- Seção 1 -->
+    <section id="visao-geral">
+      <h2>1. Visão Geral do Sistema</h2>
+
+      <h3>1.1 Propósito</h3>
+      <p>Sir Barbecue é um aplicativo mobile para gestão completa de um trailer de churrasquinho. Resolve o problema de controle operacional informal (cadernos, planilhas, memória) ao centralizar no smartphone do proprietário: registro de vendas, controle de estoque, gestão de fornecedores e geração de relatórios financeiros — com suporte completo a operação sem internet.</p>
+      <p><strong>Usuário-alvo:</strong> Proprietária do negócio, perfil não técnico. Uma das usuárias possui deficiência visual parcial (enxerga apenas com um olho), o que impõe requisitos específicos de acessibilidade e legibilidade.</p>
+
+      <h3>1.2 Características Críticas do Sistema</h3>
+      <table>
+        <thead><tr><th>Característica</th><th>Nível</th><th>Justificativa</th></tr></thead>
+        <tbody>
+          <tr><td>Disponibilidade</td><td>99,5% (online) + 100% offline</td><td>Vendas não podem parar por indisponibilidade do servidor</td></tr>
+          <tr><td>Consistência</td><td>Eventual (offline-first) + Forte para dados financeiros</td><td>Prioridade é operar sem internet; consistência financeira garantida no sync</td></tr>
+          <tr><td>Latência</td><td>&lt; 1s (cache), &lt; 2s (online)</td><td>RNF-01 e RNF-02 — fluidez em rede 4G/5G</td></tr>
+          <tr><td>Throughput</td><td>~50 vendas/dia, 1 usuário</td><td>Baixo volume — pequeno negócio</td></tr>
+          <tr><td>Escalabilidade</td><td>Vertical (v1)</td><td>Usuário único não exige escala horizontal imediata</td></tr>
+          <tr><td>Retenção de dados</td><td>5 anos mínimo</td><td>RNF-11 — obrigação fiscal</td></tr>
+        </tbody>
+      </table>
+
+      <h3>1.3 Contexto e Fronteiras do Sistema</h3>
+      <p>O sistema opera <strong>sem integrações técnicas externas</strong> em v1. O contexto externo relevante:</p>
+      <table>
+        <thead><tr><th>Sistema Externo</th><th>Tipo</th><th>Direção</th><th>Protocolo</th></tr></thead>
+        <tbody>
+          <tr><td>Google OAuth 2.0</td><td>Autenticação social</td><td>Entrada</td><td>HTTPS/OAuth 2.0</td></tr>
+          <tr><td>Firebase Cloud Messaging</td><td>Push notifications Android</td><td>Saída</td><td>HTTPS</td></tr>
+          <tr><td>Apple Push Notification Service</td><td>Push notifications iOS</td><td>Saída</td><td>HTTPS</td></tr>
+          <tr><td>Supabase Storage</td><td>Armazenamento de PDFs/HTMLs</td><td>Saída</td><td>HTTPS</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Fora do escopo (v1):</strong> Terminal físico de cartão, integração com Instagram, impressão Bluetooth, cadastro de clientes, múltiplos usuários.</p>
+    </section>
+
+    <!-- Seção 2 -->
+    <section id="adr">
+      <h2>2. Decisões Arquiteturais (ADR)</h2>
+      <blockquote>ADR = Architecture Decision Record. Cada decisão relevante documentada com alternativas e motivo da escolha.</blockquote>
+
+      <!-- ADR-001 -->
+      <div class="adr-card">
+        <div class="adr-header"><h3>ADR-001 — Framework Mobile: React Native (Expo) vs Flutter</h3></div>
+        <div class="adr-body">
+          <table>
+            <tbody>
+              <tr><td><strong>Status</strong></td><td>Aceito</td></tr>
+              <tr><td><strong>Data</strong></td><td>07/06/2026</td></tr>
+            </tbody>
+          </table>
+          <h4>Contexto</h4>
+          <p>O sistema deve funcionar em iOS 15+ e Android 10+ com uma única base de código, com bom suporte a SQLite local para offline e integração nativa com recursos de acessibilidade (VoiceOver/TalkBack).</p>
+          <h4>Alternativas Consideradas</h4>
+          <table>
+            <thead><tr><th>Alternativa</th><th>Prós</th><th>Contras</th></tr></thead>
+            <tbody>
+              <tr><td><strong>React Native + Expo</strong></td><td>Ecossistema JS/TS maduro; Expo simplifica build; integração nativa com Supabase/Firebase; WatermelonDB para offline; APIs de acessibilidade nativas</td><td>Performance ligeiramente inferior ao Flutter em animações pesadas</td></tr>
+              <tr><td>Flutter</td><td>Performance nativa excelente; Dart forte</td><td>Ecossistema menor; integração Supabase menos madura; Dart menos difundido</td></tr>
+              <tr><td>Nativo (SwiftUI + Compose)</td><td>Performance máxima</td><td>Dois codebases, custo dobrado</td></tr>
+            </tbody>
+          </table>
+          <div class="decision-box"><strong>Decisão:</strong> React Native com Expo (Managed Workflow). Ecossistema TypeScript, integração direta com Supabase SDK, WatermelonDB para offline-first e APIs de acessibilidade nativas são os fatores determinantes.</div>
+          <p style="margin-top:0.75rem;"><strong>Atualização SDK 55 (19/06/2026):</strong> alvo passa a <strong>Expo SDK 55 / RN 0.83.1 / React 19.2</strong>; a New Architecture deixa de ser opcional e torna-se <strong>obrigatória</strong> (Legacy removida). Piso de iOS 15+ mantido (o SDK 56 exigiria iOS 16.4+). Ver <a href="../plano/ANALISE_IMPACTO_EXPO_SDK_55.html">análise de impacto</a>.</p>
+        </div>
+      </div>
+
+      <!-- ADR-002 -->
+      <div class="adr-card">
+        <div class="adr-header"><h3>ADR-002 — Backend: Supabase (BaaS) vs Backend Customizado</h3></div>
+        <div class="adr-body">
+          <table><tbody>
+            <tr><td><strong>Status</strong></td><td>Aceito</td></tr>
+            <tr><td><strong>Data</strong></td><td>07/06/2026</td></tr>
+          </tbody></table>
+          <h4>Contexto</h4>
+          <p>O sistema tem <strong>um único usuário</strong> com baixo volume de dados. Montar infraestrutura customizada representa overhead desproporcional ao tamanho do negócio.</p>
+          <h4>Alternativas Consideradas</h4>
+          <table>
+            <thead><tr><th>Alternativa</th><th>Prós</th><th>Contras</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Supabase</strong></td><td>PostgreSQL gerenciado; Auth nativa (email + OAuth); Storage; Edge Functions; Realtime; plano gratuito generoso</td><td>Vendor lock-in; limites no plano free</td></tr>
+              <tr><td>Firebase</td><td>Maduro; offline excelente com Firestore</td><td>NoSQL — menos adequado para relatórios com JOINs; custo pode escalar</td></tr>
+              <tr><td>Node.js + PostgreSQL customizado</td><td>Controle total; sem lock-in</td><td>Muito overhead para 1 usuário; CI/CD, Docker, infra necessários</td></tr>
+            </tbody>
+          </table>
+          <div class="decision-box"><strong>Decisão:</strong> Supabase. PostgreSQL ideal para relatórios com JOINs complexos. Auth built-in com Google OAuth. Elimina servidor, Docker e CI/CD em v1. Mitigação de lock-in: banco é PostgreSQL padrão — <code>pg_dump</code> disponível.</div>
+        </div>
+      </div>
+
+      <!-- ADR-003 -->
+      <div class="adr-card">
+        <div class="adr-header"><h3>ADR-003 — Estratégia Offline: WatermelonDB vs SQLite Manual</h3></div>
+        <div class="adr-body">
+          <table><tbody>
+            <tr><td><strong>Status</strong></td><td>Aceito</td></tr>
+            <tr><td><strong>Data</strong></td><td>07/06/2026</td></tr>
+          </tbody></table>
+          <h4>Contexto</h4>
+          <p>RF-15 e RF-16 exigem registro de vendas sem internet e sincronização automática ao reconectar. Esta é a funcionalidade mais crítica — a proprietária opera em locais com sinal instável.</p>
+          <h4>Alternativas Consideradas</h4>
+          <table>
+            <thead><tr><th>Alternativa</th><th>Prós</th><th>Contras</th></tr></thead>
+            <tbody>
+              <tr><td><strong>WatermelonDB</strong></td><td>Projetado para React Native; SQLite local; API de sync built-in; performance excelente; trata conflitos</td><td>Complexidade inicial de setup; curva de aprendizado</td></tr>
+              <tr><td>Expo SQLite + sync manual</td><td>Controle total</td><td>Muito trabalho manual; difícil tratar conflitos</td></tr>
+              <tr><td>Realm</td><td>Bom para mobile</td><td>Sync requer MongoDB Atlas; custo adicional</td></tr>
+            </tbody>
+          </table>
+          <div class="decision-box"><strong>Decisão:</strong> WatermelonDB com Supabase como servidor de sync. Todas as operações operam sobre o banco local — Supabase é tratado como destino de sincronização. Conflitos em vendas offline: estratégia "client wins" com timestamp.</div>
+          <p style="margin-top:0.75rem;"><strong>Atualização SDK 55 (19/06/2026):</strong> com a New Architecture obrigatória, a compatibilidade do WatermelonDB (RN 0.83.1) passa por um <strong>spike de validação na Fase 0</strong>. <strong>Plano B homologado</strong>: <code>expo-sqlite</code> + Drizzle (<code>useLiveQuery</code>) atrás das mesmas interfaces de repositório. Ver <a href="../plano/ANALISE_IMPACTO_EXPO_SDK_55.html">análise de impacto</a>.</p>
+        </div>
+      </div>
+
+      <!-- ADR-004 -->
+      <div class="adr-card">
+        <div class="adr-header"><h3>ADR-004 — Geração de Relatórios: Edge Functions vs No Dispositivo</h3></div>
+        <div class="adr-body">
+          <table><tbody>
+            <tr><td><strong>Status</strong></td><td>Aceito</td></tr>
+            <tr><td><strong>Data</strong></td><td>07/06/2026</td></tr>
+          </tbody></table>
+          <h4>Contexto</h4>
+          <p>RF-21 a RF-26 requerem geração assíncrona de relatórios em PDF e HTML com gráficos, sem bloquear o app (RNF-02).</p>
+          <div class="decision-box"><strong>Decisão:</strong> Supabase Edge Functions para geração server-side. Usuário solicita → Edge Function processa em background → push notification avisa quando pronto → PDF armazenado no Supabase Storage para download.</div>
+        </div>
+      </div>
+
+      <!-- ADR-005 e ADR-006 resumidos -->
+      <div class="adr-card">
+        <div class="adr-header"><h3>ADR-005 — Autenticação: Supabase Auth</h3></div>
+        <div class="adr-body">
+          <div class="decision-box"><strong>Decisão:</strong> Supabase Auth (incluso). Suporta email/senha com verificação e Google OAuth nativo. Tokens JWT com refresh automático armazenados no Keychain (iOS) e Keystore (Android) via SDK.</div>
+        </div>
+      </div>
+
+      <div class="adr-card">
+        <div class="adr-header"><h3>ADR-006 — Estado Mobile: Zustand</h3></div>
+        <div class="adr-body">
+          <div class="decision-box"><strong>Decisão:</strong> Zustand para estado global do app (auth state, sync status, connectivity). WatermelonDB gerencia estado de dados via observables reativos. Redux seria overkill para app de usuário único.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Seção 3 -->
+    <section id="estilo">
+      <h2>3. Estilo e Padrão Arquitetural</h2>
+
+      <h3>3.1 Estilo Arquitetural Adotado</h3>
+      <p><strong>Estilo Mobile:</strong> Clean Architecture (Presentation → Domain → Data)</p>
+      <p><strong>Estilo Backend:</strong> Backend as a Service (BaaS) via Supabase — sem servidor customizado em v1</p>
+      <p><strong>Padrão principal:</strong> Offline-First — o app funciona integralmente sem internet; o servidor é tratado como mecanismo de sincronização e persistência durável, não como dependência de operação.</p>
+
+      <h3>3.2 Camadas da Clean Architecture Mobile</h3>
+      <pre><code>┌─────────────────────────────────────────────────────────┐
+│  PRESENTATION LAYER (UI)                                │
+│  Screens, Components, ViewModels (Zustand)              │
+│  React Native + Expo                                    │
+├─────────────────────────────────────────────────────────┤
+│  DOMAIN LAYER (Regras de Negócio)                       │
+│  Use Cases, Entities, Repository Interfaces             │
+│  TypeScript puro — sem dependências externas            │
+├─────────────────────────────────────────────────────────┤
+│  DATA LAYER (Fontes de Dados)                           │
+│  WatermelonDB (local SQLite) — fonte primária           │
+│  Supabase Client (remoto) — sync e persistência durável │
+│  Sync Engine — orquestra conflitos e fila offline       │
+└─────────────────────────────────────────────────────────┘</code></pre>
+
+      <h3>3.3 Padrões de Design Aplicados</h3>
+      <table>
+        <thead><tr><th>Padrão</th><th>Onde Aplicado</th><th>Motivo</th></tr></thead>
+        <tbody>
+          <tr><td>Repository Pattern</td><td>Camada de dados</td><td>Abstrai WatermelonDB e Supabase atrás de interfaces — facilita testes e troca de implementação</td></tr>
+          <tr><td>Observer (Reactive)</td><td>WatermelonDB → UI</td><td>Telas reagem automaticamente a mudanças locais sem polling</td></tr>
+          <tr><td>Command (Use Cases)</td><td>Domínio</td><td>Cada ação de negócio é um Use Case isolado e testável</td></tr>
+          <tr><td>Offline Queue</td><td>Sync Engine</td><td>Operações offline enfileiradas e reprocessadas ao reconectar</td></tr>
+          <tr><td>BFF Pattern</td><td>Supabase Edge Functions</td><td>Functions servem como BFF customizado para geração de relatório e cálculo de margens</td></tr>
+          <tr><td>Strategy Pattern</td><td>Geração de Relatórios</td><td>Estratégia intercambiável: PDF ou HTML</td></tr>
+          <tr><td>Facade</td><td>Supabase Client Wrapper</td><td>Abstrai chamadas Supabase para facilitar mocks em testes</td></tr>
+        </tbody>
+      </table>
+
+      <blockquote>
+        <strong>Referência DDIA:</strong> Cap. 1 — Kleppmann define sistemas data-intensive pela tríade Confiabilidade, Escalabilidade e Manutenibilidade. A Clean Architecture garante Manutenibilidade; offline-first garante Confiabilidade em condições adversas de rede.
+      </blockquote>
+    </section>
+
+    <footer>
+      Documento gerado via /arquiteto-solucoes-sistema — Claude Code Architecture Skill<br>
+      Baseado em: Designing Data-Intensive Applications — Martin Kleppmann (1ª e 2ª ed.)
+    </footer>
+  </div>
+</body>
+</html>

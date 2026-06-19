@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Análise de Impacto — Migração Expo SDK 54 → 55 | Sir Barbecue</title>
+  <style>
+    :root { --primary: #b91c1c; --primary-light: #fef2f2; --bg: #f8fafc; --surface: #ffffff; --text: #1e293b; --border: #e2e8f0; --code-bg: #1e293b; --code-text: #e2e8f0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+    header { background: var(--primary); color: white; padding: 2.5rem 1.5rem; margin-bottom: 2rem; }
+    header h1 { font-size: 1.8rem; font-weight: 700; }
+    header p { opacity: 0.85; margin-top: 0.5rem; font-size: 0.95rem; }
+    .phase-banner { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 2rem; font-size: 0.95rem; color: #92400e; }
+    .phase-banner strong { color: #c2410c; }
+    nav { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; }
+    nav h2 { font-size: 1rem; font-weight: 600; color: var(--primary); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    nav ol { padding-left: 1.5rem; }
+    nav li { margin-bottom: 0.4rem; }
+    nav a { color: var(--primary); text-decoration: none; font-size: 0.95rem; }
+    nav a:hover { text-decoration: underline; }
+    section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 2rem; margin-bottom: 1.5rem; }
+    h2 { font-size: 1.4rem; color: var(--primary); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+    h3 { font-size: 1.1rem; color: var(--text); margin: 1.5rem 0 0.75rem; font-weight: 600; }
+    h4 { font-size: 1rem; color: var(--primary); margin: 1.25rem 0 0.5rem; font-weight: 600; }
+    p { margin-bottom: 1rem; color: #334155; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+    thead { background: #fef2f2; }
+    th { padding: 0.6rem 0.8rem; text-align: left; font-weight: 600; border: 1px solid var(--border); color: var(--primary); }
+    td { padding: 0.55rem 0.8rem; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) { background: #f8fafc; }
+    code { background: #f1f5f9; border: 1px solid var(--border); border-radius: 4px; padding: 0.15em 0.4em; font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace; font-size: 0.875em; color: #be185d; }
+    pre { background: var(--code-bg); color: var(--code-text); border-radius: 8px; padding: 1.25rem; overflow-x: auto; margin: 1rem 0; }
+    pre code { background: none; border: none; color: inherit; font-size: 0.875rem; padding: 0; }
+    blockquote { border-left: 4px solid var(--primary); background: var(--primary-light); padding: 1rem 1.25rem; border-radius: 0 6px 6px 0; margin: 1rem 0; color: #7f1d1d; }
+    ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+    li { margin-bottom: 0.3rem; }
+    .adr-card { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1.5rem; overflow: hidden; }
+    .adr-header { background: #fef2f2; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); }
+    .adr-header h3 { margin: 0; color: var(--primary); }
+    .adr-body { padding: 1.5rem; }
+    .decision-box { background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 1rem 1.25rem; margin: 1rem 0; }
+    .decision-box strong { color: #15803d; }
+    footer { text-align: center; padding: 2rem; color: #94a3b8; font-size: 0.85rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+    /* --- Extensões desta análise --- */
+    .verdict-box { background: #f0fdf4; border: 2px solid #16a34a; border-radius: 10px; padding: 1.5rem 1.75rem; margin: 1.5rem 0; }
+    .verdict-box .verdict-title { font-size: 1.25rem; font-weight: 700; color: #15803d; margin-bottom: 0.5rem; }
+    .verdict-box p { color: #166534; margin-bottom: 0.5rem; }
+    .badge { display: inline-block; padding: 0.12em 0.6em; border-radius: 999px; font-size: 0.78rem; font-weight: 700; white-space: nowrap; }
+    .badge-low { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+    .badge-med { background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }
+    .badge-high { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+    .chip { display: inline-block; padding: 0.1em 0.55em; border-radius: 6px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+    .chip-none { background: #dcfce7; color: #15803d; }
+    .chip-minor { background: #dbeafe; color: #1d4ed8; }
+    .chip-major { background: #fef3c7; color: #b45309; }
+    .chip-block { background: #fee2e2; color: #b91c1c; }
+    .ok { color: #15803d; font-weight: 700; }
+    .okstar { color: #b45309; font-weight: 700; }
+    .summary-grid { width: 100%; }
+    .summary-grid td:first-child { font-weight: 600; color: var(--primary); white-space: nowrap; width: 32%; }
+    .legend { font-size: 0.85rem; color: #64748b; margin: 0.5rem 0 1rem; }
+    .legend .chip, .legend .badge { margin-right: 0.4rem; }
+    @media (max-width: 768px) { .container { padding: 1rem; } section { padding: 1.25rem; } table { font-size: 0.8rem; } .summary-grid td:first-child { width: auto; white-space: normal; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Análise de Impacto — Migração Expo SDK 54 → 55</h1>
+      <p>Projeto Sir Barbecue · Versão 1.0 · 19/06/2026 · Análise de arquitetura mobile React Native + Expo</p>
+    </div>
+  </header>
+  <div class="container">
+
+    <div class="phase-banner">
+      <strong>Documento de decisão técnica</strong> — Avalia o impacto de adotar o <strong>Expo SDK 55</strong> (RN 0.83) sobre a arquitetura definida em
+      <code>docs/arquitetura/*</code> e o plano em <code>docs/plano/PLANO_IMPLEMENTACAO_TELAS.md</code>.
+      &nbsp;|&nbsp; Alvo: <strong>SDK 55</strong> (com nota sobre o SDK 56). &nbsp;|&nbsp; Escopo: análise + veredito + plano de execução.
+    </div>
+
+    <nav>
+      <h2>Índice</h2>
+      <ol>
+        <li><a href="#sumario">Sumário Executivo (TL;DR)</a></li>
+        <li><a href="#contexto">Contexto e Escopo</a></li>
+        <li><a href="#diferencas">SDK 54 vs 55 (vs 56) — O que muda</a></li>
+        <li><a href="#matriz">Matriz de Compatibilidade com a New Architecture</a></li>
+        <li><a href="#impacto">Impacto por Decisão Arquitetural e Componente</a></li>
+        <li><a href="#veredito">Veredito de Viabilidade</a></li>
+        <li><a href="#plano">Plano de Execução da Adoção do SDK 55</a></li>
+        <li><a href="#checklist">Checklist — Definição de Pronto</a></li>
+        <li><a href="#sdk56">Nota sobre o SDK 56 (latest real)</a></li>
+        <li><a href="#fontes">Fontes Consultadas</a></li>
+      </ol>
+    </nav>
+
+    <!-- 1. Sumário -->
+    <section id="sumario">
+      <h2>1. Sumário Executivo (TL;DR)</h2>
+
+      <div class="verdict-box">
+        <div class="verdict-title">✅ VEREDITO: VIÁVEL — atualizar a arquitetura e o plano para o Expo SDK 55 é recomendado.</div>
+        <p>Como o projeto é <strong>greenfield (zero código)</strong>, isto não é uma "migração" no sentido clássico: é apenas <strong>decidir em qual SDK iniciar o scaffold</strong>. Não há retrabalho de código — o impacto concentra-se em <strong>documentação</strong> e na <strong>validação de bibliotecas</strong> contra a New Architecture (agora obrigatória).</p>
+        <p>Risco global: <span class="badge badge-med">MÉDIO</span> &rarr; <span class="badge badge-low">BAIXO</span> assim que o <em>spike</em> do WatermelonDB passar na Fase 0. <strong>Não há ponto eliminatório absoluto.</strong></p>
+      </div>
+
+      <table class="summary-grid">
+        <tbody>
+          <tr><td>Veredito</td><td><strong>VIÁVEL e recomendado.</strong> Iniciar o scaffold já no SDK 55.</td></tr>
+          <tr><td>Risco global</td><td><span class="badge badge-med">MÉDIO</span> — puxado quase inteiramente por <strong>um único item</strong>: WatermelonDB sob New Architecture obrigatória.</td></tr>
+          <tr><td>Ponto eliminatório?</td><td><strong>Nenhum absoluto.</strong> Há 1 ponto <em>condicionalmente</em> bloqueante (WatermelonDB) que já possui <strong>fallback de 1ª classe</strong> (<code>expo-sqlite</code> + Drizzle), isolado pela Clean Architecture.</td></tr>
+          <tr><td>Esforço adicional vs SDK 54</td><td>Baixo a médio. O grosso é o <em>spike</em> de validação na Fase 0 + ajustes de <code>app.json</code> + Expo Router v6&rarr;v7 + nova API do <code>expo-file-system</code>.</td></tr>
+          <tr><td>Vantagem decisiva do 55</td><td>A New Architecture passa de "default" a <strong>obrigatória</strong> — elimina o risco "e se a New Arch quebrar?". O ecossistema (Reanimated 4, bottom-sheet v5) já <strong>assume</strong> New Arch.</td></tr>
+          <tr><td>E o SDK 56?</td><td><strong>Ficar no 55 para a v1.</strong> O SDK 56 sobe o piso para <strong>iOS 16.4+</strong>, conflitando com o <strong>iOS 15+</strong> do ADR-001 (ver §9).</td></tr>
+        </tbody>
+      </table>
+
+      <blockquote><strong>A única coisa capaz de mudar este veredito é o resultado do <em>spike</em> do WatermelonDB na Fase 0.</strong> Se passar: segue tudo e o risco cai para BAIXO. Se falhar: aciona-se o Plano B (Drizzle) sem reescrever Domínio nem Presentation.</blockquote>
+    </section>
+
+    <!-- 2. Contexto -->
+    <section id="contexto">
+      <h2>2. Contexto e Escopo</h2>
+
+      <h3>2.1 O que significa "migrar 54 → 55" aqui</h3>
+      <p>O Sir Barbecue está em fase de planejamento: existem apenas documentos (design, arquitetura e plano de telas), <strong>nenhuma linha de código</strong>. Logo, não há upgrade incremental (53&rarr;54&rarr;55), não há <code>prebuild</code> a refazer e não há breaking changes a remediar em código existente. <strong>Adotar o SDK 55 = rodar o <code>create-expo-app</code> já no SDK 55</strong> em vez do 54.</p>
+      <p>Consequência direta: o impacto recai sobre (1) as <strong>referências de versão e convenções</strong> nos documentos de arquitetura/plano e (2) a <strong>validação de compatibilidade das bibliotecas</strong> nativas com a New Architecture — e <strong>não</strong> sobre reescrita de telas, casos de uso ou camada de dados.</p>
+
+      <h3>2.2 Alvo e escopo deste documento</h3>
+      <ul>
+        <li><strong>Alvo da análise:</strong> Expo <strong>SDK 55</strong> (RN 0.83.1 / React 19.2.0). Inclui uma seção dedicada ao <strong>SDK 56</strong> (latest real), com recomendação (§9).</li>
+        <li><strong>Escopo do entregável:</strong> este HTML de análise. Os documentos de arquitetura e o <code>PLANO_IMPLEMENTACAO_TELAS.md</code> <strong>não</strong> são alterados aqui — a §7 apenas <em>lista</em>, como referência, o que mudaria neles caso o veredito seja aceito.</li>
+      </ul>
+
+      <h3>2.3 Arquitetura definida (resumo do que está em jogo)</h3>
+      <p>Clean Architecture (Presentation &rarr; Domain &rarr; Data) + <strong>offline-first</strong>; Supabase como BaaS; WatermelonDB (SQLite) como fonte primária local; Zustand para estado; Expo Router (file-based); EAS Build/Submit/Update; Sentry. O <strong>Repository Pattern</strong> isola a fonte de dados local atrás de interfaces no Domínio — fato que será determinante para a robustez do veredito.</p>
+    </section>
+
+    <!-- 3. Diferenças -->
+    <section id="diferencas">
+      <h2>3. SDK 54 vs 55 (vs 56) — O que muda</h2>
+
+      <h3>3.1 Quadro comparativo</h3>
+      <table>
+        <thead><tr><th>Dimensão</th><th>SDK 54 (atual)</th><th>SDK 55 (alvo)</th><th>SDK 56 (latest)</th></tr></thead>
+        <tbody>
+          <tr><td>React Native</td><td>0.81</td><td><strong>0.83.1</strong></td><td>0.85</td></tr>
+          <tr><td>React</td><td>19.1</td><td><strong>19.2.0</strong></td><td>19.2.3</td></tr>
+          <tr><td>New Architecture</td><td>Default (ainda <em>desligável</em>; último com Legacy)</td><td><strong>Obrigatória</strong> (Legacy removida; <code>newArchEnabled</code> sai do <code>app.json</code>)</td><td>Obrigatória</td></tr>
+          <tr><td>Expo Router</td><td>v6</td><td><strong>v7</strong> (Native Tabs, Colors API/Material 3, Stack.Toolbar)</td><td>v7+</td></tr>
+          <tr><td>iOS mínimo</td><td>15.1</td><td><strong>15.1</strong></td><td><strong>16.4+</strong> ⚠️</td></tr>
+          <tr><td>Xcode</td><td>16.x</td><td><strong>26</strong> (EAS default 26.2)</td><td>26.4+</td></tr>
+          <tr><td>Node.js</td><td>20+</td><td><strong>20+</strong></td><td>22.13.x</td></tr>
+          <tr><td>Versionamento de pacotes</td><td>independente</td><td><strong>unificado ao major do SDK</strong> (<code>expo-camera@^55.0.0</code>)</td><td><code>^56.0.0</code></td></tr>
+          <tr><td>OTA / EAS Update</td><td>padrão</td><td>+ <strong>Hermes bytecode diffing</strong> (updates ~75% menores; opt-in)</td><td>diffing default</td></tr>
+        </tbody>
+      </table>
+      <blockquote>O <strong>React Native 0.83 não tem breaking changes de usuário</strong> — a transição do RN é suave. O atrito real vem das mudanças do próprio <strong>Expo SDK</strong> (listadas abaixo) e da obrigatoriedade da New Architecture.</blockquote>
+
+      <h3>3.2 Breaking changes do SDK 55 que tocam esta arquitetura</h3>
+      <table>
+        <thead><tr><th>Mudança</th><th>Relevância para o Sir Barbecue</th><th>Impacto</th></tr></thead>
+        <tbody>
+          <tr><td>New Architecture obrigatória (Legacy removida)</td><td>Todas as libs nativas precisam suportar New Arch ou passar pela interop layer. Determina o <em>spike</em> do WatermelonDB.</td><td><span class="chip chip-major">Ajuste relevante</span></td></tr>
+          <tr><td><code>app.json</code>: remoção de <code>newArchEnabled</code>, <code>sdkVersion</code>, <code>statusBar</code>, <code>notification</code>, <code>edgeToEdgeEnabled</code></td><td>Config de notificações migra para o <strong>config plugin</strong> do <code>expo-notifications</code>; status bar passa a ser por código.</td><td><span class="chip chip-minor">Ajuste menor</span></td></tr>
+          <tr><td><code>expo-file-system</code>: API legada deixa de ser default (novo <code>import { File, Directory }</code>)</td><td>Afeta o <strong>download/abertura de PDF/HTML</strong> de relatórios (RF-24/25).</td><td><span class="chip chip-major">Ajuste relevante</span></td></tr>
+          <tr><td>Expo Router v6 &rarr; v7</td><td>File-based routing mantido; mudanças são majoritariamente aditivas (Native Tabs, Colors API). Conferir assinaturas de <code>Stack</code>/<code>Tabs</code>.</td><td><span class="chip chip-major">Ajuste relevante</span></td></tr>
+          <tr><td>Edge-to-edge obrigatório (Android)</td><td>Revisar <code>SafeAreaProvider</code>/insets nas telas — relevante para legibilidade/acessibilidade (RNF-05).</td><td><span class="chip chip-minor">Ajuste menor</span></td></tr>
+          <tr><td><code>eas update</code> agora exige <code>--environment</code></td><td>Ajuste nos scripts de CI (canais development/staging/production permanecem).</td><td><span class="chip chip-minor">Ajuste menor</span></td></tr>
+          <tr><td>Unhandled promise rejections agora viram <strong>erro</strong></td><td>Sync Engine / repositórios / chamadas Supabase precisam de <code>try/catch</code> ou <code>.catch()</code> disciplinados.</td><td><span class="chip chip-minor">Ajuste menor</span></td></tr>
+          <tr><td>Push notifications em Expo Go (Android) agora <strong>lançam erro</strong></td><td>Irrelevante: o app <strong>já usa dev build</strong> por causa do WatermelonDB.</td><td><span class="chip chip-none">Sem impacto</span></td></tr>
+          <tr><td><code>expo-av</code> removido; renomeações em <code>@expo/ui</code>; <code>expo-blur</code> com <code>BlurTargetView</code></td><td>Não usados nesta arquitetura (UI é construída a partir dos tokens de design próprios).</td><td><span class="chip chip-none">Sem impacto</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 4. Matriz -->
+    <section id="matriz">
+      <h2>4. Matriz de Compatibilidade com a New Architecture (RN 0.83 / SDK 55)</h2>
+      <p class="legend">Legenda: <span class="ok">OK</span> = suporte de 1ª classe &nbsp;·&nbsp; <span class="okstar">OK*</span> = funciona, mas exige passo manual / plugin de comunidade / versão específica &nbsp;·&nbsp; N/A = sem código nativo (JS puro).</p>
+
+      <h3>4.1 Bibliotecas críticas — o risco concentra-se aqui</h3>
+      <table>
+        <thead><tr><th>Lib</th><th>Papel</th><th>Status New Arch</th><th>Versão p/ SDK 55</th><th>Ação</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>WatermelonDB</strong> <code>@nozbe/watermelondb</code></td>
+            <td>BD local offline — fonte primária (ADR-003)</td>
+            <td><span class="okstar">OK*</span> — risco <span class="badge badge-med">MÉDIO</span>. Adapter em <strong>Obj-C/Java (não C++)</strong> &rarr; não é atingido pela remoção do bridge legado e roda <em>bridgeless</em>. Porém o changelog declara suporte até RN 0.74+; issue #1851 (RN 0.76+ JSI) segue aberta. RN 0.82+ ignora <code>disableJsi</code> &rarr; o JSI <em>tem</em> que funcionar.</td>
+            <td>0.28 (latest) — sem release "55-ready" oficial</td>
+            <td><strong>SPIKE OBRIGATÓRIO</strong> na Fase 0 (dev build físico iOS+Android). Se falhar &rarr; Plano B (Drizzle).</td>
+          </tr>
+          <tr>
+            <td><code>react-native-reanimated</code></td>
+            <td>Animações + base do bottom-sheet</td>
+            <td><span class="ok">OK</span> — v4 exige New Arch (ideal p/ 55).</td>
+            <td><code>~4.x</code> + <code>react-native-worklets</code></td>
+            <td>A partir da 4.3 o runtime de worklets virou pacote separado: instalar <code>react-native-worklets</code> + plugin Babel, senão o bundle quebra.</td>
+          </tr>
+          <tr>
+            <td><code>react-native-gesture-handler</code></td>
+            <td>Gestos (sheet, swipes)</td>
+            <td><span class="ok">OK</span></td>
+            <td>via <code>expo install</code></td>
+            <td>Manter <code>GestureHandlerRootView</code> no layout raiz.</td>
+          </tr>
+          <tr>
+            <td><code>@gorhom/bottom-sheet</code></td>
+            <td>Tela 5 "Fechar Venda"</td>
+            <td><span class="ok">OK</span> — v5 com suporte de 1ª classe a Reanimated 4 + Fabric.</td>
+            <td><code>^5</code></td>
+            <td>Usar v5 (peers reanimated 4 + gesture-handler já no stack).</td>
+          </tr>
+          <tr>
+            <td><code>react-native-gifted-charts</code></td>
+            <td>Dashboard + Visualizar Relatório (primário)</td>
+            <td><span class="ok">OK</span> — renderiza via <code>react-native-svg</code> (sem Skia).</td>
+            <td>atual + <code>react-native-svg</code></td>
+            <td><strong>Recomendado como primário</strong> — menor superfície nativa.</td>
+          </tr>
+          <tr>
+            <td><code>victory-native</code> (XL)</td>
+            <td>Gráficos (alternativa)</td>
+            <td><span class="okstar">OK*</span> — depende de <code>@shopify/react-native-skia</code> (setup mais pesado).</td>
+            <td>Victory XL + Skia</td>
+            <td>Só se precisar de gráficos sofisticados. Para este app, gifted-charts basta.</td>
+          </tr>
+          <tr>
+            <td><code>react-native-webview</code></td>
+            <td>Relatório HTML (RF-23/24)</td>
+            <td><span class="ok">OK</span> — TurboModule-ready.</td>
+            <td>via <code>expo install</code></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td><code>@react-native-community/netinfo</code></td>
+            <td>Online/offline (RF-15/16)</td>
+            <td><span class="ok">OK</span></td>
+            <td>via <code>expo install</code></td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td><code>@sentry/react-native</code></td>
+            <td>Crash/erros/perf</td>
+            <td><span class="okstar">OK*</span> — <strong>gotcha real</strong>: build Android no EAS falha com o Sentry Gradle plugin antigo (incompatível com Gradle 9). Resolvido a partir da 7.3.0.</td>
+            <td><strong><code>^7.3.0</code></strong> (de pref. 7.10+)</td>
+            <td>Pinar ≥ 7.3.0 desde o início. <strong>Não</strong> usar o legado <code>sentry-expo</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>4.2 Bibliotecas Expo de plataforma (versionamento unificado <code>@^55</code>)</h3>
+      <table>
+        <thead><tr><th>Lib</th><th>Status no SDK 55</th><th>Ação</th></tr></thead>
+        <tbody>
+          <tr><td><code>expo-secure-store</code></td><td><span class="ok">OK</span> — sem breaking; tokens no Keychain/Keystore mantidos (RNF-07).</td><td><code>expo install</code></td></tr>
+          <tr><td><code>expo-notifications</code></td><td><span class="okstar">OK*</span> — campo <code>notification</code> do <code>app.json</code> removido; config via <strong>config plugin</strong>. Push em Expo Go Android agora lança erro (irrelevante — já usa dev build).</td><td>Migrar config para o plugin em <code>plugins</code>.</td></tr>
+          <tr><td><code>expo-auth-session</code> + <code>expo-web-browser</code></td><td><span class="ok">OK</span> — melhoria: <code>expo-web-browser</code> ganhou <strong>universal-link callback</strong> (bom p/ Google OAuth — ADR-005/RF-02).</td><td>Reavaliar redirect do OAuth.</td></tr>
+          <tr><td><code>expo-file-system</code></td><td><span class="okstar">OK*</span> — <strong>ajuste relevante</strong>: API legada não é mais default. Novo modelo OO <code>File</code>/<code>Directory</code>.</td><td>Escrever o download de relatório já com a API nova.</td></tr>
+          <tr><td><code>expo-sharing</code></td><td><span class="ok">OK</span> — sem breaking.</td><td><code>expo install</code></td></tr>
+          <tr><td><code>expo-font</code> / <code>@expo-google-fonts/inter</code></td><td><span class="ok">OK</span> — Inter carrega normalmente (RNF-05).</td><td><code>expo install</code></td></tr>
+          <tr><td><code>expo-updates</code> (EAS Update)</td><td><span class="ok">OK</span> + Hermes bytecode diffing. <code>eas update</code> agora exige <code>--environment</code>.</td><td>Atualizar CI; avaliar opt-in do diffing.</td></tr>
+          <tr><td><code>expo-sqlite</code></td><td><span class="ok">OK</span> — <strong>reforça o Plano B</strong>: ganhou SQLite Inspector (DevTools) + tagged template literals.</td><td>Disponível como fallback (§7).</td></tr>
+        </tbody>
+      </table>
+
+      <h3>4.3 Camada NÃO impactada pela versão do Expo</h3>
+      <table>
+        <thead><tr><th>Componente</th><th>Observação</th></tr></thead>
+        <tbody>
+          <tr><td><code>@supabase/supabase-js</code> (Auth, PostgREST, Realtime, Storage, Edge Functions)</td><td><strong>Independente do Expo</strong> (JS puro sobre fetch/WebSocket). Zero impacto. ADR-002/004/005 intactos.</td></tr>
+          <tr><td>Backend Supabase (schema, RLS, Edge Function <code>generate-report</code>, Storage)</td><td>Fora do app. Zero impacto.</td></tr>
+          <tr><td>Zustand</td><td>JS puro (N/A New Arch). Zero impacto (ADR-006).</td></tr>
+          <tr><td>Domain Layer (entities, use cases, interfaces — TS puro)</td><td>Zero impacto <strong>por design</strong> (Clean Architecture).</td></tr>
+        </tbody>
+      </table>
+
+      <h3>4.4 Nota técnica decisiva — config plugin do WatermelonDB</h3>
+      <p>O WatermelonDB não roda no Expo Go e precisa de <strong>config plugin</strong> para habilitar JSI no <code>prebuild</code>. O ecossistema de plugins está <strong>defasado</strong> em relação ao SDK 55:</p>
+      <table>
+        <thead><tr><th>Plugin</th><th>Cobertura declarada</th><th>Implicação</th></tr></thead>
+        <tbody>
+          <tr><td><code>@morrowdigital/watermelondb-expo-plugin</code> (mais usado)</td><td>Testado até Expo SDK 54</td><td>Provavelmente funciona no 55 (wrapper fino de config nativa), mas <strong>não garantido</strong> &rarr; validar no spike.</td></tr>
+          <tr><td><code>watermelondb-expo-plugin-sdk-52-plus</code></td><td>SDK 52/53</td><td>Defasado.</td></tr>
+          <tr><td><code>skam22/watermelondb-expo-plugin</code></td><td>até SDK 51</td><td>Defasado.</td></tr>
+        </tbody>
+      </table>
+      <blockquote><strong>Leitura técnica:</strong> o plugin apenas injeta config nativa (pacote JSI no Android, pods no iOS) no <code>prebuild</code>. Como o adapter é Obj-C/Java (não C++), o risco real <strong>não</strong> é o bridgeless em si, e sim <strong>incompatibilidades de build</strong> (Gradle/AGP novos, headers do RN 0.83) que um plugin desatualizado pode não cobrir. É exatamente isso que o spike da Fase 0 valida.</blockquote>
+    </section>
+
+    <!-- 5. Impacto -->
+    <section id="impacto">
+      <h2>5. Impacto por Decisão Arquitetural e Componente</h2>
+      <p class="legend">
+        <span class="chip chip-none">Sem impacto</span>
+        <span class="chip chip-minor">Ajuste menor</span>
+        <span class="chip chip-major">Ajuste relevante</span>
+        <span class="chip chip-block">Condicionalmente bloqueante</span>
+      </p>
+
+      <h3>5.1 Por ADR (decisões de <code>01a_ARQUITETURA_SOFTWARE_VISAO_GERAL</code>)</h3>
+      <table>
+        <thead><tr><th>ADR</th><th>Decisão</th><th>Impacto 54&rarr;55</th><th>Classificação</th></tr></thead>
+        <tbody>
+          <tr><td>ADR-001</td><td>React Native + Expo (managed)</td><td>New Arch passa de default a obrigatória; managed mantido (com prebuild p/ WDB).</td><td><span class="chip chip-minor">Ajuste menor</span></td></tr>
+          <tr><td>ADR-002</td><td>Supabase BaaS</td><td>Nenhum — externo ao Expo.</td><td><span class="chip chip-none">Sem impacto</span></td></tr>
+          <tr><td>ADR-003</td><td><strong>WatermelonDB offline</strong></td><td>Único ponto sensível: New Arch obrigatória + RN 0.83 + plugins defasados.</td><td><span class="chip chip-block">Condicionalmente bloqueante</span></td></tr>
+          <tr><td>ADR-004</td><td>Relatórios via Edge Functions</td><td>Render server-side (Deno) intacto; muda só o <em>download</em> no app (nova API file-system).</td><td><span class="chip chip-minor">Ajuste menor</span></td></tr>
+          <tr><td>ADR-005</td><td>Supabase Auth (email + Google OAuth)</td><td>Sem breaking; <code>expo-secure-store</code> intacto; melhora com universal-link callback.</td><td><span class="chip chip-none">Sem impacto</span></td></tr>
+          <tr><td>ADR-006</td><td>Zustand</td><td>Nenhum.</td><td><span class="chip chip-none">Sem impacto</span></td></tr>
+        </tbody>
+      </table>
+      <blockquote>Nenhuma decisão arquitetural é invalidada. Apenas o <strong>ADR-003</strong> exige validação prática — que o plano original já listava como risco a confirmar.</blockquote>
+
+      <h3>5.2 Por sub-componente / camada (mapa do plano de telas)</h3>
+      <table>
+        <thead><tr><th>Componente / Camada</th><th>Impacto</th><th>Classificação</th></tr></thead>
+        <tbody>
+          <tr><td>Presentation — Expo Router</td><td>v6&rarr;v7 (acompanha o major do SDK). File-based mantido; APIs novas (Native Tabs, Stack.Toolbar, Colors API/Material 3). Mudanças aditivas.</td><td><span class="chip chip-major">Ajuste relevante</span></td></tr>
+          <tr><td>Presentation — UI base</td><td>Sem mudança de API própria. Reanimated 4 + bottom-sheet v5 cobertos. Edge-to-edge obrigatório (Android) &rarr; revisar SafeArea/insets.</td><td><span class="chip chip-minor">Ajuste menor</span></td></tr>
+          <tr><td>Presentation — status bar</td><td>Campo <code>statusBar</code> do <code>app.json</code> removido &rarr; <code>expo-status-bar</code> por código.</td><td><span class="chip chip-minor">Ajuste menor</span></td></tr>
+          <tr><td>Domain (use cases, entities, interfaces)</td><td>TS puro.</td><td><span class="chip chip-none">Sem impacto</span></td></tr>
+          <tr><td>Data — <code>local/</code> (WDB models/schema)</td><td>Ver ADR-003. Se Plano B: reescrever <strong>apenas</strong> esta pasta.</td><td><span class="chip chip-block">Condicional</span></td></tr>
+          <tr><td>Data — <code>remote/</code> (Supabase, DTOs, mappers)</td><td>Independente do Expo.</td><td><span class="chip chip-none">Sem impacto</span></td></tr>
+          <tr><td>Data — <code>repositories/</code></td><td>Interfaces no Domínio isolam a troca; só mudam as implementações se o Plano B for acionado.</td><td><span class="chip chip-none">Sem impacto (design)</span></td></tr>
+          <tr><td>Data — <code>sync/</code> (syncEngine, offlineQueue)</td><td>JS; atenção: unhandled promise rejections agora viram erro &rarr; <code>try/catch</code>/<code>.catch()</code> em todo <code>await</code>.</td><td><span class="chip chip-minor">Ajuste menor</span></td></tr>
+          <tr><td><code>services/notifications.ts</code></td><td>Config migra p/ plugin; push exige dev build (já é o caso).</td><td><span class="chip chip-minor">Ajuste menor</span></td></tr>
+          <tr><td><code>services/secureStorage.ts</code></td><td><code>expo-secure-store</code> intacto.</td><td><span class="chip chip-none">Sem impacto</span></td></tr>
+          <tr><td>Download/visualização de relatório</td><td>Nova API <code>File</code>/<code>Directory</code> do <code>expo-file-system</code>.</td><td><span class="chip chip-major">Ajuste relevante</span></td></tr>
+          <tr><td>Gráficos</td><td>gifted-charts/victory New-Arch-ready.</td><td><span class="chip chip-none">Sem impacto</span></td></tr>
+          <tr><td>Build &amp; CI (EAS)</td><td>Xcode 26, Node 20+, <code>eas update --environment</code>, remoções de <code>app.json</code>, Sentry ≥7.3.0.</td><td><span class="chip chip-major">Ajuste relevante</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 6. Veredito -->
+    <section id="veredito">
+      <h2>6. Veredito de Viabilidade</h2>
+
+      <h3>6.1 Decisão</h3>
+      <div class="decision-box">
+        <p><strong>SIM</strong> — é viável e recomendado atualizar a arquitetura e o plano do Sir Barbecue para o Expo SDK 55. Sendo greenfield, o custo de migração de código é zero: o "upgrade" é <strong>iniciar o scaffold no 55</strong>. A maioria das libs (Reanimated 4, bottom-sheet v5, victory-native, <code>expo-*</code>) <strong>já assume New Architecture</strong> na linha atual — começar no 54 (New Arch opcional) seria escolher uma base que logo precisaria subir.</p>
+      </div>
+
+      <h3>6.2 Classificação de risco: <span class="badge badge-med">MÉDIO</span> &rarr; <span class="badge badge-low">BAIXO</span> após o spike</h3>
+      <table>
+        <thead><tr><th>Fator</th><th>Nível</th><th>Justificativa</th></tr></thead>
+        <tbody>
+          <tr><td>WatermelonDB sob New Arch + plugin defasado</td><td><span class="badge badge-med">Médio</span></td><td>Adapter Obj-C/Java (não C++) &rarr; bridgeless não é o centro do problema; o risco é build com RN 0.83/Gradle novos. Fallback existe.</td></tr>
+          <tr><td>Sentry Gradle 9 (Android EAS)</td><td><span class="badge badge-low">Baixo</span></td><td>Causa e correção conhecidas (≥ 7.3.0).</td></tr>
+          <tr><td>Expo Router v6&rarr;v7</td><td><span class="badge badge-low">Baixo</span></td><td>File-based mantido; mudanças aditivas.</td></tr>
+          <tr><td><code>expo-file-system</code> API nova</td><td><span class="badge badge-low">Baixo</span></td><td>Superfície pequena (download de relatório).</td></tr>
+          <tr><td>Edge-to-edge + remoções de <code>app.json</code></td><td><span class="badge badge-low">Baixo</span></td><td>Ajustes mecânicos.</td></tr>
+          <tr><td>Demais libs</td><td><span class="badge badge-low">Baixo</span></td><td>New-Arch-ready.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>6.3 Ponto(s) eliminatório(s)</h3>
+      <ul>
+        <li><strong>Eliminatório absoluto:</strong> NENHUM.</li>
+        <li><strong>Condicionalmente bloqueante (1):</strong> WatermelonDB no spike da Fase 0 — único item capaz de travar o caminho feliz. Mitigações:
+          <ol>
+            <li>Forte indício de viabilidade (adapter não-C++ roda bridgeless; há templates de mercado usando WDB em SDK 55/RN 0.83).</li>
+            <li><strong>Plano B de 1ª classe</strong> (<code>expo-sqlite</code> + Drizzle, melhorado no SDK 55).</li>
+            <li>Clean Architecture / Repository Pattern <strong>isola a troca</strong> — Presentation e Domain não mudam.</li>
+          </ol>
+          Mesmo no pior cenário, <strong>o projeto não fica bloqueado</strong>.
+        </li>
+      </ul>
+    </section>
+
+    <!-- 7. Plano -->
+    <section id="plano">
+      <h2>7. Plano de Execução da Adoção do SDK 55</h2>
+
+      <h3>Fase 0 — Spike de validação + tooling (a parte que decide tudo)</h3>
+      <h4>0.1 — Scaffold no SDK 55</h4>
+      <ul>
+        <li><code>npx create-expo-app@latest</code> (template TS) &rarr; confirmar <code>expo</code> em <code>^55</code>.</li>
+        <li>Estrutura de pastas: manter <code>app/</code> (rotas) + <code>src/</code> conforme o plano já documentado.</li>
+        <li><code>npx expo-doctor</code> &rarr; tem que passar limpo.</li>
+      </ul>
+      <h4>0.2 — <code>app.json</code> / config (mudanças obrigatórias 54&rarr;55)</h4>
+      <ul>
+        <li><strong>Remover:</strong> <code>newArchEnabled</code>, <code>sdkVersion</code>, <code>statusBar</code>, <code>notification</code>, <code>edgeToEdgeEnabled</code>.</li>
+        <li><strong>Adicionar em <code>plugins</code>:</strong> config plugin do <code>expo-notifications</code> (substitui o campo <code>notification</code>), config plugin do WatermelonDB e demais plugins nativos.</li>
+        <li>Tratar edge-to-edge (Android) via <code>SafeAreaProvider</code>/insets; <code>expo-status-bar</code> por código.</li>
+      </ul>
+      <h4>0.3 — SPIKE WatermelonDB (gate de decisão)</h4>
+      <ul>
+        <li>Instalar <code>@nozbe/watermelondb</code> (0.28) + config plugin (<code>@morrowdigital/watermelondb-expo-plugin</code> como candidato primário).</li>
+        <li><code>npx expo prebuild</code> &rarr; <code>npx expo run:android</code> e <code>npx expo run:ios</code> em <strong>device físico</strong> (não só simulador).</li>
+        <li><strong>Critérios de aceite:</strong> (1) app sobe em New Architecture; (2) JSI inicializa (sem crash do adapter); (3) CRUD + transação ACID + observables reativos OK; (4) sync mínimo contra Supabase (pull/push) sem travar UI; (5) estável em iOS e Android.</li>
+        <li><strong>Todos passam</strong> &rarr; segue com WatermelonDB (risco &rarr; BAIXO). <strong>Qualquer um falha</strong> &rarr; aciona o Plano B ainda na Fase 0.</li>
+      </ul>
+      <h4>0.4 — Libs restantes (sempre via <code>expo install</code>)</h4>
+      <ul>
+        <li><code>react-native-reanimated@~4</code> <strong>+ <code>react-native-worklets</code></strong> (+ plugin Babel); <code>react-native-gesture-handler</code>; <code>@gorhom/bottom-sheet@^5</code>.</li>
+        <li><code>react-native-gifted-charts</code> (+ <code>react-native-svg</code>) <strong>primário</strong>; <code>victory-native</code> + Skia só se necessário.</li>
+        <li><code>react-native-webview</code>, <code>@react-native-community/netinfo</code>.</li>
+        <li><code>expo-secure-store</code>, <code>expo-notifications</code>, <code>expo-auth-session</code>, <code>expo-web-browser</code>, <code>expo-file-system</code>, <code>expo-sharing</code>, <code>expo-font</code> + <code>@expo-google-fonts/inter</code>.</li>
+        <li><code>@supabase/supabase-js</code>.</li>
+        <li><strong><code>@sentry/react-native@^7.3.0</code></strong> (de pref. 7.10+) — evita o bug Gradle 9. <strong>Não</strong> usar <code>sentry-expo</code>.</li>
+      </ul>
+      <h4>0.5 — Disciplina nova do RN 0.83</h4>
+      <ul>
+        <li>Unhandled promise rejections agora são erro &rarr; padronizar <code>try/catch</code> em todo <code>await</code> (sync engine, repositórios, Supabase, file-system). Regra de lint se possível.</li>
+      </ul>
+
+      <h3>Fase 1+ — Ajustes pontuais (encaixam nas fases já planejadas)</h3>
+      <ul>
+        <li><strong>Expo Router v6 &rarr; v7</strong> (Fase 1): file-based mantido. Avaliar Native Tabs API p/ a bottom nav e Colors API (Material 3) p/ reforçar acessibilidade no Android. Conferir assinaturas de <code>Stack</code>/<code>Tabs</code>.</li>
+        <li><strong><code>expo-file-system</code> nova API</strong> (Fase 5): download/abertura de PDF/HTML com <code>File</code>/<code>Directory</code> + <code>expo-sharing</code>.</li>
+        <li><strong>Push</strong> (Fase 5): configurar via plugin; testar em dev build (não Expo Go).</li>
+        <li><strong>OAuth Google</strong> (Fase 2): considerar o universal-link callback do novo <code>expo-web-browser</code>.</li>
+      </ul>
+
+      <h3>CI/CD (EAS) — ajustes do 55</h3>
+      <ul>
+        <li><strong>EAS Build:</strong> imagem com Xcode 26 (default 26.2); Node 20+ (alinhar <code>package.json</code>/perfil EAS).</li>
+        <li><strong>EAS Update:</strong> comandos exigem <code>--environment</code>. Os 3 canais (development/staging/production) permanecem; só muda a flag. Atualizar <code>eas.json</code>/scripts.</li>
+        <li><strong>Hermes bytecode diffing:</strong> opt-in no 55 &rarr; habilitar (OTA ~75% menores).</li>
+        <li><strong>Sentry:</strong> garantir <code>@sentry/react-native ≥ 7.3.0</code> no perfil de build (Gradle 9).</li>
+      </ul>
+
+      <h3>Plano B — fallback <code>expo-sqlite</code> + Drizzle (só se o spike 0.3 reprovar)</h3>
+      <ol>
+        <li><strong>Trocar a implementação, não as interfaces.</strong> <code>repositories/</code> passam a falar com <code>expo-sqlite</code> + Drizzle (<code>drizzle-orm/expo-sqlite</code>). As interfaces de repositório no Domain ficam idênticas &rarr; Presentation/Use Cases intactos.</li>
+        <li><strong>Reatividade:</strong> usar <code>useLiveQuery</code> do Drizzle (observa mudanças e re-renderiza) — substitui os observables do WatermelonDB sem polling (mantém o padrão Observer).</li>
+        <li><strong>Migrations:</strong> <code>drizzle-kit</code> + <code>migrate()</code> no <code>onInit</code> do <code>SQLiteProvider</code>; Babel inline-import plugin conforme docs.</li>
+        <li><strong>Sync próprio:</strong> <code>syncEngine</code>/<code>offlineQueue</code> já são código próprio no plano — manter <code>client_id</code> (idempotência), <code>synced_at</code>/<code>needs_sync</code>, retry/backoff e estratégias client-wins (vendas) / server-wins (catálogo). Com Drizzle, implementa-se explicitamente o que no WDB vinha do protocolo embutido (esforço previsível, alinhado ao doc 02b).</li>
+        <li><strong>Bônus SDK 55:</strong> SQLite Inspector + tagged template literals facilitam debug/queries.</li>
+      </ol>
+      <blockquote>Resultado do Plano B: <strong>nenhuma tela e nenhum use case muda.</strong> Só <code>src/data/local/</code> e as implementações em <code>src/data/repositories/</code>.</blockquote>
+
+      <h3>O que mudaria nos DOCUMENTOS (referência — não alterados neste entregável)</h3>
+      <table>
+        <thead><tr><th>Documento</th><th>Alteração</th></tr></thead>
+        <tbody>
+          <tr><td><code>PLANO_IMPLEMENTACAO_TELAS.md</code></td><td>"SDK 54 / RN 0.81 / React 19.1" &rarr; "SDK 55 / RN 0.83.1 / React 19.2"; "Expo Router v6" &rarr; "v7"; New Arch "default" &rarr; "obrigatória"; Fase 0: incluir spike WDB + remoções de <code>app.json</code> + nova API file-system + Sentry ≥7.3.0; CI: <code>eas update --environment</code>.</td></tr>
+          <tr><td><code>01a_…VISAO_GERAL.md</code> (ADRs)</td><td>Nota em ADR-001 (New Arch obrigatória) e ADR-003 (gate de spike + Plano B Drizzle homologado).</td></tr>
+          <tr><td><code>01b_…COMPONENTES_API.md</code></td><td>Atualizar versões das libs; nota de download de relatório com <code>File</code>/<code>Directory</code>.</td></tr>
+          <tr><td><code>01c_…INFRA_OPERACOES.md</code></td><td>Stack (RN 0.83/React 19.2), CI EAS (Xcode 26, Node 20+, <code>--environment</code>), Sentry ≥7.3.0, OTA com bytecode diffing.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 8. Checklist -->
+    <section id="checklist">
+      <h2>8. Checklist — Definição de Pronto da Adoção do SDK 55</h2>
+      <ul>
+        <li>☐ <code>npx expo-doctor</code> verde no scaffold 55.</li>
+        <li>☐ <code>app.json</code> sem <code>newArchEnabled</code>/<code>sdkVersion</code>/<code>statusBar</code>/<code>notification</code>/<code>edgeToEdgeEnabled</code>; plugins de notifications + WatermelonDB presentes.</li>
+        <li>☐ <strong>Spike WatermelonDB aprovado em iOS + Android físicos</strong> (JSI + ACID + sync) — OU Plano B (Drizzle) ativado e validado.</li>
+        <li>☐ Reanimated 4 + <code>react-native-worklets</code> + bottom-sheet v5 funcionando (tela "Fechar Venda").</li>
+        <li>☐ <code>@sentry/react-native ≥ 7.3.0</code> e build Android no EAS passando.</li>
+        <li>☐ Push testado em dev build (não Expo Go).</li>
+        <li>☐ Download de relatório com a API <code>File</code>/<code>Directory</code>.</li>
+        <li>☐ <code>eas update --environment</code> configurado nos 3 canais.</li>
+        <li>☐ Edge-to-edge/insets revisados nas telas Android.</li>
+        <li>☐ Docs de arquitetura/plano atualizados com as novas versões.</li>
+      </ul>
+    </section>
+
+    <!-- 9. SDK 56 -->
+    <section id="sdk56">
+      <h2>9. Nota sobre o SDK 56 (latest real, Q2/2026)</h2>
+      <div class="decision-box">
+        <p><strong>Recomendação:</strong> iniciar a v1 no <strong>SDK 55</strong>; subir para o 56 só após o app estável.</p>
+      </div>
+      <table>
+        <thead><tr><th>Critério</th><th>SDK 55 (recomendado p/ início)</th><th>SDK 56 (latest)</th></tr></thead>
+        <tbody>
+          <tr><td>RN / React</td><td>0.83.1 / 19.2.0</td><td>0.85 / 19.2.3</td></tr>
+          <tr><td>Maturidade do tooling</td><td><strong>Alta</strong> (estabilizado; ex.: bug do Sentry já resolvido)</td><td>Mais novo; menos rodagem em produção</td></tr>
+          <tr><td>Plugins de comunidade do WatermelonDB</td><td>Já é desafio no 55 &rarr; <strong>pior no 56</strong> (RN 0.85 mais novo)</td><td>Mais atrás ainda</td></tr>
+          <tr><td>Requisitos de build</td><td>Xcode 26 / Node 20+</td><td><strong>iOS mín. 16.4+</strong>, Xcode 26.4+, Node 22.13.x, compileSdk 36</td></tr>
+          <tr><td>Risco de regressão</td><td>Menor</td><td>Maior (RN 0.85 recém-saído)</td></tr>
+          <tr><td>Esforço 55&rarr;56 (futuro)</td><td>—</td><td><strong>Baixo</strong> (já New Arch; bump incremental fora do caminho crítico)</td></tr>
+        </tbody>
+      </table>
+      <blockquote>⚠️ <strong>Alerta de compatibilidade:</strong> o ADR-001 fixa <strong>iOS 15+</strong>. O SDK 56 sobe o piso para <strong>iOS 16.4+</strong>, o que <strong>conflitaria</strong> com esse requisito. O SDK 55 não tem esse conflito — motivo adicional para começar no 55.</blockquote>
+      <p><strong>Conclusão:</strong> SDK 55 agora (sweet spot maturidade × New Arch × respeito ao iOS 15+); reavaliar o 56 como upgrade incremental pós-v1, revisando antes o piso de iOS.</p>
+    </section>
+
+    <!-- 10. Fontes -->
+    <section id="fontes">
+      <h2>10. Fontes Consultadas</h2>
+      <ul>
+        <li>Expo SDK 55 — Changelog: <code>https://expo.dev/changelog/sdk-55</code></li>
+        <li>Expo — New Architecture (docs): <code>https://docs.expo.dev/guides/new-architecture/</code></li>
+        <li>Expo — Versions (latest): <code>https://docs.expo.dev/versions/latest/</code></li>
+        <li>Expo SDK 55 Migration Guide (53&rarr;55): <code>https://reactnativerelay.com/article/expo-sdk-55-migration-guide-breaking-changes-sdk-53-to-55</code></li>
+        <li>Anúncio oficial SDK 55 (X/Expo): <code>https://x.com/expo/status/2026811977990025364</code></li>
+        <li>WatermelonDB — CHANGELOG (master): <code>https://github.com/Nozbe/WatermelonDB/blob/master/CHANGELOG.md</code></li>
+        <li>WatermelonDB — Issue #1851 (RN 0.76+ JSI): <code>https://github.com/Nozbe/WatermelonDB/issues/1851</code></li>
+        <li>WatermelonDB — Issue #1769 (Bridgeless / New Arch): <code>https://github.com/Nozbe/WatermelonDB/issues/1769</code></li>
+        <li>WatermelonDB — Installation/Adapters: <code>https://watermelondb.dev/docs/Installation</code></li>
+        <li><code>@morrowdigital/watermelondb-expo-plugin</code>: <code>https://github.com/morrowdigital/watermelondb-expo-plugin</code></li>
+        <li>WatermelonDB + Expo SDK 54 — setup guide (DEV): <code>https://dev.to/fasthedeveloper</code></li>
+        <li>Reanimated 3.x&rarr;4.x — Migration: <code>https://docs.swmansion.com/react-native-reanimated/docs/guides/migration-from-3.x/</code></li>
+        <li>@gorhom/bottom-sheet v5 + Reanimated 4 + New Arch: <code>https://reactnativerelay.com/article/react-native-bottom-sheet-tutorial-gorhom-reanimated-expo-2026</code></li>
+        <li>Victory Native XL (Skia): <code>https://github.com/FormidableLabs/victory-native-xl</code></li>
+        <li>Sentry × Expo SDK 55 — Android Gradle 9 (expo/expo#42494): <code>https://github.com/expo/expo/issues/42494</code></li>
+        <li>Sentry RN — teste com Expo 55 (#5741): <code>https://github.com/getsentry/sentry-react-native/issues/5741</code></li>
+        <li>Drizzle ORM — Expo SQLite (offline-first): <code>https://orm.drizzle.team/docs/connect-expo-sqlite</code></li>
+        <li>React Native 0.83 (release): <code>https://reactnative.dev/blog/2025/12/10/react-native-0.83</code></li>
+      </ul>
+    </section>
+
+    <footer>
+      <p>Análise de Impacto — Migração Expo SDK 54 → 55 · Projeto Sir Barbecue · 19/06/2026</p>
+      <p>Documento de decisão técnica de arquitetura mobile (React Native + Expo). Veredito: VIÁVEL · Risco MÉDIO → BAIXO após o spike.</p>
+    </footer>
+
+  </div>
+</body>
+</html>

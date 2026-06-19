@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arquitetura de BD — Sir Barbecue | Fase 1: Modelo de Dados e Schema</title>
+  <style>
+    :root { --primary: #1e40af; --primary-light: #eff6ff; --bg: #f8fafc; --surface: #ffffff; --text: #1e293b; --border: #e2e8f0; --code-bg: #1e293b; --code-text: #e2e8f0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+    header { background: var(--primary); color: white; padding: 2.5rem 1.5rem; margin-bottom: 2rem; }
+    header h1 { font-size: 1.8rem; font-weight: 700; }
+    header p { opacity: 0.85; margin-top: 0.5rem; font-size: 0.95rem; }
+    .phase-banner { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 2rem; font-size: 0.95rem; color: #1e40af; }
+    .phase-banner a { color: #1d4ed8; }
+    nav { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; }
+    nav h2 { font-size: 1rem; font-weight: 600; color: var(--primary); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    nav ol { padding-left: 1.5rem; }
+    nav li { margin-bottom: 0.4rem; }
+    nav a { color: var(--primary); text-decoration: none; font-size: 0.95rem; }
+    nav a:hover { text-decoration: underline; }
+    section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 2rem; margin-bottom: 1.5rem; }
+    h2 { font-size: 1.4rem; color: var(--primary); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+    h3 { font-size: 1.1rem; color: var(--text); margin: 1.5rem 0 0.75rem; font-weight: 600; }
+    h4 { font-size: 1rem; color: var(--primary); margin: 1.25rem 0 0.5rem; font-weight: 600; }
+    p { margin-bottom: 1rem; color: #334155; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+    thead { background: #eff6ff; }
+    th { padding: 0.6rem 0.8rem; text-align: left; font-weight: 600; border: 1px solid var(--border); color: var(--primary); }
+    td { padding: 0.55rem 0.8rem; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) { background: #f8fafc; }
+    code { background: #f1f5f9; border: 1px solid var(--border); border-radius: 4px; padding: 0.15em 0.4em; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 0.875em; color: #be185d; }
+    pre { background: var(--code-bg); color: var(--code-text); border-radius: 8px; padding: 1.25rem; overflow-x: auto; margin: 1rem 0; }
+    pre code { background: none; border: none; color: inherit; font-size: 0.875rem; padding: 0; }
+    blockquote { border-left: 4px solid var(--primary); background: var(--primary-light); padding: 1rem 1.25rem; border-radius: 0 6px 6px 0; margin: 1rem 0; color: #1e40af; }
+    ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+    li { margin-bottom: 0.3rem; }
+    .table-card { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1.5rem; overflow: hidden; }
+    .table-card-header { background: #eff6ff; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .table-card-header h4 { margin: 0; color: var(--primary); font-size: 1rem; }
+    .table-card-header .purpose { font-size: 0.875rem; color: #64748b; }
+    .table-card-body { padding: 1.25rem; }
+    footer { text-align: center; padding: 2rem; color: #94a3b8; font-size: 0.85rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+    @media (max-width: 768px) { .container { padding: 1rem; } section { padding: 1.25rem; } table { font-size: 0.8rem; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Arquitetura de Banco de Dados — Sir Barbecue</h1>
+      <p>Versão 1.0 · 07/06/2026 · Gerado via /arquiteto-solucoes-sistema · Baseado em DDIA — Martin Kleppmann</p>
+    </div>
+  </header>
+  <div class="container">
+
+    <div class="phase-banner">
+      <strong>Fase 1 de 2</strong> — Análise de Dados, Seleção do BD, Modelo ER e Schema DDL &nbsp;|&nbsp;
+      Próximo: <a href="./02b_ARQUITETURA_BD_OPERACOES.html">02b — Operações e Escala</a>
+    </div>
+
+    <nav>
+      <h2>Índice desta Fase</h2>
+      <ol>
+        <li><a href="#analise">Análise de Requisitos de Dados</a></li>
+        <li><a href="#selecao">Seleção do Modelo de Banco de Dados</a></li>
+        <li><a href="#modelo">Modelo de Dados — ER</a></li>
+        <li><a href="#schema">Schema DDL Completo</a></li>
+      </ol>
+    </nav>
+
+    <!-- Seção 1 -->
+    <section id="analise">
+      <h2>1. Análise de Requisitos de Dados</h2>
+      <blockquote><strong>Referência DDIA:</strong> Cap. 1 — sistemas data-intensive são definidos pelos padrões de acesso, não apenas pelo volume.</blockquote>
+
+      <h3>1.1 Características de Acesso</h3>
+      <table>
+        <thead><tr><th>Característica</th><th>Análise</th><th>Impacto na Arquitetura</th></tr></thead>
+        <tbody>
+          <tr><td>Padrão de acesso</td><td>Mixed — escritas frequentes (vendas) + leituras para relatórios</td><td>Índices otimizados para queries de relatório</td></tr>
+          <tr><td>Volume de dados</td><td>~50 vendas/dia × 5 anos = ~91.000 vendas; &lt; 50MB total</td><td>Sem particionamento em v1</td></tr>
+          <tr><td>Taxa de escrita</td><td>~5 operações/min no pico</td><td>Baixíssima — PostgreSQL suporta com folga</td></tr>
+          <tr><td>Dados históricos</td><td>5 anos — RNF-11 (obrigação fiscal)</td><td>Retenção total; sem archiving necessário</td></tr>
+          <tr><td>Consultas complexas</td><td>JOINs para relatórios: vendas × produtos × custo fornecedor</td><td>Índices compostos + coluna de data</td></tr>
+        </tbody>
+      </table>
+
+      <h3>1.2 Entidades Identificadas</h3>
+      <table>
+        <thead><tr><th>Entidade</th><th>Descrição</th><th>Registros (5 anos)</th><th>Criticidade</th></tr></thead>
+        <tbody>
+          <tr><td><code>users</code></td><td>Proprietária (auth data)</td><td>1</td><td>Alta</td></tr>
+          <tr><td><code>categories</code></td><td>Categorias de produto</td><td>4–10</td><td>Baixa</td></tr>
+          <tr><td><code>products</code></td><td>Produtos cadastrados</td><td>15–50</td><td>Alta</td></tr>
+          <tr><td><code>product_day_visibility</code></td><td>Visibilidade por dia</td><td>15–50 × 7 dias</td><td>Média</td></tr>
+          <tr><td><code>suppliers</code></td><td>Fornecedores</td><td>5–20</td><td>Média</td></tr>
+          <tr><td><code>product_suppliers</code></td><td>Produto ↔ Fornecedor + preço de compra</td><td>20–100</td><td>Alta</td></tr>
+          <tr><td><code>stock_items</code></td><td>Saldo atual por produto</td><td>15–50</td><td>Alta</td></tr>
+          <tr><td><code>stock_entries</code></td><td>Histórico de entradas de estoque</td><td>~2.500</td><td>Alta</td></tr>
+          <tr><td><code>sales</code></td><td>Registros de venda</td><td>~91.250</td><td>Crítica</td></tr>
+          <tr><td><code>sale_items</code></td><td>Itens de cada venda</td><td>~273.750</td><td>Crítica</td></tr>
+          <tr><td><code>reports</code></td><td>Metadados de relatórios gerados</td><td>~200</td><td>Média</td></tr>
+        </tbody>
+      </table>
+
+      <h3>1.3 Requisitos de Consistência por Domínio</h3>
+      <table>
+        <thead><tr><th>Domínio</th><th>Consistência Exigida</th><th>Justificativa</th></tr></thead>
+        <tbody>
+          <tr><td>Registro de vendas</td><td>Forte (ACID)</td><td>Venda deve garantir dedução de estoque atomicamente</td></tr>
+          <tr><td>Entrada de estoque</td><td>Forte (ACID)</td><td>Incremento de saldo deve ser atômico</td></tr>
+          <tr><td>Catálogo (produtos)</td><td>Eventual (offline-first)</td><td>Edições raramente conflitam; sync eventual suficiente</td></tr>
+          <tr><td>Relatórios</td><td>Eventual (batch)</td><td>Relatório sobre dados passados; eventual aceitável</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Seção 2 -->
+    <section id="selecao">
+      <h2>2. Seleção do Modelo de Banco de Dados</h2>
+      <blockquote><strong>Referência DDIA:</strong> Cap. 2 — comparação entre modelos relacional, documento, grafo, coluna-larga e time-series.</blockquote>
+
+      <h3>2.1 Banco Principal: PostgreSQL 15 (via Supabase)</h3>
+      <table>
+        <thead><tr><th>Critério</th><th>Avaliação</th><th>Pontuação (1-5)</th></tr></thead>
+        <tbody>
+          <tr><td>Consistência ACID nativa</td><td>Sim — transações completas</td><td>5</td></tr>
+          <tr><td>Suporte a JOINs complexos</td><td>Excelente — necessário para relatórios</td><td>5</td></tr>
+          <tr><td>Escalabilidade</td><td>Supabase gerencia scaling</td><td>4</td></tr>
+          <tr><td>Maturidade e ecossistema</td><td>Altíssima — 30+ anos</td><td>5</td></tr>
+          <tr><td>Custo operacional</td><td>Baixo — free tier suficiente para v1</td><td>5</td></tr>
+          <tr><td>Row Level Security (RLS)</td><td>Nativo no PostgreSQL</td><td>5</td></tr>
+        </tbody>
+      </table>
+
+      <p><strong>Por que NOT MongoDB/NoSQL:</strong> os relatórios financeiros (RF-19, RF-20) requerem JOINs entre vendas, itens, produtos e custos de fornecedor. Em banco de documentos, exigiria múltiplas queries + agregação no application layer com potencial inconsistência.</p>
+
+      <h3>2.2 Bancos Auxiliares</h3>
+      <table>
+        <thead><tr><th>Banco Auxiliar</th><th>Tecnologia</th><th>Finalidade</th></tr></thead>
+        <tbody>
+          <tr><td>Banco local (dispositivo)</td><td>SQLite via WatermelonDB</td><td>Persistência offline-first de todos os dados</td></tr>
+          <tr><td>Storage de arquivos</td><td>Supabase Storage (S3-compatible)</td><td>PDFs e HTMLs de relatórios gerados</td></tr>
+          <tr><td>Auth tokens</td><td>Expo SecureStore</td><td>Tokens JWT no Keychain/Keystore do dispositivo</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Seção 3 -->
+    <section id="modelo">
+      <h2>3. Modelo de Dados — Entidades e Relacionamentos</h2>
+
+      <h3>3.1 Diagrama ER (sintaxe Mermaid)</h3>
+      <pre><code>erDiagram
+    users { uuid id PK; string email; string provider; timestamp created_at }
+    categories { uuid id PK; uuid user_id FK; string name; string slug; int display_order }
+    products { uuid id PK; uuid user_id FK; uuid category_id FK; string name; decimal price; boolean is_active }
+    product_day_visibility { uuid id PK; uuid product_id FK; smallint day_of_week; boolean is_visible }
+    suppliers { uuid id PK; uuid user_id FK; string name; string address; string phone }
+    product_suppliers { uuid id PK; uuid product_id FK; uuid supplier_id FK; decimal purchase_price; boolean is_preferred }
+    stock_items { uuid id PK; uuid product_id FK; uuid user_id FK; decimal quantity; decimal alert_threshold }
+    stock_entries { uuid id PK; uuid product_id FK; uuid supplier_id FK; decimal quantity; timestamp entry_date; string client_id }
+    sales { uuid id PK; uuid user_id FK; decimal total_amount; string payment_method; string consumption_mode; timestamp sale_date; string client_id }
+    sale_items { uuid id PK; uuid sale_id FK; uuid product_id FK; decimal quantity; decimal unit_price; decimal subtotal }
+    reports { uuid id PK; uuid user_id FK; string type; string status; jsonb parameters; string pdf_url; timestamp created_at }
+
+    users ||--o{ categories : "cria"
+    users ||--o{ products : "cadastra"
+    users ||--o{ suppliers : "cadastra"
+    users ||--o{ sales : "registra"
+    categories ||--o{ products : "agrupa"
+    products ||--o{ product_day_visibility : "configura"
+    products ||--o{ product_suppliers : "fornecido por"
+    suppliers ||--o{ product_suppliers : "fornece"
+    products ||--|| stock_items : "rastreado em"
+    sales ||--o{ sale_items : "contém"
+    products ||--o{ sale_items : "vendido em"</code></pre>
+
+      <h3>3.2 Relacionamentos</h3>
+      <table>
+        <thead><tr><th>Relacionamento</th><th>Cardinalidade</th><th>FK</th><th>ON DELETE</th></tr></thead>
+        <tbody>
+          <tr><td>users → categories</td><td>1:N</td><td><code>categories.user_id</code></td><td>RESTRICT</td></tr>
+          <tr><td>users → products</td><td>1:N</td><td><code>products.user_id</code></td><td>RESTRICT</td></tr>
+          <tr><td>categories → products</td><td>1:N</td><td><code>products.category_id</code></td><td>RESTRICT</td></tr>
+          <tr><td>products → product_day_visibility</td><td>1:7</td><td><code>product_day_visibility.product_id</code></td><td>CASCADE</td></tr>
+          <tr><td>products ↔ suppliers (N:N)</td><td>N:N</td><td>via <code>product_suppliers</code></td><td>RESTRICT</td></tr>
+          <tr><td>products → stock_items</td><td>1:1</td><td><code>stock_items.product_id</code></td><td>RESTRICT</td></tr>
+          <tr><td>sales → sale_items</td><td>1:N</td><td><code>sale_items.sale_id</code></td><td>CASCADE</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Seção 4 -->
+    <section id="schema">
+      <h2>4. Schema do Banco de Dados — DDL Completo</h2>
+      <blockquote><strong>Referência DDIA:</strong> Cap. 2 — schema-on-write garante que dados inválidos nunca entram no banco.</blockquote>
+
+      <h3>Função Auxiliar: update_updated_at</h3>
+      <pre><code>CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;</code></pre>
+
+      <div class="table-card">
+        <div class="table-card-header">
+          <h4>categories</h4>
+          <span class="purpose">Categorias de produto (Churrasquinho, Bebidas, Lanches, Especiais)</span>
+        </div>
+        <div class="table-card-body">
+          <pre><code>CREATE TABLE categories (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID        NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+    name            VARCHAR(100) NOT NULL,
+    slug            VARCHAR(100) NOT NULL,
+    display_order   SMALLINT    NOT NULL DEFAULT 0,
+    created_at      TIMESTAMP   NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMP   NOT NULL DEFAULT NOW(),
+    CONSTRAINT categories_name_user_unique UNIQUE (user_id, name)
+);
+ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "categories_owner_only" ON categories USING (user_id = auth.uid());</code></pre>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-card-header">
+          <h4>products</h4>
+          <span class="purpose">Produtos com preço de venda, categoria e status ativo/inativo</span>
+        </div>
+        <div class="table-card-body">
+          <pre><code>CREATE TABLE products (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID        NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+    category_id     UUID        NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
+    name            VARCHAR(200) NOT NULL,
+    description     TEXT,
+    price           DECIMAL(10,2) NOT NULL CHECK (price >= 0),
+    is_active       BOOLEAN     NOT NULL DEFAULT true,
+    created_at      TIMESTAMP   NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMP   NOT NULL DEFAULT NOW(),
+    CONSTRAINT products_name_user_unique UNIQUE (user_id, name)
+);
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "products_owner_only" ON products USING (user_id = auth.uid());</code></pre>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-card-header">
+          <h4>product_day_visibility</h4>
+          <span class="purpose">Configuração de visibilidade por dia da semana (RF-05)</span>
+        </div>
+        <div class="table-card-body">
+          <pre><code>CREATE TABLE product_day_visibility (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id      UUID        NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    day_of_week     SMALLINT    NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+    -- 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sab
+    is_visible      BOOLEAN     NOT NULL DEFAULT true,
+    CONSTRAINT product_day_visibility_unique UNIQUE (product_id, day_of_week)
+);</code></pre>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-card-header">
+          <h4>suppliers</h4>
+          <span class="purpose">Fornecedores com dados de contato</span>
+        </div>
+        <div class="table-card-body">
+          <pre><code>CREATE TABLE suppliers (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID        NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+    name            VARCHAR(200) NOT NULL,
+    address         TEXT,
+    contact_name    VARCHAR(200),
+    phone           VARCHAR(20),
+    created_at      TIMESTAMP   NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMP   NOT NULL DEFAULT NOW()
+);
+ALTER TABLE suppliers ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "suppliers_owner_only" ON suppliers USING (user_id = auth.uid());</code></pre>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-card-header">
+          <h4>product_suppliers</h4>
+          <span class="purpose">N:N produto ↔ fornecedor com preço de compra — alimenta cálculo de margem</span>
+        </div>
+        <div class="table-card-body">
+          <pre><code>CREATE TABLE product_suppliers (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id      UUID        NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+    supplier_id     UUID        NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT,
+    purchase_price  DECIMAL(10,2) NOT NULL CHECK (purchase_price >= 0),
+    is_preferred    BOOLEAN     NOT NULL DEFAULT false,
+    -- Fornecedor preferido é usado nos cálculos de custo padrão
+    updated_at      TIMESTAMP   NOT NULL DEFAULT NOW(),
+    CONSTRAINT product_suppliers_unique UNIQUE (product_id, supplier_id)
+);</code></pre>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-card-header">
+          <h4>stock_items</h4>
+          <span class="purpose">Saldo atual de estoque por produto (uma linha por produto)</span>
+        </div>
+        <div class="table-card-body">
+          <pre><code>CREATE TABLE stock_items (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id      UUID        NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+    user_id         UUID        NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+    quantity        DECIMAL(10,3) NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+    alert_threshold DECIMAL(10,3) NOT NULL DEFAULT 0,
+    -- Nível mínimo que dispara alerta push (RF-11)
+    updated_at      TIMESTAMP   NOT NULL DEFAULT NOW(),
+    CONSTRAINT stock_items_product_unique UNIQUE (product_id)
+);</code></pre>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-card-header">
+          <h4>stock_entries</h4>
+          <span class="purpose">Histórico imutável de entradas de estoque (compras de fornecedor)</span>
+        </div>
+        <div class="table-card-body">
+          <pre><code>CREATE TABLE stock_entries (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id      UUID        NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+    supplier_id     UUID        REFERENCES suppliers(id) ON DELETE RESTRICT,
+    user_id         UUID        NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+    quantity        DECIMAL(10,3) NOT NULL CHECK (quantity > 0),
+    unit_cost       DECIMAL(10,2) CHECK (unit_cost >= 0),
+    entry_date      TIMESTAMP   NOT NULL DEFAULT NOW(),
+    notes           TEXT,
+    client_id       VARCHAR(100) UNIQUE NOT NULL
+    -- UUID do cliente — idempotência para sync offline
+);</code></pre>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-card-header">
+          <h4>sales</h4>
+          <span class="purpose">Registro de vendas com controle de sync offline</span>
+        </div>
+        <div class="table-card-body">
+          <pre><code>CREATE TABLE sales (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID        NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+    total_amount    DECIMAL(10,2) NOT NULL CHECK (total_amount >= 0),
+    payment_method  VARCHAR(20)  NOT NULL
+                    CHECK (payment_method IN ('cash', 'pix', 'credit_card', 'debit_card')),
+    consumption_mode VARCHAR(20) NOT NULL DEFAULT 'on_site'
+                    CHECK (consumption_mode IN ('on_site', 'takeaway')),
+    sale_date       TIMESTAMP   NOT NULL DEFAULT NOW(),
+    notes           TEXT,
+    client_id       VARCHAR(100) UNIQUE NOT NULL,
+    -- UUID gerado no app — ON CONFLICT (client_id) DO NOTHING garante idempotência
+    synced_at       TIMESTAMP,
+    -- NULL = offline, aguardando sync; NOT NULL = sincronizado
+    created_at      TIMESTAMP   NOT NULL DEFAULT NOW()
+);
+ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "sales_owner_only" ON sales USING (user_id = auth.uid());</code></pre>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-card-header">
+          <h4>sale_items</h4>
+          <span class="purpose">Itens de cada venda — unit_price registra preço no momento da venda</span>
+        </div>
+        <div class="table-card-body">
+          <pre><code>CREATE TABLE sale_items (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    sale_id         UUID        NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
+    product_id      UUID        NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+    quantity        DECIMAL(10,3) NOT NULL CHECK (quantity > 0),
+    unit_price      DECIMAL(10,2) NOT NULL CHECK (unit_price >= 0),
+    -- Preço no MOMENTO da venda — imutável após registro
+    subtotal        DECIMAL(10,2) GENERATED ALWAYS AS (quantity * unit_price) STORED
+);</code></pre>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-card-header">
+          <h4>reports</h4>
+          <span class="purpose">Metadados de relatórios gerados — status e URLs dos arquivos no Storage</span>
+        </div>
+        <div class="table-card-body">
+          <pre><code>CREATE TABLE reports (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID        NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+    type            VARCHAR(50)  NOT NULL
+                    CHECK (type IN ('daily_sales','monthly_sales','products_sold','financial_summary')),
+    status          VARCHAR(20)  NOT NULL DEFAULT 'pending'
+                    CHECK (status IN ('pending','processing','ready','failed')),
+    parameters      JSONB       NOT NULL DEFAULT '{}',
+    pdf_url         TEXT,
+    html_url        TEXT,
+    error_message   TEXT,
+    created_at      TIMESTAMP   NOT NULL DEFAULT NOW(),
+    completed_at    TIMESTAMP
+);
+ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "reports_owner_only" ON reports USING (user_id = auth.uid());</code></pre>
+        </div>
+      </div>
+
+      <h3>Triggers de Negócio</h3>
+
+      <div class="table-card">
+        <div class="table-card-header"><h4>Dedução automática de estoque por venda (RF-10)</h4></div>
+        <div class="table-card-body">
+          <pre><code>CREATE OR REPLACE FUNCTION deduct_stock_on_sale()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE stock_items
+    SET quantity = quantity - NEW.quantity
+    WHERE product_id = NEW.product_id;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_deduct_stock_on_sale
+AFTER INSERT ON sale_items
+FOR EACH ROW EXECUTE FUNCTION deduct_stock_on_sale();</code></pre>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-card-header"><h4>Incremento de estoque por entrada (RF-09)</h4></div>
+        <div class="table-card-body">
+          <pre><code>CREATE OR REPLACE FUNCTION increment_stock_on_entry()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO stock_items (product_id, user_id, quantity)
+    VALUES (NEW.product_id, NEW.user_id, NEW.quantity)
+    ON CONFLICT (product_id)
+    DO UPDATE SET
+        quantity = stock_items.quantity + NEW.quantity,
+        updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_increment_stock_on_entry
+AFTER INSERT ON stock_entries
+FOR EACH ROW EXECUTE FUNCTION increment_stock_on_entry();</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      Documento gerado via /arquiteto-solucoes-sistema — Claude Code Architecture Skill<br>
+      Baseado em: Designing Data-Intensive Applications — Martin Kleppmann (1ª e 2ª ed.)
+    </footer>
+  </div>
+</body>
+</html>

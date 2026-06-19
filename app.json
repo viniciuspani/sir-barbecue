@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Sir Barbecue",
+    "slug": "sir-barbecue",
+    "version": "0.1.0",
+    "scheme": "sirbarbecue",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.labrasa.sirbarbecue"
+    },
+    "android": {
+      "package": "com.labrasa.sirbarbecue"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "color": "#D4A017"
+        }
+      ],
+      "@morrowdigital/watermelondb-expo-plugin",
+      "expo-web-browser",
+      "expo-sharing",
+      "@sentry/react-native"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

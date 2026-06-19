@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"import docx; doc=docx.Document\\('c:/develop/MOBILE/sir-barbecue/Levantamento de requisitos app para trailer de churrasquinho.docx'\\); print\\('\\\\n'.join\\([p.text for p in doc.paragraphs]\\)\\)\")",
+      "Bash(pandoc -t plain \"c:/develop/MOBILE/sir-barbecue/Levantamento de requisitos app para trailer de churrasquinho.docx\")",
+      "PowerShell(pandoc -t plain \"c:\\\\develop\\\\MOBILE\\\\sir-barbecue\\\\Levantamento de requisitos app para trailer de churrasquinho.docx\")",
+      "Bash(npx --yes mammoth --output-format=markdown \"c:\\\\develop\\\\MOBILE\\\\sir-barbecue\\\\Levantamento de requisitos app para trailer de churrasquinho.docx\")",
+      "Bash(New-Item -ItemType Directory -Force -Path \"c:\\\\develop\\\\MOBILE\\\\sir-barbecue\\\\docs\\\\design\")",
+      "PowerShell($f = Get-Item \"c:\\\\develop\\\\MOBILE\\\\sir-barbecue\\\\docs\\\\design\\\\telas_la_brasa.html\"; \"$\\($f.Length / 1KB -as [int]\\) KB — $\\([Math]::Round\\($f.Length/1KB,1\\)\\) KB\")",
+      "PowerShell(eas --version; \"EASVER_EXIT=$LASTEXITCODE\")"
+    ]
+  }
+}

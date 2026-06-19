@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arquitetura de Software — Sir Barbecue | Fase 3: Infra e Operações</title>
+  <style>
+    :root { --primary: #b91c1c; --primary-light: #fef2f2; --bg: #f8fafc; --surface: #ffffff; --text: #1e293b; --border: #e2e8f0; --code-bg: #1e293b; --code-text: #e2e8f0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+    header { background: var(--primary); color: white; padding: 2.5rem 1.5rem; margin-bottom: 2rem; }
+    header h1 { font-size: 1.8rem; font-weight: 700; }
+    header p { opacity: 0.85; margin-top: 0.5rem; font-size: 0.95rem; }
+    .phase-banner { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 2rem; font-size: 0.95rem; color: #92400e; }
+    .phase-banner a { color: #c2410c; }
+    nav { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; }
+    nav h2 { font-size: 1rem; font-weight: 600; color: var(--primary); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    nav ol { padding-left: 1.5rem; }
+    nav li { margin-bottom: 0.4rem; }
+    nav a { color: var(--primary); text-decoration: none; font-size: 0.95rem; }
+    nav a:hover { text-decoration: underline; }
+    section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 2rem; margin-bottom: 1.5rem; }
+    h2 { font-size: 1.4rem; color: var(--primary); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+    h3 { font-size: 1.1rem; color: var(--text); margin: 1.5rem 0 0.75rem; font-weight: 600; }
+    h4 { font-size: 1rem; color: var(--primary); margin: 1.25rem 0 0.5rem; font-weight: 600; }
+    p { margin-bottom: 1rem; color: #334155; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+    thead { background: #fef2f2; }
+    th { padding: 0.6rem 0.8rem; text-align: left; font-weight: 600; border: 1px solid var(--border); color: var(--primary); }
+    td { padding: 0.55rem 0.8rem; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) { background: #f8fafc; }
+    code { background: #f1f5f9; border: 1px solid var(--border); border-radius: 4px; padding: 0.15em 0.4em; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 0.875em; color: #be185d; }
+    pre { background: var(--code-bg); color: var(--code-text); border-radius: 8px; padding: 1.25rem; overflow-x: auto; margin: 1rem 0; }
+    pre code { background: none; border: none; color: inherit; font-size: 0.875rem; padding: 0; }
+    blockquote { border-left: 4px solid var(--primary); background: var(--primary-light); padding: 1rem 1.25rem; border-radius: 0 6px 6px 0; margin: 1rem 0; color: #7f1d1d; }
+    ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+    li { margin-bottom: 0.3rem; }
+    .risk-high { background: #fef2f2; }
+    .risk-med { background: #fffbeb; }
+    footer { text-align: center; padding: 2rem; color: #94a3b8; font-size: 0.85rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+    @media (max-width: 768px) { .container { padding: 1rem; } section { padding: 1.25rem; } table { font-size: 0.8rem; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Arquitetura de Software — Sir Barbecue</h1>
+      <p>Versão 1.1 · 07/06/2026 (revisado em 19/06/2026 — Expo SDK 55) · Gerado via /arquiteto-solucoes-sistema · Baseado em DDIA — Martin Kleppmann</p>
+    </div>
+  </header>
+  <div class="container">
+
+    <div class="phase-banner">
+      <strong>Fase 3 de 3</strong> — Autenticação, Cache, Offline, Observabilidade, Deploy, Stack e Riscos &nbsp;|&nbsp;
+      Anterior: <a href="./01b_ARQUITETURA_SOFTWARE_COMPONENTES_API.html">01b — Componentes e APIs</a> &nbsp;|&nbsp;
+      Próximo: <a href="./02a_ARQUITETURA_BD_MODELO_DADOS.html">02a — Modelo de Dados</a>
+    </div>
+
+    <div class="phase-banner" style="background:#f0fdf4;border-color:#86efac;color:#166534;">
+      <strong>Revisão 19/06/2026 — Expo SDK 55</strong> &nbsp;|&nbsp; Stack, CI/EAS e riscos atualizados: RN <strong>0.83.1</strong>; <strong>Xcode 26 / Node 20+</strong>; <code>eas update --environment</code>; <code>@sentry/react-native</code> <strong>≥ 7.3.0</strong>. Base: <a href="../plano/ANALISE_IMPACTO_EXPO_SDK_55.html">ANALISE_IMPACTO_EXPO_SDK_55.html</a>.
+    </div>
+
+    <nav>
+      <h2>Índice desta Fase</h2>
+      <ol>
+        <li><a href="#auth">Autenticação e Autorização</a></li>
+        <li><a href="#cache">Estratégia de Cache</a></li>
+        <li><a href="#offline">Suporte Offline — Detalhamento</a></li>
+        <li><a href="#relatorios">Processamento de Relatórios</a></li>
+        <li><a href="#observabilidade">Observabilidade</a></li>
+        <li><a href="#deploy">Deployment e Infraestrutura</a></li>
+        <li><a href="#escala">Escalabilidade e Resiliência</a></li>
+        <li><a href="#stack">Stack Tecnológico</a></li>
+        <li><a href="#riscos">Riscos e Trade-offs</a></li>
+      </ol>
+    </nav>
+
+    <!-- Seção 8 -->
+    <section id="auth">
+      <h2>8. Autenticação e Autorização</h2>
+      <h3>8.1 Estratégia de Autenticação</h3>
+      <p><strong>Mecanismo:</strong> Supabase Auth — JWT + OAuth 2.0 (Google)</p>
+      <h4>Fluxo Email/Senha</h4>
+      <pre><code>1. POST /auth/v1/token (email + password)
+2. Supabase: valida → gera access_token (JWT, 1h) + refresh_token (30d)
+3. App: armazena via expo-secure-store → Keychain (iOS) / Keystore (Android)
+4. Requests: Authorization: Bearer &lt;access_token&gt;
+5. SDK renova automaticamente via refresh_token antes de expirar</code></pre>
+      <h4>Fluxo Google OAuth</h4>
+      <pre><code>1. App: abre Google OAuth via Expo AuthSession (PKCE flow)
+2. Google: retorna authorization code
+3. App: envia code para Supabase Auth
+4. Supabase: valida com Google → cria/recupera usuário → retorna JWT
+5. Na primeira vez: conta criada automaticamente (RF-02)</code></pre>
+      <h4>Estrutura do JWT</h4>
+      <pre><code>{
+  "sub": "user-uuid",
+  "email": "proprietaria@email.com",
+  "role": "authenticated",
+  "iat": 1749340800,
+  "exp": 1749344400
+}</code></pre>
+      <h3>8.2 Row Level Security (Autorização)</h3>
+      <pre><code>-- Todas as tabelas têm RLS habilitado
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+
+-- Usuário só acessa seus próprios dados
+CREATE POLICY "owner_only" ON products
+  USING (user_id = auth.uid());</code></pre>
+      <h3>8.3 Armazenamento de Tokens</h3>
+      <table>
+        <thead><tr><th>Plataforma</th><th>Mecanismo</th><th>API</th></tr></thead>
+        <tbody>
+          <tr><td>iOS</td><td>Keychain Services</td><td><code>expo-secure-store</code></td></tr>
+          <tr><td>Android</td><td>Android Keystore / EncryptedSharedPreferences</td><td><code>expo-secure-store</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Seção 9 -->
+    <section id="cache">
+      <h2>9. Estratégia de Cache</h2>
+      <blockquote><strong>Referência DDIA:</strong> Cap. 5 — leitura de réplicas como cache; Cap. 1 — latência vs throughput.</blockquote>
+      <table>
+        <thead><tr><th>Camada</th><th>Tecnologia</th><th>TTL</th><th>O que cachear</th></tr></thead>
+        <tbody>
+          <tr><td>Local SQLite</td><td>WatermelonDB</td><td>Permanente (até sync)</td><td>Todos os dados operacionais</td></tr>
+          <tr><td>In-memory</td><td>Zustand</td><td>Duração da sessão</td><td>Auth state, connectivity, sync status</td></tr>
+          <tr><td>Dashboard data</td><td>WatermelonDB + timestamp</td><td>5 minutos (RF-28)</td><td>Aggregates do dashboard</td></tr>
+          <tr><td>Relatórios</td><td>Supabase Storage</td><td>Permanente</td><td>PDFs e HTMLs já gerados</td></tr>
+        </tbody>
+      </table>
+      <h3>Estratégia por Tipo de Dado</h3>
+      <ul>
+        <li><strong>Catálogo (produtos, categorias, fornecedores):</strong> Write-through — escrita simultânea local e remota quando online</li>
+        <li><strong>Vendas:</strong> Write-local-first — gravada localmente antes de qualquer confirmação; sync em background</li>
+        <li><strong>Dashboard:</strong> Cache-Aside com TTL 5 min; exibe timestamp da última atualização</li>
+        <li><strong>Relatórios gerados:</strong> URL armazenada localmente — não regenera arquivo existente</li>
+      </ul>
+    </section>
+
+    <!-- Seção 10 -->
+    <section id="offline">
+      <h2>10. Suporte Offline — Detalhamento</h2>
+      <blockquote><strong>Referência DDIA:</strong> Cap. 5 (Replicação) e Cap. 9 (Consistência) — modelo offline-first é essencialmente replicação com single-leader (servidor) e follower stateful (dispositivo).</blockquote>
+
+      <h3>10.1 Campos de Controle de Sync</h3>
+      <pre><code>// Campos adicionados a todos os modelos WatermelonDB
+client_id: string        // UUID gerado no cliente — chave de idempotência
+needs_sync: boolean      // true = alteração local não sincronizada
+last_synced_at: Date     // timestamp do último sync bem-sucedido
+server_id: string        // ID no servidor após sync</code></pre>
+
+      <h3>10.2 Resolução de Conflitos por Entidade</h3>
+      <table>
+        <thead><tr><th>Entidade</th><th>Conflito Possível</th><th>Estratégia</th><th>Justificativa</th></tr></thead>
+        <tbody>
+          <tr><td>Vendas</td><td>Produto editado online durante venda offline</td><td>Client wins</td><td>Preço no momento da venda é o correto</td></tr>
+          <tr><td>Estoque</td><td>Saldo ajustado offline + online</td><td>Server wins + compensação</td><td>Servidor recalcula saldo correto no sync</td></tr>
+          <tr><td>Produtos</td><td>Preço editado no servidor enquanto offline</td><td>Server wins</td><td>Catálogo é gerenciado online</td></tr>
+          <tr><td>Visibilidade</td><td>Edição offline + online</td><td>Last-writer-wins (timestamp)</td><td>Baixo impacto</td></tr>
+        </tbody>
+      </table>
+
+      <h3>10.3 Indicadores Visuais</h3>
+      <table>
+        <thead><tr><th>Estado</th><th>Indicação Visual</th></tr></thead>
+        <tbody>
+          <tr><td>Online + sincronizado</td><td>Nenhum indicador (estado normal)</td></tr>
+          <tr><td>Online + sync em andamento</td><td>Ícone de sincronização animado na barra superior</td></tr>
+          <tr><td>Offline</td><td>Banner fixo: "Modo offline — vendas salvas localmente"</td></tr>
+          <tr><td>Sync concluído</td><td>Toast: "Dados sincronizados ✓"</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Seção 11 -->
+    <section id="relatorios">
+      <h2>11. Processamento de Relatórios</h2>
+      <blockquote><strong>Referência DDIA:</strong> Cap. 10 — geração de relatórios é batch job: lê dados históricos, processa, produz saída.</blockquote>
+
+      <h3>11.1 Status do Relatório</h3>
+      <pre><code>pending → processing → ready
+                    ↘ failed (com mensagem de erro — usuário pode solicitar novamente)</code></pre>
+
+      <h3>11.2 Jobs de Relatório</h3>
+      <table>
+        <thead><tr><th>Relatório</th><th>Requisito</th><th>Complexidade</th><th>Tempo Estimado</th></tr></thead>
+        <tbody>
+          <tr><td>Diário de vendas</td><td>RF-17</td><td>Baixa</td><td>&lt; 5s</td></tr>
+          <tr><td>Mensal de vendas</td><td>RF-18</td><td>Baixa</td><td>&lt; 5s</td></tr>
+          <tr><td>Produtos vendidos</td><td>RF-19</td><td>Média</td><td>&lt; 15s</td></tr>
+          <tr><td>Financeiro gerencial</td><td>RF-20</td><td>Alta</td><td>&lt; 30s</td></tr>
+        </tbody>
+      </table>
+
+      <h3>11.3 Gráficos nos Relatórios (RF-26)</h3>
+      <table>
+        <thead><tr><th>Dado</th><th>Tipo de Gráfico</th><th>Justificativa</th></tr></thead>
+        <tbody>
+          <tr><td>Distribuição por pagamento</td><td>Pizza</td><td>Proporção entre categorias</td></tr>
+          <tr><td>Vendas por dia do mês</td><td>Barras</td><td>Comparação temporal</td></tr>
+          <tr><td>Produto mais vendido</td><td>Barras horizontais</td><td>Ranking de volume</td></tr>
+          <tr><td>Margem por produto</td><td>Barras + linha de média</td><td>Comparação com benchmark</td></tr>
+          <tr><td>Evolução do faturamento</td><td>Linha</td><td>Tendência ao longo do tempo</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Seção 12 -->
+    <section id="observabilidade">
+      <h2>12. Observabilidade</h2>
+      <h3>12.1 Logs no App</h3>
+      <pre><code>{
+  level: 'info' | 'warn' | 'error',
+  service: 'sync-engine' | 'auth' | 'sales' | 'reports',
+  message: string,
+  context: Record&lt;string, unknown&gt;,
+  timestamp: ISO8601
+}</code></pre>
+      <p><strong>Ferramenta:</strong> Sentry (React Native SDK) para crashes, errors e performance em produção.</p>
+
+      <h3>12.2 Métricas Essenciais</h3>
+      <table>
+        <thead><tr><th>Métrica</th><th>Onde monitorar</th><th>Alerta</th></tr></thead>
+        <tbody>
+          <tr><td>Falhas de autenticação</td><td>Supabase Auth Logs</td><td>&gt; 3 falhas em 5 min</td></tr>
+          <tr><td>Erros de sync offline</td><td>Sentry (app)</td><td>Qualquer erro recorrente</td></tr>
+          <tr><td>Tempo de geração de relatório</td><td>Edge Function logs</td><td>&gt; 60s</td></tr>
+          <tr><td>Falha de push notification</td><td>Expo Push API</td><td>Qualquer falha persistente</td></tr>
+          <tr class="risk-med"><td>Tamanho do banco</td><td>Supabase Dashboard</td><td>&gt; 400MB (limite free: 500MB)</td></tr>
+          <tr><td>Crashes no app</td><td>Sentry</td><td>Qualquer novo crash em produção</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Seção 13 -->
+    <section id="deploy">
+      <h2>13. Deployment e Infraestrutura</h2>
+      <h3>13.1 Ambientes</h3>
+      <table>
+        <thead><tr><th>Ambiente</th><th>Propósito</th><th>Supabase Project</th></tr></thead>
+        <tbody>
+          <tr><td>Development</td><td>Desenvolvimento local</td><td>Projeto Supabase dev</td></tr>
+          <tr><td>Staging</td><td>Testes de integração</td><td>Projeto Supabase staging</td></tr>
+          <tr><td>Production</td><td>Produção</td><td>Projeto Supabase production</td></tr>
+        </tbody>
+      </table>
+
+      <h3>13.2 CI/CD — Expo EAS</h3>
+      <pre><code>push → GitHub Actions → lint + type-check + testes
+→ eas build (iOS + Android)
+→ eas submit (App Store + Google Play)
+
+Canais EAS:
+  development → builds internos
+  staging     → TestFlight + Google Play Internal Testing
+  production  → lojas públicas
+
+OTA Updates: Expo EAS Update (hotfixes JS sem nova submissão às lojas)</code></pre>
+      <p style="margin-top:0.75rem;"><strong>SDK 55:</strong> EAS Build com <strong>Xcode 26</strong> (default 26.2) e <strong>Node 20+</strong>; <code>eas update</code> agora exige <code>--environment</code>; <strong>Hermes bytecode diffing</strong> (updates ~75% menores); <code>@sentry/react-native</code> <strong>≥ 7.3.0</strong> (Gradle 9). Ver <a href="../plano/ANALISE_IMPACTO_EXPO_SDK_55.html">análise de impacto</a>.</p>
+
+      <h3>13.3 Infraestrutura Supabase</h3>
+      <table>
+        <thead><tr><th>Componente</th><th>v1 (Free)</th><th>v2 (Pro — se escalar)</th></tr></thead>
+        <tbody>
+          <tr><td>Tier</td><td>Free (500MB DB, 1GB Storage)</td><td>Pro ($25/mês — 8GB DB, 100GB Storage)</td></tr>
+          <tr><td>Region</td><td>sa-east-1 (São Paulo)</td><td>sa-east-1</td></tr>
+          <tr><td>Backups</td><td>Daily automático (7 dias)</td><td>PITR (Point-in-Time Recovery)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Seção 14 -->
+    <section id="escala">
+      <h2>14. Escalabilidade e Resiliência</h2>
+      <blockquote><strong>Referência DDIA:</strong> Cap. 1 e Cap. 8 — problemas em sistemas distribuídos.</blockquote>
+
+      <h3>14.1 Resiliência no App Mobile</h3>
+      <table>
+        <thead><tr><th>Cenário</th><th>Comportamento</th><th>Implementação</th></tr></thead>
+        <tbody>
+          <tr><td>Supabase indisponível</td><td>Opera 100% offline</td><td>WatermelonDB como fonte primária</td></tr>
+          <tr><td>Falha de sync</td><td>Dados não perdidos</td><td><code>needs_sync=true</code> nunca descartado sem confirmação</td></tr>
+          <tr><td>Crash durante venda</td><td>Transação local garante consistência</td><td>WatermelonDB — transações ACID no SQLite</td></tr>
+          <tr><td>Troca de dispositivo</td><td>Dados sincronizam no novo device</td><td>Re-sync completo ao fazer login</td></tr>
+          <tr><td>Relatório falha</td><td>Status <code>failed</code> + notificação</td><td>Usuário pode solicitar novamente</td></tr>
+        </tbody>
+      </table>
+
+      <h3>14.2 Garantias de Durabilidade</h3>
+      <ul>
+        <li><strong>Vendas:</strong> gravadas no SQLite local antes de confirmar sucesso ao usuário</li>
+        <li><strong>Sync:</strong> retry exponencial; dados ficam na fila indefinidamente até sync bem-sucedido</li>
+        <li><strong>Backups:</strong> daily automático no Supabase (7 dias no free tier)</li>
+        <li><strong>Retenção 5 anos:</strong> PostgreSQL mantém dados de vendas por 5 anos (RNF-11 — obrigação fiscal)</li>
+      </ul>
+    </section>
+
+    <!-- Seção 15 -->
+    <section id="stack">
+      <h2>15. Stack Tecnológico Recomendado</h2>
+      <table>
+        <thead><tr><th>Camada</th><th>Tecnologia</th><th>Justificativa</th></tr></thead>
+        <tbody>
+          <tr><td>Mobile Framework</td><td>React Native 0.83.1 + Expo SDK 55</td><td>iOS 15+/Android unificado; TypeScript; New Architecture obrigatória</td></tr>
+          <tr><td>Linguagem</td><td>TypeScript</td><td>Type safety; manutenibilidade (RNF-12)</td></tr>
+          <tr><td>Navegação</td><td>Expo Router v7 (sobre React Navigation 7)</td><td>File-based; padrão no ecossistema React Native; máx. 3 níveis (RNF-06)</td></tr>
+          <tr><td>State Management</td><td>Zustand</td><td>Leve, sem boilerplate; suficiente para 1 usuário</td></tr>
+          <tr><td>Banco local</td><td>WatermelonDB (SQLite)</td><td>Projetado para mobile offline-first; sync built-in</td></tr>
+          <tr><td>Backend (BaaS)</td><td>Supabase</td><td>PostgreSQL + Auth + Storage + Edge Functions + Realtime</td></tr>
+          <tr><td>Edge Functions</td><td>Deno + TypeScript</td><td>Geração de relatórios server-side</td></tr>
+          <tr><td>Geração de PDF</td><td>Puppeteer (headless) no Edge Function</td><td>PDF de alta qualidade com gráficos</td></tr>
+          <tr><td>Gráficos</td><td>Chart.js (HTML → PDF)</td><td>Todos os tipos de gráfico necessários</td></tr>
+          <tr><td>Push Notifications</td><td>Expo Notifications + Expo Push Service</td><td>Abstrai FCM (Android) e APNs (iOS)</td></tr>
+          <tr><td>Auth</td><td>Supabase Auth (GoTrue)</td><td>Email/senha + Google OAuth; tokens no Keychain/Keystore</td></tr>
+          <tr><td>Armazenamento seguro</td><td>expo-secure-store</td><td>Keychain iOS / Keystore Android para tokens</td></tr>
+          <tr><td>CI/CD</td><td>Expo EAS Build + EAS Submit</td><td>Build e publicação nas lojas integrados</td></tr>
+          <tr><td>OTA Updates</td><td>Expo EAS Update</td><td>Hotfixes sem nova submissão às lojas</td></tr>
+          <tr><td>Monitoramento</td><td>Sentry (@sentry/react-native ≥ 7.3.0)</td><td>Crashes, erros e performance; ≥ 7.3.0 exigido p/ Gradle 9 (SDK 55)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Seção 16 -->
+    <section id="riscos">
+      <h2>16. Riscos e Trade-offs</h2>
+      <table>
+        <thead><tr><th>Risco</th><th>Probabilidade</th><th>Impacto</th><th>Mitigação</th></tr></thead>
+        <tbody>
+          <tr><td>Vendor lock-in no Supabase</td><td>Média</td><td>Médio</td><td>PostgreSQL padrão — export via <code>pg_dump</code>; Supabase é open-source</td></tr>
+          <tr class="risk-med"><td>Limite free Supabase (500MB)</td><td>Baixa</td><td>Médio</td><td>Monitorar; upgrade Pro ($25/mês) antes de 80%</td></tr>
+          <tr><td>WatermelonDB sob New Architecture obrigatória (SDK 55)</td><td>Média</td><td>Alto</td><td>Spike de validação na Fase 0 (gate); plugins testados até SDK 54 (risco é build, não bridgeless). Plano B: expo-sqlite + Drizzle atrás das interfaces de repositório</td></tr>
+          <tr><td>Edge Function timeout em relatório</td><td>Baixa</td><td>Médio</td><td>Timeout 150s; relatório gerencial estimado &lt; 30s; margem suficiente</td></tr>
+          <tr><td>Conflitos de sync longos offline</td><td>Baixa</td><td>Médio</td><td>Estratégias de resolução definidas por entidade; vendas nunca perdem dados</td></tr>
+          <tr class="risk-high"><td>Acessibilidade insuficiente para deficiência visual</td><td>Média</td><td>Alto</td><td>Testes com VoiceOver/TalkBack desde o desenvolvimento; revisão por especialista em acessibilidade</td></tr>
+          <tr><td>App rejeitado na App Store</td><td>Baixa</td><td>Alto</td><td>Seguir guidelines Apple; declarar usos corretos de permissões; LGPD compliance</td></tr>
+        </tbody>
+      </table>
+      <blockquote>
+        <strong>Referência DDIA:</strong> Cap. 12 — Kleppmann discute os trade-offs fundamentais. Para Sir Barbecue, o trade-off central é <strong>simplicidade operacional (BaaS) vs controle total</strong>. Supabase é correto para o tamanho atual — revisável na v2 se volume ou complexidade crescerem.
+      </blockquote>
+    </section>
+
+    <footer>
+      Documento gerado via /arquiteto-solucoes-sistema — Claude Code Architecture Skill<br>
+      Baseado em: Designing Data-Intensive Applications — Martin Kleppmann (1ª e 2ª ed.)
+    </footer>
+  </div>
+</body>
+</html>
