@@ -9,6 +9,10 @@
 > **Próximo documento:** [02a_ARQUITETURA_BD_MODELO_DADOS.md](./02a_ARQUITETURA_BD_MODELO_DADOS.md)
 >
 > **Revisão 19/06/2026 — Expo SDK 55:** stack, CI/EAS e riscos atualizados (RN 0.83.1; Xcode 26 / Node 20+; `eas update --environment`; `@sentry/react-native` ≥ 7.3.0). Base: [ANALISE_IMPACTO_EXPO_SDK_55.html](../plano/ANALISE_IMPACTO_EXPO_SDK_55.html).
+>
+> **Atualização 19/06/2026 — Plano B ATIVADO:** BD local **WatermelonDB → expo-sqlite + Drizzle** (o plugin do WDB injetava `JSIModulePackage`, removida no RN 0.83/New Arch). Isolado a `src/data/local` + repositório. No restante, **leia "WatermelonDB" como "expo-sqlite + Drizzle"** (mesmo papel: SQLite local). Razão no [ADR-003](./01a_ARQUITETURA_SOFTWARE_VISAO_GERAL.md).
+>
+> **Atualização 23/06/2026 — Multi-tenant SaaS ADOTADO:** isolamento por **empresa (`tenant_id`)** em vez de `user_id`; novas tabelas `tenants` + `tenant_members` (papéis owner/manager/employee). A §8.2 abaixo já reflete o modelo multi-tenant. Schema canônico: [SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql](../banco-multi-cliente/SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql); impacto em [AVALIACAO_IMPACTO_MULTI_TENANT.html](../banco-multi-cliente/AVALIACAO_IMPACTO_MULTI_TENANT.html). MVP: 1 empresa/usuário.
 
 ---
 
@@ -64,20 +68,23 @@
 
 ### 8.2 Controle de Acesso (Autorização)
 
-**Modelo:** Proprietário único em v1 — todos os dados pertencem ao usuário autenticado.
+**Modelo (multi-tenant — atualizado 23/06/2026):** o isolamento é por **empresa (`tenant_id`)**, não por usuário. Cada usuário pertence a uma ou mais empresas via **`tenant_members`** (papéis `owner` / `manager` / `employee`); `user_id` passa a ser **auditoria** ("quem registrou"). Schema canônico: [SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql](../banco-multi-cliente/SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql).
 
-**Mecanismo:** Row Level Security (RLS) no PostgreSQL:
+**Mecanismo:** Row Level Security (RLS) no PostgreSQL, isolando por empresa:
 
 ```sql
--- Todas as tabelas têm RLS habilitado
+-- Todas as tabelas de negócio têm RLS habilitado + coluna tenant_id
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 
--- Política: usuário só acessa seus próprios dados
-CREATE POLICY "owner_only" ON products
-  USING (user_id = auth.uid());
+-- Política: usuário só acessa dados das empresas a que pertence
+CREATE POLICY "tenant_all" ON products
+  USING (tenant_id IN (SELECT public.user_tenant_ids()))
+  WITH CHECK (tenant_id IN (SELECT public.user_tenant_ids()));
 ```
 
-**Implicação:** Não há perfis ou papéis adicionais em v1. Se v2 introduzir funcionários, o modelo RBAC será adicionado sem refatoração do frontend (RLS absorve a mudança).
+`user_tenant_ids()` é uma função `SECURITY DEFINER` que lê `tenant_members` sem recursão de RLS. O **Custom Access Token Hook** (`add_tenant_claims`) injeta `app_metadata.tenant_ids` no JWT, habilitando um caminho rápido que lê o claim sem consultar a tabela (ver [AVALIACAO_IMPACTO_MULTI_TENANT.html](../banco-multi-cliente/AVALIACAO_IMPACTO_MULTI_TENANT.html), §3.3).
+
+**Implicação:** o RBAC por empresa já existe (papéis em `tenant_members`). O **MVP usa 1 empresa por usuário**; seletor de empresa e convites de equipe ficam para fase posterior. O frontend não muda por causa da RLS — o `tenant_id` é injetado na camada de sync.
 
 ### 8.3 Segurança de Tokens no Dispositivo
 
@@ -360,7 +367,7 @@ Em v1, o sistema opera com **um único usuário** — a escala não é preocupa�
 | Linguagem | TypeScript | Type safety; manutenibilidade (RNF-12) |
 | Navegação | Expo Router v7 (file-based, sobre React Navigation 7) | Padrão de fato no ecossistema React Native |
 | State Management | Zustand | Leve, sem boilerplate; suficiente para 1 usuário |
-| Banco local (offline) | WatermelonDB (SQLite) | Projetado para mobile offline-first; performance; sync |
+| Banco local (offline) | expo-sqlite + Drizzle (SQLite) | First-party do Expo (New Arch oficial); type-safe; reatividade via change listener / useLiveQuery |
 | Backend (BaaS) | Supabase | PostgreSQL + Auth + Storage + Edge Functions + Realtime |
 | Edge Functions | Deno + TypeScript | Geração de relatórios server-side |
 | Geração de PDF | Puppeteer (headless) no Edge Function | PDF de alta qualidade com gráficos |
@@ -381,7 +388,7 @@ Em v1, o sistema opera com **um único usuário** — a escala não é preocupa�
 |-------|--------------|---------|-----------|
 | Vendor lock-in no Supabase | Média | Médio | PostgreSQL padrão — export via pg_dump; Supabase é open-source (self-hosted possível) |
 | Limite do plano free Supabase (500MB DB) | Baixa em v1 | Médio | Monitorar uso; upgrade para Pro ($25/mês) antes de atingir 80% |
-| WatermelonDB sob New Architecture obrigatória (SDK 55) | Média | Alto | **Spike de validação na Fase 0** (gate); plugins testados até SDK 54 (risco é build, não bridgeless). Plano B: `expo-sqlite` + Drizzle atrás das interfaces de repositório |
+| WatermelonDB sob New Arch (SDK 55) — **resolvido** | — | — | Gate reprovou no build (`JSIModulePackage` removida no RN 0.83) → **Plano B ATIVADO**: `expo-sqlite` (first-party) + Drizzle, sem plugin de comunidade. Ver ADR-003. |
 | Geração de PDF em Edge Function timeout | Baixa | Médio | Edge Functions têm timeout de 150s; relatórios gerenciais estimados em < 30s; ok |
 | Conflitos de sync em operação offline longa | Baixa | Médio | Estratégias de resolução definidas por entidade; vendas nunca perdem dados |
 | App rejeitado na App Store | Baixa | Alto | Seguir guidelines Apple; declarar uso de câmera apenas se necessário; LGPD compliance |

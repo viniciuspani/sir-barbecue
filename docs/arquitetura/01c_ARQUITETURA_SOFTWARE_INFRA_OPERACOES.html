@@ -61,6 +61,14 @@
       <strong>Revisão 19/06/2026 — Expo SDK 55</strong> &nbsp;|&nbsp; Stack, CI/EAS e riscos atualizados: RN <strong>0.83.1</strong>; <strong>Xcode 26 / Node 20+</strong>; <code>eas update --environment</code>; <code>@sentry/react-native</code> <strong>≥ 7.3.0</strong>. Base: <a href="../plano/ANALISE_IMPACTO_EXPO_SDK_55.html">ANALISE_IMPACTO_EXPO_SDK_55.html</a>.
     </div>
 
+    <div class="phase-banner" style="background:#fef3c7;border-color:#fcd34d;color:#92400e;">
+      <strong>Atualização 19/06/2026 — Plano B ATIVADO</strong> &nbsp;|&nbsp; BD local: <strong>WatermelonDB → expo-sqlite + Drizzle</strong> (o plugin do WDB injetava <code>JSIModulePackage</code>, removida no RN 0.83/New Arch). Isolado a <code>src/data/local</code> + repositório. No restante, leia "WatermelonDB" como "expo-sqlite + Drizzle". Razão no ADR-003.
+    </div>
+
+    <div class="phase-banner" style="background:#dbeafe;border-color:#93c5fd;color:#1e40af;">
+      <strong>Atualização 23/06/2026 — Multi-tenant SaaS ADOTADO</strong> &nbsp;|&nbsp; Isolamento por <strong>empresa (tenant_id)</strong> em vez de <code>user_id</code>; novas tabelas <code>tenants</code> + <code>tenant_members</code> (papéis owner/manager/employee); RLS por <code>tenant_id</code> + Custom Access Token Hook. A §8.2 reflete o modelo multi-tenant. Schema canônico: <code>SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql</code>; impacto em <code>AVALIACAO_IMPACTO_MULTI_TENANT.html</code>.
+    </div>
+
     <nav>
       <h2>Índice desta Fase</h2>
       <ol>
@@ -101,13 +109,16 @@
   "iat": 1749340800,
   "exp": 1749344400
 }</code></pre>
-      <h3>8.2 Row Level Security (Autorização)</h3>
-      <pre><code>-- Todas as tabelas têm RLS habilitado
+      <h3>8.2 Row Level Security (Autorização) — multi-tenant</h3>
+      <p style="background:#dbeafe;border-left:4px solid #2563eb;padding:0.5rem 0.75rem;border-radius:4px;"><strong>Atualizado 23/06/2026:</strong> isolamento por <strong>empresa (<code>tenant_id</code>)</strong> via <code>tenant_members</code> (papéis owner/manager/employee); <code>user_id</code> vira auditoria. Schema canônico: <code>SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql</code>.</p>
+      <pre><code>-- Todas as tabelas de negócio têm RLS + coluna tenant_id
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 
--- Usuário só acessa seus próprios dados
-CREATE POLICY "owner_only" ON products
-  USING (user_id = auth.uid());</code></pre>
+-- Usuário só acessa dados das empresas a que pertence
+CREATE POLICY "tenant_all" ON products
+  USING (tenant_id IN (SELECT public.user_tenant_ids()))
+  WITH CHECK (tenant_id IN (SELECT public.user_tenant_ids()));
+-- Custom Access Token Hook injeta tenant_ids no JWT (caminho rápido).</code></pre>
       <h3>8.3 Armazenamento de Tokens</h3>
       <table>
         <thead><tr><th>Plataforma</th><th>Mecanismo</th><th>API</th></tr></thead>
@@ -308,7 +319,7 @@ OTA Updates: Expo EAS Update (hotfixes JS sem nova submissão às lojas)</code><
           <tr><td>Linguagem</td><td>TypeScript</td><td>Type safety; manutenibilidade (RNF-12)</td></tr>
           <tr><td>Navegação</td><td>Expo Router v7 (sobre React Navigation 7)</td><td>File-based; padrão no ecossistema React Native; máx. 3 níveis (RNF-06)</td></tr>
           <tr><td>State Management</td><td>Zustand</td><td>Leve, sem boilerplate; suficiente para 1 usuário</td></tr>
-          <tr><td>Banco local</td><td>WatermelonDB (SQLite)</td><td>Projetado para mobile offline-first; sync built-in</td></tr>
+          <tr><td>Banco local</td><td>expo-sqlite + Drizzle (SQLite)</td><td>First-party do Expo (New Arch oficial); type-safe; reatividade via change listener / useLiveQuery</td></tr>
           <tr><td>Backend (BaaS)</td><td>Supabase</td><td>PostgreSQL + Auth + Storage + Edge Functions + Realtime</td></tr>
           <tr><td>Edge Functions</td><td>Deno + TypeScript</td><td>Geração de relatórios server-side</td></tr>
           <tr><td>Geração de PDF</td><td>Puppeteer (headless) no Edge Function</td><td>PDF de alta qualidade com gráficos</td></tr>
@@ -331,7 +342,7 @@ OTA Updates: Expo EAS Update (hotfixes JS sem nova submissão às lojas)</code><
         <tbody>
           <tr><td>Vendor lock-in no Supabase</td><td>Média</td><td>Médio</td><td>PostgreSQL padrão — export via <code>pg_dump</code>; Supabase é open-source</td></tr>
           <tr class="risk-med"><td>Limite free Supabase (500MB)</td><td>Baixa</td><td>Médio</td><td>Monitorar; upgrade Pro ($25/mês) antes de 80%</td></tr>
-          <tr><td>WatermelonDB sob New Architecture obrigatória (SDK 55)</td><td>Média</td><td>Alto</td><td>Spike de validação na Fase 0 (gate); plugins testados até SDK 54 (risco é build, não bridgeless). Plano B: expo-sqlite + Drizzle atrás das interfaces de repositório</td></tr>
+          <tr><td>WatermelonDB sob New Arch (SDK 55) — <strong>resolvido</strong></td><td>—</td><td>—</td><td>Gate reprovou no build (<code>JSIModulePackage</code> removida no RN 0.83) → <strong>Plano B ATIVADO</strong>: <code>expo-sqlite</code> (first-party) + Drizzle, sem plugin de comunidade. Ver ADR-003.</td></tr>
           <tr><td>Edge Function timeout em relatório</td><td>Baixa</td><td>Médio</td><td>Timeout 150s; relatório gerencial estimado &lt; 30s; margem suficiente</td></tr>
           <tr><td>Conflitos de sync longos offline</td><td>Baixa</td><td>Médio</td><td>Estratégias de resolução definidas por entidade; vendas nunca perdem dados</td></tr>
           <tr class="risk-high"><td>Acessibilidade insuficiente para deficiência visual</td><td>Média</td><td>Alto</td><td>Testes com VoiceOver/TalkBack desde o desenvolvimento; revisão por especialista em acessibilidade</td></tr>

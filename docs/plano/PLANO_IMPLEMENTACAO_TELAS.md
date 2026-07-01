@@ -3,8 +3,48 @@
 > **Gerado em:** 2026-06-17
 > **Base:** `docs/design/telas_la_brasa.html`, `docs/arquitetura/*`, `levantamentos-requisitos/sir-barbecue-requisitos.md`
 > **Stack alvo:** React Native + Expo SDK 55 (React 19.2 / RN 0.83.1), offline-first, New Architecture obrigatória
-> **Status:** aguardando aprovação
+> **Status:** EM EXECUÇÃO — Fases **0–5 implementadas** + **migração multi-tenant SaaS aplicada** (ver "Estado atual" abaixo). Próxima: Fase 6 (A11y/QA) + follow-ups de backend.
 > **Revisão (19/06/2026):** stack atualizada de SDK 54 → **SDK 55** conforme [ANALISE_IMPACTO_EXPO_SDK_55.html](./ANALISE_IMPACTO_EXPO_SDK_55.html) (veredito: viável). Expo Router v6 → **v7**; New Architecture passa de *default* a **obrigatória**; ajustes de Fase 0/CI incorporados abaixo.
+>
+> **Atualização (19/06/2026) — Plano B ATIVADO:** o BD local passou de **WatermelonDB → expo-sqlite + Drizzle** (o spike reprovou no build: o plugin do WDB injeta `JSIModulePackage`, removida no RN 0.83/New Arch). Isolado a `src/data/local` + repositório; telas/stores/services inalterados. As menções a "WatermelonDB" abaixo devem ser lidas como **"expo-sqlite + Drizzle"**. Razão no ADR-003 ([01a](../arquitetura/01a_ARQUITETURA_SOFTWARE_VISAO_GERAL.md)).
+
+---
+
+## ✅ Estado atual — onde paramos (checkpoint 23/06/2026)
+
+> Fases 0–3 implementadas + **migração multi-tenant SaaS aplicada** (código), **gate local verde** (`tsc`/`eslint`/`expo export`), e o app **roda em device Android real** (build EAS `preview`).
+
+| Fase | Status | Resumo |
+|------|--------|--------|
+| **0 — Scaffold & tooling** | ✅ concluída (validada no device) | Projeto Expo SDK 55 in-place; **Plano B** (expo-sqlite + Drizzle) ativado após o WatermelonDB reprovar no build (`JSIModulePackage` removida no RN 0.83); EAS `preview` instalou e abriu no Android. Doc: [FASE_0_ESQUELETO_SCAFFOLD.md](./FASE_0_ESQUELETO_SCAFFOLD.md). |
+| **1 — Shell de navegação** | ✅ concluída | Grupos `(auth)`/`(app)`, bottom tabs, **gate de sessão**, placeholders, login dev. |
+| **2 — Autenticação** | ✅ implementada · ⏳ falta configurar Supabase | Login e-mail/senha + **Google OAuth (PKCE)**, Criar Conta, Recuperar Senha, Verificação de E-mail + deep links `auth-callback`/`reset-password`. Setup: [FASE_2_SETUP_SUPABASE.md](./FASE_2_SETUP_SUPABASE.md). |
+| **3 — Dados & sync** | ✅ implementada (infra) · ⏳ falta rodar o SQL + testar | Schema local (sales/sale_items/sync_checkpoints) + `DrizzleSaleRepository` (transacional); **Sync Engine** (push retry/backoff + idempotência `client_id` + pull catálogo); conectividade (NetInfo) + **OfflineBanner**. |
+| **4 — Núcleo operacional** | ✅ implementada (tenant-aware; gate verde) | Produtos + Nova Venda + Estoque + Dashboard. |
+| **5 — Fornecedores/Relatórios/Config/Push** | ✅ implementada (cliente; partes server = follow-up) | Mais/Conta · Fornecedores · Minha Empresa · Relatórios (local) · Notificações. |
+| **6 — A11y / offline polish / QA** | ⬜ não iniciada | — |
+
+**Backend (Supabase):** gerado o **schema completo** (11 tabelas + RLS + triggers de estoque + seed de categorias + storage) em **[SUPABASE_SCHEMA_COMPLETO.sql](./SUPABASE_SCHEMA_COMPLETO.sql)** (idempotente; substitui o `FASE_3_SUPABASE_SCHEMA.sql`). O Sync Engine já fala o dialeto desse schema (refs por `client_id`, `category_client_id`, payment methods `credit_card`/`debit_card`).
+
+> ⚠️ **Superado pelo multi-tenant:** o schema canônico agora é **[SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql](../banco-multi-cliente/SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql)** (RLS por `tenant_id`). O `SUPABASE_SCHEMA_COMPLETO.sql` fica como referência single-user (obsoleto). Ver seção multi-tenant abaixo.
+
+**Pendências para fechar o que já foi feito:**
+- [ ] Rodar `SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql` no Supabase (banco fresh) + **habilitar o Custom Access Token Hook** (`add_tenant_claims`, tipo Postgres).
+- [ ] `.env` (local) + **EAS env vars** com URL/anon key; configurar Google OAuth + redirect URLs (`sirbarbecue://auth-callback`, `sirbarbecue://reset-password`).
+- [ ] Rebuild (`npm run deploy:preview`) e testar no device: auth (e-mail/Google/reset) + banner offline.
+
+### ✅ Multi-tenant SaaS — ADOTADO e migrado (23/06/2026)
+Pivô de **single-user (RLS por `user_id`) → SaaS multi-tenant (RLS por `tenant_id`/empresa)** confirmado e aplicado. Avaliação de impacto: [AVALIACAO_IMPACTO_MULTI_TENANT.html](../banco-multi-cliente/AVALIACAO_IMPACTO_MULTI_TENANT.html). Schema canônico: [SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql](../banco-multi-cliente/SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql).
+
+**Decisões:** MVP = **1 empresa por usuário** (o schema suporta multi-empresa + equipe; seletor/convites em fase posterior). Tabelas filhas (sale_items, etc.) normalizadas (RLS via pai).
+
+**Migração de código aplicada** (gate `tsc`/`eslint`/`expo export` verde):
+- **`authStore`** carrega a empresa ativa (`currentTenantId`) do claim do JWT (`app_metadata.tenant_ids`) + fallback `tenant_members`.
+- **`syncEngine`** envia `tenant_id` no push (products/sales) e filtra o pull pela empresa; `sale_items` herda do pai; `runSync` exige tenant.
+- **`signup` + `auth.ts`** coletam **"Nome da empresa"** → `business_name` (trigger `handle_new_user` cria empresa + membership owner).
+- **Docs de arquitetura** (01a/01c/02a/02b md+html) com banners multi-tenant; 01c §8.2 reescrita (RLS por `tenant_id`).
+
+**Setup do backend (pré-requisito de runtime):** rodar o SQL multi-tenant (banco fresh) + **habilitar o Custom Access Token Hook** (`add_tenant_claims`, tipo Postgres) + **logout/login** para o JWT trazer o claim.
 
 ---
 
@@ -68,7 +108,7 @@ Itens menores (não viram tela cheia): **feedback "Venda registrada ✓"** (toas
 | Runtime | Expo SDK 55 / RN 0.83.1 / React 19.2 / TypeScript | New Architecture **obrigatória** (Legacy removida) |
 | Navegação | **Expo Router v7** (file-based) | tabs + stacks aninhados; APIs novas (Native Tabs, Stack.Toolbar) opcionais |
 | Estado global | **Zustand** | auth, conectividade, sync, carrinho de venda |
-| BD local (offline) | **WatermelonDB** (SQLite) | ⚠️ **config plugin + dev client** (não roda no Expo Go); New Arch agora **obrigatória** → **spike de validação na Fase 0** (plano B: `expo-sqlite` + Drizzle) |
+| BD local (offline) | **expo-sqlite + Drizzle** (SQLite) | First-party do Expo (New Arch oficial); type-safe; reatividade via `addDatabaseChangeListener`/`useLiveQuery`. *(Plano B — WDB descartado: o plugin injetava `JSIModulePackage`, removida no RN 0.83)* |
 | Backend | **Supabase** (`@supabase/supabase-js`) | Auth, REST (PostgREST), Realtime, Storage |
 | Tokens seguros | `expo-secure-store` | JWT no Keychain/Keystore (RNF-07) |
 | Push | `expo-notifications` | FCM/APNs (RF-11, RF-22) |
@@ -110,7 +150,7 @@ src/
   ui/            # componentes reutilizáveis (Button, Input, Card, Chip, Badge, Toggle, ProgressBar, BottomNavItem, ScreenHeader, EmptyState, Sheet)
   domain/        # entities/, usecases/, repositories/ (interfaces) — TS puro
   data/
-    local/       # WatermelonDB: schema.ts, migrations.ts, models/
+    local/       # expo-sqlite + Drizzle: schema.ts, database.ts (+ drizzle-kit migrations)
     remote/      # supabaseClient.ts, DTOs, mappers
     repositories/# implementações (Product, Sale, Stock, Supplier, Report)
     sync/        # syncEngine.ts, offlineQueue.ts (RF-16, retry/backoff)
@@ -135,38 +175,47 @@ Extrair os tokens do `:root` de `docs/design/telas_la_brasa.html` para `src/desi
 
 ## Fases de entrega (alinhadas às fases do doc de requisitos)
 
-**Fase 0 — Scaffold & tooling**
+**Fase 0 — Scaffold & tooling** — ✅ **CONCLUÍDA** (validada no device)
 - `create-expo-app` (**SDK 55**, TS), ESLint/Prettier, estrutura de pastas, `app.json` (**remover `newArchEnabled`/`sdkVersion`/`statusBar`/`notification`/`edgeToEdgeEnabled`**; notifications via config plugin; edge-to-edge tratado por código).
 - Instalar deps via `expo install`; **spike WatermelonDB** (config plugin + `expo prebuild` + dev client em **device físico** iOS+Android — *gate de decisão*: JSI + transação ACID + sync). `@sentry/react-native` **≥ 7.3.0** (bug Gradle 9 no EAS Android). Promise rejections agora viram erro → `try/catch` disciplinado.
 - Design tokens + fontes + tema; componentes UI base.
 
-**Fase 1 — Shell de navegação**
+**Fase 1 — Shell de navegação** — ✅ **CONCLUÍDA**
 - Tabs (Início, Venda, Produtos, Estoque, Mais) + stacks aninhados; aba "Venda" abre modal; aba "Mais" abre hub.
 - Splash (1) com gate de sessão.
 
-**Fase 2 — Autenticação (MVP)** — RF-01, RF-02, RNF-07
+**Fase 2 — Autenticação (MVP)** — RF-01, RF-02, RNF-07 — ✅ **IMPLEMENTADA** (⏳ falta configurar Supabase + testar no device)
 - Supabase Auth (email/senha + Google OAuth via `expo-auth-session`/`expo-web-browser`).
 - Telas: Login (2), **Criar Conta (A)**, **Recuperar Senha (B)**, **Verificação de E-mail (C)**.
 - Tokens em `expo-secure-store`; `authStore`.
 
-**Fase 3 — Camada de dados & sync** — RF-15, RF-16, RNF-09
+**Fase 3 — Camada de dados & sync** — RF-15, RF-16, RNF-09 — ✅ **IMPLEMENTADA** (infra; ⏳ falta rodar o SQL no Supabase + testar no device)
 - Schema WatermelonDB + models + repositórios (Repository Pattern).
 - Sync Engine + offline queue (retry backoff 1/2/4s, `client_id` idempotente, client-wins p/ vendas, server-wins p/ catálogo — `02b §7-8`).
 - `connectivityStore` (NetInfo) + indicadores visuais offline/online (presentes nas telas 3 e 4).
 
-**Fase 4 — Núcleo operacional**
-- **Produtos**: lista (6) + **form criar/editar (D)** com categorias e **dias de visibilidade (RF-05)**; seed inicial de categorias/produtos.
-- **Vendas**: Nova Venda (4) com filtro por categoria e visibilidade do dia + carrinho (`cartStore`); Fechar Venda (5) com pagamento/consumo; gravação local + dedução de estoque (RF-10); toast de sucesso.
-- **Estoque**: lista (7) + **Registrar Entrada (G)** + **Histórico (H)** + **Config de Alerta (I)**.
-- **Dashboard** (3): cards do mês, alertas de estoque, vendas por pagamento (queries locais; refresh 5min — RF-28).
+**Fase 4 — Núcleo operacional** — ✅ **IMPLEMENTADA** (23/06/2026; gate `tsc`/`eslint`/`expo export` verde; tenant-aware — `tenant_id` injetado pela camada de sync)
+- **Produtos** ✅: lista (6) + **form criar/editar (D)** com categorias e **dias de visibilidade (RF-05)**. Stack `app/(app)/produtos/`.
+- **Vendas** ✅: Nova Venda (4) com filtro por categoria + visibilidade do dia + carrinho (`cartStore`); Fechar Venda (5) com pagamento/consumo; gravação local transacional + **baixa de estoque (RF-10)** + toast. Stack `app/(app)/venda/`.
+- **Estoque** ✅: lista (7) + **Registrar Entrada (G)** + **Histórico (H)** + **Config de Alerta (I)**. Stack `app/(app)/estoque/`. Saldo calculado localmente.
+- **Dashboard** ✅: cards do mês (faturamento/contagem), vendas por forma de pagamento, alertas de estoque (queries locais reativas + pull-to-refresh — RF-28).
 
-**Fase 5 — Fornecedores, Relatórios, Config, Push**
-- **Fornecedores**: lista (9) + **Detalhe (F)** + **Form (E)** com associação produto↔fornecedor e preço de compra (RF-07).
-- **Relatórios**: lista/geração (8) → chama Edge Function (`generate-report`) → status assíncrono (RF-21) → **Visualizar Relatório (J)** com gráficos (RF-26) e download PDF/HTML (RF-24/25).
-- **Menu "Mais" (K)**, **Perfil/Config (L)** (logout, exclusão de conta — RNF-08), **Central de Notificações (M)**.
-- `expo-notifications`: registro de token, recebimento, navegação por notificação (RF-11, RF-22).
+**Catálogo (decisão — Opção A):** servidor é dono das categorias (trigger `seed_tenant_categories`); o app faz `pullCategories` no sync e **não** semeia categorias localmente.
 
-**Fase 6 — Acessibilidade, offline polish & QA**
+**Follow-ups da Fase 4 (sync, ao ligar o backend):**
+- **Sync de estoque** ✅ (24/06): push de `stock_entries` + `alert_threshold`; pull de `stock_items` (server-wins na quantidade, preservando o alerta local). O servidor recalcula via triggers — isso **ativa o RF-11** (push de estoque baixo).
+- **`product_day_visibility`** ⏳ (deferido): a visibilidade por dia segue **local** (JSON em `products.visible_days`), usada no filtro da Nova Venda. Sincronizar com a tabela normalizada do servidor é follow-up (uso local + sync set-based).
+
+**Fase 5 — Fornecedores, Relatórios, Config, Push** — ✅ **IMPLEMENTADA (cliente)** (23/06/2026; gate `tsc`/`eslint`/`expo export` verde; stack `app/(app)/mais/`)
+- **Mais (K) + Conta (L)** ✅: hub de navegação; **logout** funcional; **excluir conta** = confirmação + aviso (RNF-08 exige Edge Function server-side).
+- **Fornecedores (9/F/E)** ✅: lista + form + detalhe com **associação produto↔fornecedor e preço de compra (RF-07)**. Local-first.
+- **Minha Empresa** ✅ (multi-tenant, online): ver/editar dados da empresa (owner-only via RLS) + listar/remover membros (`tenant_members`). **Convidar por e-mail = follow-up** (Edge Function de convite).
+- **Relatórios (8)** ✅ (local): resumos por período (faturamento, mais vendidos, por pagamento). **Export PDF/HTML + gráficos (RF-21/24/25/26) = follow-up** (Edge Function `generate-report`).
+- **Notificações (M)** ✅ (cliente): permissão + registro de token + explicação. **Envio de push = follow-up** (dev build + FCM + backend disparando — RF-11/22).
+
+**Follow-ups de backend da Fase 5 — STATUS:** Edge Functions (`generate-report`, `invite-member`, `delete-account`, `send-push`) ✅ criadas + ligadas no app; **infra de push** (`push_tokens` + trigger `notify_low_stock` via pg_net) ✅; **sync de fornecedores** (`suppliers`/`product_suppliers`) ✅ e **de estoque** ✅. Resta: `product_day_visibility` (deferido) e, opcionalmente, push de "relatório pronto" (RF-22).
+
+**Fase 6 — Acessibilidade, offline polish & QA** — ⬜ **NÃO INICIADA**
 - Auditoria RNF-05 (VoiceOver/TalkBack, fontes, contraste, alvos de toque), estados de loading/empty/erro, ≤5 toques por venda (RNF-03).
 - Testes de use cases (domínio) e fluxo de venda offline→sync.
 
@@ -188,6 +237,6 @@ Extrair os tokens do `:root` de `docs/design/telas_la_brasa.html` para `src/desi
 ---
 
 ## Riscos / pontos a confirmar
-- **WatermelonDB + New Architecture (RN 0.83.1, obrigatória):** validar no **spike da Fase 0** (plugins de comunidade testados até SDK 54 — o risco real é build, não bridgeless); se reprovar, **plano B homologado**: `expo-sqlite` + Drizzle (`useLiveQuery`) mantendo as interfaces de repositório (a Clean Architecture isola a troca). Ver [ANALISE_IMPACTO_EXPO_SDK_55.html](./ANALISE_IMPACTO_EXPO_SDK_55.html).
+- **BD local (RN 0.83.1, New Arch) — RESOLVIDO:** o spike reprovou no build (o plugin de comunidade do WDB injeta `JSIModulePackage`, removida no RN 0.83) → **Plano B ATIVADO**: `expo-sqlite` (first-party) + Drizzle, mantendo as interfaces de repositório (a Clean Architecture isolou a troca a `src/data/local` + repositório). Ver [ANALISE_IMPACTO_EXPO_SDK_55.html](./ANALISE_IMPACTO_EXPO_SDK_55.html).
 - **Credenciais Supabase + Google OAuth** (project URL, anon key, client IDs) precisam ser fornecidas para `.env`.
 - **Geração de relatórios** depende da Edge Function e do Storage — confirmar se entram neste plano ou em trilha separada de backend.

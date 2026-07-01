@@ -64,6 +64,10 @@
       <strong>Revisão 19/06/2026 — Expo SDK 55</strong> &nbsp;|&nbsp; Versões de libs e navegação atualizadas: <strong>Expo Router v7</strong>; download de relatório com a nova API <code>File</code>/<code>Directory</code> do <code>expo-file-system</code>. Base: <a href="../plano/ANALISE_IMPACTO_EXPO_SDK_55.html">ANALISE_IMPACTO_EXPO_SDK_55.html</a>.
     </div>
 
+    <div class="phase-banner" style="background:#fef3c7;border-color:#fcd34d;color:#92400e;">
+      <strong>Atualização 19/06/2026 — Plano B ATIVADO</strong> &nbsp;|&nbsp; BD local: <strong>WatermelonDB → expo-sqlite + Drizzle</strong> (o plugin do WDB injetava <code>JSIModulePackage</code>, removida no RN 0.83/New Arch). Isolado a <code>src/data/local</code> + repositório; interface/telas/stores/services inalterados. No restante, leia "WatermelonDB" como "expo-sqlite + Drizzle". Razão no ADR-003.
+    </div>
+
     <nav>
       <h2>Índice desta Fase</h2>
       <ol>
@@ -85,7 +89,7 @@
             <tbody>
               <tr><td><strong>Responsabilidade</strong></td><td>Interface do usuário, lógica de negócio local, persistência offline e orquestração de sync</td></tr>
               <tr><td><strong>Tipo</strong></td><td>Frontend Mobile</td></tr>
-              <tr><td><strong>Tecnologia</strong></td><td>React Native 0.83.1, Expo SDK 55, TypeScript, WatermelonDB, Zustand</td></tr>
+              <tr><td><strong>Tecnologia</strong></td><td>React Native 0.83.1, Expo SDK 55, TypeScript, expo-sqlite + Drizzle, Zustand</td></tr>
               <tr><td><strong>Escala</strong></td><td>Stateful — estado local (SQLite) reside no dispositivo</td></tr>
             </tbody>
           </table>
@@ -95,7 +99,7 @@
             <tbody>
               <tr><td>Navigation</td><td>Expo Router v7 (sobre React Navigation 7)</td><td>Roteamento file-based entre telas — máx. 3 níveis (RNF-06)</td></tr>
               <tr><td>Auth Module</td><td>Supabase Auth SDK</td><td>Login email/senha, Google OAuth, gestão de sessão JWT</td></tr>
-              <tr><td>Local Database</td><td>WatermelonDB (SQLite)</td><td>Persistência offline de todos os dados operacionais</td></tr>
+              <tr><td>Local Database</td><td>expo-sqlite + Drizzle (SQLite)</td><td>Persistência offline de todos os dados operacionais</td></tr>
               <tr><td>Sync Engine</td><td>Custom + Supabase Realtime</td><td>Sincronização bidirecional com servidor</td></tr>
               <tr><td>Notification Handler</td><td>Expo Notifications</td><td>Tokens push, recebimento e navegação por notificação</td></tr>
               <tr><td>Report Requester</td><td>Supabase Functions SDK</td><td>Disparo e polling de geração de relatórios</td></tr>

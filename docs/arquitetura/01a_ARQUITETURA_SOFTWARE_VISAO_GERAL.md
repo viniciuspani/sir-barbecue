@@ -6,6 +6,10 @@
 > **Elaborado por:** Arquiteto de Soluções (gerado via /arquiteto-solucoes-sistema)
 > **Baseado em:** Designing Data-Intensive Applications — Martin Kleppmann
 > **Próximo documento:** [01b_ARQUITETURA_SOFTWARE_COMPONENTES_API.md](./01b_ARQUITETURA_SOFTWARE_COMPONENTES_API.md)
+>
+> **Atualização 19/06/2026 — Plano B ATIVADO:** o BD local passou de **WatermelonDB → expo-sqlite + Drizzle** (o config plugin de comunidade do WDB injetava a API `JSIModulePackage`, removida no RN 0.83/New Architecture, quebrando o build). Mudança **isolada** a `src/data/local/` + a implementação do repositório — interface de repositório, telas, stores e services **inalterados**. No restante deste documento, **leia "WatermelonDB" como "expo-sqlite + Drizzle"** (mesmo papel: SQLite local, fonte primária offline). Razão completa no **ADR-003**.
+>
+> **Atualização 23/06/2026 — Multi-tenant SaaS ADOTADO:** o isolamento de dados passou de **`user_id` (proprietário único)** para **`tenant_id` (empresa)**. Novas tabelas `tenants` + `tenant_members` (papéis owner/manager/employee); RLS por `tenant_id`; o Custom Access Token Hook injeta `tenant_ids` no JWT. Schema canônico: [SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql](../banco-multi-cliente/SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql); impacto em [AVALIACAO_IMPACTO_MULTI_TENANT.html](../banco-multi-cliente/AVALIACAO_IMPACTO_MULTI_TENANT.html). MVP: 1 empresa/usuário. Onde se lê "proprietário único / RLS por `user_id`", leia "**empresa / RLS por `tenant_id`**".
 
 ---
 
@@ -148,7 +152,8 @@ RF-15 e RF-16 exigem que vendas sejam registradas sem internet e sincronizadas a
 - Todas as operações de leitura e escrita no app operam sobre o banco local (SQLite via WatermelonDB)
 - Sync com Supabase ocorre em background quando há conectividade
 - Conflitos de sync: estratégia "server wins" exceto para vendas registradas offline (estratégia "client wins" com timestamp)
-- **Atualização SDK 55 (19/06/2026):** com a New Architecture obrigatória, a compatibilidade do WatermelonDB (RN 0.83.1) passa por um **spike de validação na Fase 0** (gate de decisão). **Plano B homologado** caso reprove: `expo-sqlite` + Drizzle (`useLiveQuery`) atrás das mesmas interfaces de repositório — Presentation e Domain não mudam. Ver [análise de impacto](../plano/ANALISE_IMPACTO_EXPO_SDK_55.html).
+- **Atualização SDK 55 (19/06/2026) — Plano B ATIVADO:** o spike **reprovou no build**. Causa: o config plugin de comunidade do WatermelonDB (`@morrowdigital/watermelondb-expo-plugin`, última estável 2.3.3) injeta no `MainApplication` a API `com.facebook.react.bridge.JSIModulePackage` — **removida do React Native na New Architecture (RN 0.83)** → `Unresolved reference 'JSIModulePackage'` no `compileReleaseKotlin`. Não há release estável do plugin para o SDK 55 (apenas `2.4.0-beta`), e o suporte do próprio WatermelonDB à New Arch tem issues abertas (#1769 bridgeless, #1851 RN 0.76+ JSI) → runtime incerto mesmo com patch.
+- **Decisão atual (substitui o WatermelonDB):** **`expo-sqlite` (módulo first-party do Expo, suporte oficial à New Architecture) + Drizzle ORM.** A troca ficou **isolada** a `src/data/local/` + a implementação do repositório — a interface `ProductRepository` no Domínio, as telas, stores e services **não mudaram** (vitória do Repository Pattern + Clean Architecture). Reatividade preservada via `addDatabaseChangeListener` do `expo-sqlite` (e `useLiveQuery` do Drizzle nos componentes). O protocolo de sync (`client_id`/`needs_sync`/`synced_at`, retry/backoff, *client-wins* p/ vendas) permanece — agora implementado explicitamente no Sync Engine. Ver [análise de impacto](../plano/ANALISE_IMPACTO_EXPO_SDK_55.html).
 
 ---
 

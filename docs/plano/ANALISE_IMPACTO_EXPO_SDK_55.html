@@ -118,6 +118,8 @@
       </table>
 
       <blockquote><strong>A única coisa capaz de mudar este veredito é o resultado do <em>spike</em> do WatermelonDB na Fase 0.</strong> Se passar: segue tudo e o risco cai para BAIXO. Se falhar: aciona-se o Plano B (Drizzle) sem reescrever Domínio nem Presentation.</blockquote>
+
+      <blockquote style="border-left-color:#16a34a;background:#f0fdf4;color:#166534;"><strong>Resultado (Fase 0 — 19/06/2026):</strong> o spike <strong>reprovou no build</strong> — o config plugin de comunidade do WatermelonDB injeta <code>JSIModulePackage</code>, API removida no RN 0.83 (New Architecture). <strong>Plano B ATIVADO</strong>: o BD local é <strong>expo-sqlite + Drizzle</strong>, sem reescrever Domínio nem Presentation — exatamente como esta análise previu. Ver ADR-003 e o FASE_0_ESQUELETO_SCAFFOLD.</blockquote>
     </section>
 
     <!-- 2. Contexto -->

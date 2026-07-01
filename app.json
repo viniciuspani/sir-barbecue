@@ -23,13 +23,24 @@
           "color": "#D4A017"
         }
       ],
-      "@morrowdigital/watermelondb-expo-plugin",
       "expo-web-browser",
       "expo-sharing",
-      "@sentry/react-native"
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "46459b98-fba7-4abf-8a10-b35f09755d04"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/46459b98-fba7-4abf-8a10-b35f09755d04"
     }
   }
 }

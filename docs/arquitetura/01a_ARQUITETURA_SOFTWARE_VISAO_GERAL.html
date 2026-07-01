@@ -64,6 +64,14 @@
       <strong>Revisão 19/06/2026 — Expo SDK 55</strong> &nbsp;|&nbsp; Stack atualizada de SDK 54 → <strong>SDK 55</strong> (RN 0.83.1 / React 19.2); New Architecture agora <strong>obrigatória</strong>. Base: <a href="../plano/ANALISE_IMPACTO_EXPO_SDK_55.html">ANALISE_IMPACTO_EXPO_SDK_55.html</a> (veredito: viável).
     </div>
 
+    <div class="phase-banner" style="background:#fef3c7;border-color:#fcd34d;color:#92400e;">
+      <strong>Atualização 19/06/2026 — Plano B ATIVADO</strong> &nbsp;|&nbsp; BD local: <strong>WatermelonDB → expo-sqlite + Drizzle</strong> (o config plugin do WDB injetava <code>JSIModulePackage</code>, removida no RN 0.83/New Arch). Isolado a <code>src/data/local</code> + repositório; interface, telas, stores e services inalterados. No restante, leia "WatermelonDB" como "expo-sqlite + Drizzle". Razão no <strong>ADR-003</strong>.
+    </div>
+
+    <div class="phase-banner" style="background:#dbeafe;border-color:#93c5fd;color:#1e40af;">
+      <strong>Atualização 23/06/2026 — Multi-tenant SaaS ADOTADO</strong> &nbsp;|&nbsp; Isolamento <strong>user_id → tenant_id (empresa)</strong>; novas tabelas <code>tenants</code> + <code>tenant_members</code> (papéis owner/manager/employee); RLS por <code>tenant_id</code> + Custom Access Token Hook (claim <code>tenant_ids</code> no JWT). Schema canônico: <code>SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql</code>; impacto em <code>AVALIACAO_IMPACTO_MULTI_TENANT.html</code>. MVP: 1 empresa/usuário. Leia "proprietário único / RLS por user_id" como "<strong>empresa / RLS por tenant_id</strong>".
+    </div>
+
     <nav>
       <h2>Índice desta Fase</h2>
       <ol>
@@ -182,7 +190,8 @@
             </tbody>
           </table>
           <div class="decision-box"><strong>Decisão:</strong> WatermelonDB com Supabase como servidor de sync. Todas as operações operam sobre o banco local — Supabase é tratado como destino de sincronização. Conflitos em vendas offline: estratégia "client wins" com timestamp.</div>
-          <p style="margin-top:0.75rem;"><strong>Atualização SDK 55 (19/06/2026):</strong> com a New Architecture obrigatória, a compatibilidade do WatermelonDB (RN 0.83.1) passa por um <strong>spike de validação na Fase 0</strong>. <strong>Plano B homologado</strong>: <code>expo-sqlite</code> + Drizzle (<code>useLiveQuery</code>) atrás das mesmas interfaces de repositório. Ver <a href="../plano/ANALISE_IMPACTO_EXPO_SDK_55.html">análise de impacto</a>.</p>
+          <p style="margin-top:0.75rem;"><strong>Atualização SDK 55 (19/06/2026) — Plano B ATIVADO:</strong> o spike <strong>reprovou no build</strong>. O config plugin de comunidade do WatermelonDB (2.3.3) injeta no <code>MainApplication</code> a API <code>com.facebook.react.bridge.JSIModulePackage</code> — <strong>removida do RN na New Architecture (0.83)</strong> → <code>Unresolved reference 'JSIModulePackage'</code> no <code>compileReleaseKotlin</code>. Não há release estável do plugin p/ SDK 55 (só <code>2.4.0-beta</code>); o suporte New Arch do WDB tem issues abertas (#1769/#1851).</p>
+          <div class="decision-box"><strong>Decisão atual (substitui o WatermelonDB):</strong> <code>expo-sqlite</code> (first-party do Expo, suporte oficial à New Architecture) + <strong>Drizzle ORM</strong>. Troca <strong>isolada</strong> a <code>src/data/local/</code> + implementação do repositório — interface <code>ProductRepository</code>, telas, stores e services <strong>não mudaram</strong>. Reatividade via <code>addDatabaseChangeListener</code> (expo-sqlite) / <code>useLiveQuery</code> (Drizzle); protocolo de sync mantido (<code>client_id</code>/<code>needs_sync</code>/<code>synced_at</code>).</div>
         </div>
       </div>
 

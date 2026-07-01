@@ -6,6 +6,8 @@ export interface Product {
   price: number;
   isActive: boolean;
   categoryId?: string;
+  /** Dias da semana (0=dom..6=sáb) em que o produto aparece na venda. Vazio/undefined = todos (RF-05). */
+  visibleDays?: number[];
   /** true = há alteração local ainda não sincronizada. */
   needsSync: boolean;
   /** epoch ms do último sync bem-sucedido. */

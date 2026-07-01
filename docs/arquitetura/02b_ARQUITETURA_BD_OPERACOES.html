@@ -56,6 +56,10 @@
       Anterior: <a href="./02a_ARQUITETURA_BD_MODELO_DADOS.html">02a — Modelo de Dados</a>
     </div>
 
+    <div class="phase-banner" style="background:#dbeafe;border-color:#93c5fd;color:#1e40af;">
+      <strong>Atualização 23/06/2026 — Multi-tenant SaaS</strong> &nbsp;|&nbsp; Isolamento por <strong>empresa (tenant_id)</strong> em vez de <code>user_id</code>. O <strong>sync</strong> envia <code>tenant_id</code> no push das tabelas diretas e filtra o pull pela empresa ativa; a <strong>segurança</strong> usa RLS por <code>tenant_id</code> + Custom Access Token Hook. Schema canônico: <code>SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql</code>; avaliação: <code>AVALIACAO_IMPACTO_MULTI_TENANT.html</code>.
+    </div>
+
     <nav>
       <h2>Índice desta Fase</h2>
       <ol>
@@ -154,7 +158,7 @@ COMMIT;
       <h2>7. Consistência e Modelo CAP</h2>
       <blockquote><strong>Referência DDIA:</strong> Cap. 9 — o teorema CAP e as garantias reais de sistemas modernos.</blockquote>
       <p><strong>PostgreSQL (remoto):</strong> CP — Consistência + Tolerância a Partição. Em partição de rede, servidor não aceita escritas inconsistentes.</p>
-      <p><strong>App Mobile (offline):</strong> AP — Disponibilidade + Tolerância a Partição. WatermelonDB garante operação local ininterrupta.</p>
+      <p><strong>App Mobile (offline):</strong> AP — Disponibilidade + Tolerância a Partição. O SQLite local (expo-sqlite + Drizzle) garante operação local ininterrupta.</p>
       <table>
         <thead><tr><th>Domínio</th><th>Garantia</th><th>Implementação</th></tr></thead>
         <tbody>

@@ -6,6 +6,8 @@
 > **Elaborado por:** Arquiteto de Soluções (gerado via /arquiteto-solucoes-sistema)
 > **Baseado em:** Designing Data-Intensive Applications — Martin Kleppmann
 > **Documento anterior:** [02a_ARQUITETURA_BD_MODELO_DADOS.md](./02a_ARQUITETURA_BD_MODELO_DADOS.md)
+>
+> **Atualização 23/06/2026 — Multi-tenant SaaS:** isolamento por **empresa (`tenant_id`)** em vez de `user_id`. O **sync** passa a enviar `tenant_id` no push das tabelas diretas e filtra o pull pela empresa ativa; a **segurança** usa RLS por `tenant_id` + Custom Access Token Hook (claim `tenant_ids` no JWT). **Schema canônico:** [SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql](../banco-multi-cliente/SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql); avaliação em [AVALIACAO_IMPACTO_MULTI_TENANT.html](../banco-multi-cliente/AVALIACAO_IMPACTO_MULTI_TENANT.html).
 
 ---
 
@@ -167,7 +169,7 @@ Com um único usuário em v1, race conditions são praticamente impossíveis. Ma
 **Escolha:** CP (Consistência + Tolerância a Partição) para o banco remoto (PostgreSQL/Supabase)
 
 **Comportamento em partição de rede:**
-- App Mobile: opera em modo AP (Disponibilidade + Tolerância a Partição) via WatermelonDB local
+- App Mobile: opera em modo AP (Disponibilidade + Tolerância a Partição) via SQLite local (expo-sqlite + Drizzle)
 - Supabase PostgreSQL: CP — em caso de problema de rede, o servidor não aceita escritas inconsistentes
 - Resolução: ao reconectar, dados offline são reconciliados com as regras definidas na Fase 1 do documento de software
 

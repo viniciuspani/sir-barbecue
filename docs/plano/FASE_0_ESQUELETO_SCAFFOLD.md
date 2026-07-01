@@ -3,7 +3,7 @@
 > **Gerado em:** 2026-06-19
 > **Stack alvo:** Expo SDK 55 / React Native 0.83.1 / React 19.2 / TypeScript — **New Architecture obrigatória**, offline-first
 > **Base:** [PLANO_IMPLEMENTACAO_TELAS.md](./PLANO_IMPLEMENTACAO_TELAS.md) · [ANALISE_IMPACTO_EXPO_SDK_55.html](./ANALISE_IMPACTO_EXPO_SDK_55.html) · `docs/arquitetura/*`
-> **Status:** executado em 19/06/2026 — scaffold criado, deps instaladas, **gate local verde** (`tsc` 0 / `eslint` 0 / `expo-doctor` 19-19) e `expo prebuild -p android` OK (WDB fiado no Gradle). **Gate no device pendente** (Android SDK/EAS). Ver "Gotchas reais".
+> **Status:** ✅ **Fase 0 CONCLUÍDA — validada em device real (20/06/2026).** Scaffold Expo SDK 55, gate local verde (`tsc`/`eslint`/`expo-doctor` 19/19). O gate do device com WatermelonDB **reprovou** (o plugin injeta `JSIModulePackage`, removida no RN 0.83) → **Plano B ATIVADO**: BD local = **expo-sqlite + Drizzle**. O **build EAS `preview` passou** e o **APK instalou e abriu num Android real** (splash renderizando). Ver §6/§7, ADR-003 e "Gotchas reais".
 
 ---
 
@@ -28,6 +28,7 @@ Deixar o projeto **compilando em dev build** (iOS + Android) na **New Architectu
 | 3 | **Remover `newArchEnabled` e `edgeToEdgeEnabled` do `app.json`** | `expo-doctor`: "should NOT have additional property 'newArchEnabled' / 'edgeToEdgeEnabled'" (campos removidos no SDK 55). | Não declarar esses campos (New Arch e edge-to-edge são mandatórios). |
 | 4 | **Peer deps do expo-router** | `expo-doctor`: "Missing peer dependency: expo-constants / expo-linking". | `npx expo install expo-constants expo-linking`. |
 | 5 | **Exclusão do WatermelonDB no `expo-doctor`** | `expo-doctor`: "Untested on New Architecture: @nozbe/watermelondb" + "No metadata: @nozbe/simdjson". | `expo.doctor.reactNativeDirectoryCheck.exclude` no `package.json` (risco conhecido — validado pelo spike no device, não pelo doctor). |
+| 6 | **`babel-preset-expo` como dependência direta** | **EAS Build** quebra no bundling: `Cannot find module 'babel-preset-expo'` ao transformar `expo-router/entry.js`. Local passa porque o npm "iça" o pacote ao topo; na nuvem ele fica aninhado e o Babel não resolve a partir do `babel.config.js` custom. | `npx expo install babel-preset-expo` — obrigatório quando há um `babel.config.js` **custom** que nomeia o preset. |
 | + | **`expo-system-ui`** | `prebuild`: "Install expo-system-ui ... to enable userInterfaceStyle". | `npx expo install expo-system-ui` (faz o tema escuro `dark` valer). |
 | + | **Plugin de worklets** | bundle quebra com plugin errado. | Reanimated **4.x** (instalado: 4.2.1) usa `react-native-worklets/plugin` no Babel — não `react-native-reanimated/plugin`. |
 
@@ -200,6 +201,8 @@ module.exports = function (api) {
 
 > ⚠️ **Reanimated 4.x** (instalado: 4.2.1) usa o pacote separado `react-native-worklets` e o plugin `react-native-worklets/plugin` (sempre por último). Em Reanimated 3.x seria `react-native-reanimated/plugin`.
 
+> ⚠️ **Instale `babel-preset-expo` como dependência direta** (`npx expo install babel-preset-expo`): como aqui existe um `babel.config.js` **custom** que nomeia o preset, sem ele o **EAS Build** falha no bundling com `Cannot find module 'babel-preset-expo'` (gotcha #6) — mesmo que o build local funcione.
+
 **`tsconfig.json`** — strict (RNF-12):
 
 ```jsonc
@@ -220,7 +223,9 @@ module.exports = function (api) {
 
 ## 6. GATE — Spike do WatermelonDB (decisivo)
 
-Objetivo: provar que o adapter **JSI** do WatermelonDB sobe na **New Architecture** (RN 0.83.1) em iOS **e** Android. Este é o ponto condicionalmente bloqueante da arquitetura (ADR-003).
+> 🔴 **RESULTADO (19/06/2026): o gate REPROVOU.** No build EAS, o config plugin de comunidade do WatermelonDB injeta `com.facebook.react.bridge.JSIModulePackage` no `MainApplication` — API **removida no RN 0.83 (New Architecture)** → `Unresolved reference 'JSIModulePackage'` no `compileReleaseKotlin`. **O Plano B (§7) foi ATIVADO**: o BD local atual é **expo-sqlite + Drizzle**. O conteúdo abaixo documenta o spike que foi tentado.
+
+Objetivo (do spike): provar que o adapter **JSI** do WatermelonDB sobe na **New Architecture** (RN 0.83.1) em iOS **e** Android. Este é o ponto condicionalmente bloqueante da arquitetura (ADR-003).
 
 **Esqueleto mínimo do spike:**
 
@@ -296,7 +301,7 @@ npx expo run:ios
 
 ---
 
-## 7. Plano B — `expo-sqlite` + Drizzle (só se o gate §6 reprovar)
+## 7. Plano B — `expo-sqlite` + Drizzle (✅ ATIVADO — é o BD local atual)
 
 ```bash
 npx expo install expo-sqlite
@@ -375,16 +380,16 @@ EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=...
 
 ## 11. Definition of Done — Fase 0
 
-- [ ] `npx expo-doctor` verde no scaffold SDK 55 (com `.npmrc` `legacy-peer-deps`, `tsconfig` `experimentalDecorators`, peer deps `expo-constants`/`expo-linking`, `expo-system-ui` e a exclusão do WDB no `package.json` — ver "Gotchas reais").
-- [ ] `tsc --noEmit` e `eslint .` sem erros.
-- [ ] `app.json` sem `newArchEnabled`/`sdkVersion`/`statusBar`/`notification`/`edgeToEdgeEnabled`; plugins de `expo-notifications` + WatermelonDB presentes.
-- [ ] **Gate do WatermelonDB aprovado em iOS + Android** (JSI + ACID + observables) — **ou** Plano B (Drizzle) ativado e validado.
-- [ ] Reanimated (+ `react-native-worklets`) + `@gorhom/bottom-sheet` v5 sobem no dev build.
-- [ ] `@sentry/react-native` **≥ 7.3.0**; build Android (EAS) passa.
-- [ ] Estrutura de pastas Clean Architecture criada; `tsconfig` strict; ESLint/Prettier configurados.
-- [ ] Design tokens + Inter + tema base; `SafeAreaProvider`/edge-to-edge no layout raiz.
-- [ ] `.env` (ou EAS env vars) com chaves Supabase; `supabaseClient.ts` com url-polyfill.
-- [ ] Dev build instalável rodando em pelo menos 1 device por plataforma.
+- [x] `npx expo-doctor` **19/19** no scaffold SDK 55 (com `.npmrc legacy-peer-deps`, peer deps `expo-constants`/`expo-linking`, `expo-system-ui` — ver "Gotchas reais").
+- [x] `tsc --noEmit` e `eslint .` sem erros.
+- [x] `app.json` sem campos removidos (`newArchEnabled`/`edgeToEdgeEnabled`/etc.); plugins de `expo-notifications` + `expo-sqlite` presentes (WDB removido — Plano B).
+- [x] **Gate do BD resolvido:** WatermelonDB reprovou no build (`JSIModulePackage` removida no RN 0.83) → **Plano B (expo-sqlite + Drizzle) ATIVADO e validado** (build EAS + app rodando no device).
+- [x] Reanimated (+ `react-native-worklets`) + `@gorhom/bottom-sheet` v5 compilam no build nativo.
+- [x] `@sentry/react-native` **≥ 7.3.0**; **build Android (EAS) passa** ✅.
+- [x] Estrutura de pastas Clean Architecture criada; `tsconfig` strict; ESLint/Prettier configurados.
+- [x] Design tokens + tema base; `SafeAreaProvider`/edge-to-edge no layout raiz. *(carregamento da fonte Inter via `expo-font`: pendente p/ Fase 1+)*
+- [x] **Dev/`preview` build instalável rodando em device real (Android)** — confirmado em 20/06/2026 (splash renderizando).
+- [ ] `.env` com chaves **Supabase reais** (placeholders por ora; entra na **Fase 2** com o Auth). `supabaseClient.ts` com url-polyfill ✅.
 
 ---
 

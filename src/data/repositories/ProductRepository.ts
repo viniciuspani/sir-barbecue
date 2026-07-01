@@ -1,75 +1,106 @@
-import { Q } from '@nozbe/watermelondb';
+import { eq } from 'drizzle-orm';
 import * as Crypto from 'expo-crypto';
+import { addDatabaseChangeListener } from 'expo-sqlite';
 
-import { database } from '@/data/local/database';
-import ProductModel from '@/data/local/models/Product';
+import { db } from '@/data/local/database';
+import { products, type ProductRow } from '@/data/local/schema';
 import type { Product } from '@/domain/entities/Product';
 import type { ProductRepository } from '@/domain/repositories/ProductRepository';
 
-const collection = () => database.get<ProductModel>('products');
+// visible_days é persistido como JSON de números (0..6). Vazio/null = todos os dias.
+function serializeDays(days?: number[]): string | null {
+  return days && days.length > 0 ? JSON.stringify(days) : null;
+}
 
-function toEntity(m: ProductModel): Product {
+function parseDays(raw: string | null): number[] | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.filter((n): n is number => typeof n === 'number');
+  } catch {
+    // valor corrompido → trata como "todos os dias"
+  }
+  return undefined;
+}
+
+function toEntity(row: ProductRow): Product {
   return {
-    id: m.clientId,
-    name: m.name,
-    price: m.price,
-    isActive: m.isActive,
-    categoryId: m.categoryId,
-    needsSync: m.needsSync,
-    syncedAt: m.syncedAt,
+    id: row.id,
+    name: row.name,
+    price: row.price,
+    isActive: row.isActive,
+    categoryId: row.categoryId ?? undefined,
+    visibleDays: parseDays(row.visibleDays),
+    needsSync: row.needsSync,
+    syncedAt: row.syncedAt ?? undefined,
   };
 }
 
 /**
- * Implementação do ProductRepository sobre WatermelonDB.
- * No Plano B (expo-sqlite + Drizzle), só esta classe muda — a interface no domínio permanece.
+ * Implementação do ProductRepository sobre Drizzle + expo-sqlite (Plano B).
+ * A interface no domínio é idêntica à do WatermelonDB — Presentation/Use Cases não mudam.
  */
-export class WatermelonProductRepository implements ProductRepository {
+export class DrizzleProductRepository implements ProductRepository {
   async list(): Promise<Product[]> {
-    const rows = await collection().query().fetch();
+    const rows = await db.select().from(products);
     return rows.map(toEntity);
   }
 
   async getById(id: string): Promise<Product | null> {
-    const rows = await collection().query(Q.where('client_id', id)).fetch();
+    const rows = await db.select().from(products).where(eq(products.id, id));
     return rows.length ? toEntity(rows[0]) : null;
   }
 
   async create(input: Omit<Product, 'id' | 'needsSync' | 'syncedAt'>): Promise<Product> {
-    const clientId = Crypto.randomUUID();
-    let created!: ProductModel;
-    await database.write(async () => {
-      created = await collection().create((p) => {
-        p.clientId = clientId;
-        p.name = input.name;
-        p.price = input.price;
-        p.isActive = input.isActive;
-        p.categoryId = input.categoryId;
-        p.needsSync = true;
-      });
+    const id = Crypto.randomUUID();
+    await db.insert(products).values({
+      id,
+      name: input.name,
+      price: input.price,
+      isActive: input.isActive,
+      categoryId: input.categoryId ?? null,
+      visibleDays: serializeDays(input.visibleDays),
+      needsSync: true,
     });
-    return toEntity(created);
+    return {
+      id,
+      name: input.name,
+      price: input.price,
+      isActive: input.isActive,
+      categoryId: input.categoryId,
+      visibleDays: input.visibleDays,
+      needsSync: true,
+    };
   }
 
   async update(id: string, patch: Partial<Product>): Promise<void> {
-    const rows = await collection().query(Q.where('client_id', id)).fetch();
-    if (!rows.length) return;
-    await database.write(async () => {
-      await rows[0].update((p) => {
-        if (patch.name !== undefined) p.name = patch.name;
-        if (patch.price !== undefined) p.price = patch.price;
-        if (patch.isActive !== undefined) p.isActive = patch.isActive;
-        if (patch.categoryId !== undefined) p.categoryId = patch.categoryId;
-        p.needsSync = true;
-      });
-    });
+    const set: Partial<NewProductPatch> = { needsSync: true };
+    if (patch.name !== undefined) set.name = patch.name;
+    if (patch.price !== undefined) set.price = patch.price;
+    if (patch.isActive !== undefined) set.isActive = patch.isActive;
+    if (patch.categoryId !== undefined) set.categoryId = patch.categoryId ?? null;
+    if (patch.visibleDays !== undefined) set.visibleDays = serializeDays(patch.visibleDays);
+    await db.update(products).set(set).where(eq(products.id, id));
   }
 
-  observeAll(onChange: (products: Product[]) => void): () => void {
-    const subscription = collection()
-      .query()
-      .observe()
-      .subscribe((rows) => onChange(rows.map(toEntity)));
-    return () => subscription.unsubscribe();
+  observeAll(onChange: (items: Product[]) => void): () => void {
+    // Reatividade via change listener do expo-sqlite (substitui os observables do WDB).
+    const emit = () => {
+      this.list().then(onChange).catch(() => undefined);
+    };
+    emit();
+    const subscription = addDatabaseChangeListener((event) => {
+      if (event.tableName === 'products') emit();
+    });
+    return () => subscription.remove();
   }
 }
+
+type NewProductPatch = {
+  name: string;
+  price: number;
+  isActive: boolean;
+  categoryId: string | null;
+  visibleDays: string | null;
+  needsSync: boolean;
+};

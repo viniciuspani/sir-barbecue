@@ -9,6 +9,8 @@
 > **Próximo documento:** [01c_ARQUITETURA_SOFTWARE_INFRA_OPERACOES.md](./01c_ARQUITETURA_SOFTWARE_INFRA_OPERACOES.md)
 >
 > **Revisão 19/06/2026 — Expo SDK 55:** versões de libs e navegação atualizadas (Expo Router v7; download de relatório com a nova API `File`/`Directory` do `expo-file-system`). Base: [ANALISE_IMPACTO_EXPO_SDK_55.html](../plano/ANALISE_IMPACTO_EXPO_SDK_55.html).
+>
+> **Atualização 19/06/2026 — Plano B ATIVADO:** BD local **WatermelonDB → expo-sqlite + Drizzle** (o plugin do WDB injetava `JSIModulePackage`, removida no RN 0.83/New Arch). Isolado a `src/data/local` + repositório; interface/telas/stores/services inalterados. No restante, **leia "WatermelonDB" como "expo-sqlite + Drizzle"**. Razão no [ADR-003](./01a_ARQUITETURA_SOFTWARE_VISAO_GERAL.md).
 
 ---
 
@@ -29,7 +31,7 @@
 |----------|-------|
 | **Responsabilidade** | Interface do usuário, lógica de negócio local, persistência offline e orquestração de sync |
 | **Tipo** | Frontend Mobile |
-| **Tecnologia** | React Native 0.83.1, Expo SDK 55, TypeScript, WatermelonDB, Zustand |
+| **Tecnologia** | React Native 0.83.1, Expo SDK 55, TypeScript, expo-sqlite + Drizzle, Zustand |
 | **Escala** | Stateful — o estado local (SQLite) reside no dispositivo |
 | **Depende de** | Supabase (sync remoto), Expo Notifications, FCM/APNs |
 | **Expõe** | Interface de usuário nativa iOS/Android |
@@ -47,7 +49,7 @@
 |---------------|-----------|-----------------|
 | Navigation | Expo Router v7 (sobre React Navigation 7) | Roteamento file-based entre telas — máx. 3 níveis de hierarquia (RNF-06) |
 | Auth Module | Supabase Auth SDK | Login email/senha, Google OAuth, gestão de sessão JWT |
-| Local Database | WatermelonDB (SQLite) | Persistência offline de todos os dados operacionais |
+| Local Database | expo-sqlite + Drizzle (SQLite) | Persistência offline de todos os dados operacionais |
 | Sync Engine | Custom + Supabase Realtime | Sincronização bidirecional com servidor |
 | Notification Handler | Expo Notifications | Tokens push, recebimento e navegação por notificação |
 | Report Requester | Supabase Functions SDK | Disparo e polling de status de geração de relatórios |

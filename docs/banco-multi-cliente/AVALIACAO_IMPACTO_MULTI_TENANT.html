@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Avaliação de Impacto — Single-user → Multi-tenant SaaS | Sir Barbecue</title>
+  <style>
+    :root { --primary: #b91c1c; --primary-light: #fef2f2; --bg: #f8fafc; --surface: #ffffff; --text: #1e293b; --border: #e2e8f0; --code-bg: #1e293b; --code-text: #e2e8f0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+    header { background: var(--primary); color: white; padding: 2.5rem 1.5rem; margin-bottom: 2rem; }
+    header h1 { font-size: 1.8rem; font-weight: 700; }
+    header p { opacity: 0.85; margin-top: 0.5rem; font-size: 0.95rem; }
+    .phase-banner { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 2rem; font-size: 0.95rem; color: #92400e; }
+    .phase-banner strong { color: #c2410c; }
+    nav { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; }
+    nav h2 { font-size: 1rem; font-weight: 600; color: var(--primary); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    nav ol { padding-left: 1.5rem; }
+    nav li { margin-bottom: 0.4rem; }
+    nav a { color: var(--primary); text-decoration: none; font-size: 0.95rem; }
+    nav a:hover { text-decoration: underline; }
+    section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 2rem; margin-bottom: 1.5rem; }
+    h2 { font-size: 1.4rem; color: var(--primary); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+    h3 { font-size: 1.1rem; color: var(--text); margin: 1.5rem 0 0.75rem; font-weight: 600; }
+    h4 { font-size: 1rem; color: var(--primary); margin: 1.25rem 0 0.5rem; font-weight: 600; }
+    p { margin-bottom: 1rem; color: #334155; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+    thead { background: #fef2f2; }
+    th { padding: 0.6rem 0.8rem; text-align: left; font-weight: 600; border: 1px solid var(--border); color: var(--primary); }
+    td { padding: 0.55rem 0.8rem; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) { background: #f8fafc; }
+    code { background: #f1f5f9; border: 1px solid var(--border); border-radius: 4px; padding: 0.15em 0.4em; font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace; font-size: 0.875em; color: #be185d; }
+    pre { background: var(--code-bg); color: var(--code-text); border-radius: 8px; padding: 1.25rem; overflow-x: auto; margin: 1rem 0; }
+    pre code { background: none; border: none; color: inherit; font-size: 0.875rem; padding: 0; }
+    blockquote { border-left: 4px solid var(--primary); background: var(--primary-light); padding: 1rem 1.25rem; border-radius: 0 6px 6px 0; margin: 1rem 0; color: #7f1d1d; }
+    ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+    li { margin-bottom: 0.3rem; }
+    .decision-box { background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 1rem 1.25rem; margin: 1rem 0; }
+    .decision-box strong { color: #15803d; }
+    .verdict-box { background: #f0fdf4; border: 2px solid #16a34a; border-radius: 10px; padding: 1.5rem 1.75rem; margin: 1.5rem 0; }
+    .verdict-box .verdict-title { font-size: 1.25rem; font-weight: 700; color: #15803d; margin-bottom: 0.5rem; }
+    .verdict-box p { color: #166534; margin-bottom: 0.5rem; }
+    .badge { display: inline-block; padding: 0.12em 0.6em; border-radius: 999px; font-size: 0.78rem; font-weight: 700; white-space: nowrap; }
+    .badge-low { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+    .badge-med { background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }
+    .badge-high { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+    .chip { display: inline-block; padding: 0.1em 0.55em; border-radius: 6px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+    .chip-none { background: #dcfce7; color: #15803d; }
+    .chip-minor { background: #dbeafe; color: #1d4ed8; }
+    .chip-major { background: #fef3c7; color: #b45309; }
+    .chip-block { background: #fee2e2; color: #b91c1c; }
+    .summary-grid { width: 100%; }
+    .summary-grid td:first-child { font-weight: 600; color: var(--primary); white-space: nowrap; width: 32%; }
+    .legend { font-size: 0.85rem; color: #64748b; margin: 0.5rem 0 1rem; }
+    .legend .chip, .legend .badge { margin-right: 0.4rem; }
+    footer { text-align: center; padding: 2rem; color: #94a3b8; font-size: 0.85rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+    @media (max-width: 768px) { .container { padding: 1rem; } section { padding: 1.25rem; } table { font-size: 0.8rem; } .summary-grid td:first-child { width: auto; white-space: normal; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Avaliação de Impacto — Single-user → Multi-tenant SaaS</h1>
+      <p>Projeto Sir Barbecue · Versão 1.0 · 22/06/2026 · Migração do modelo de dados e da camada de auth/sync</p>
+    </div>
+  </header>
+  <div class="container">
+
+    <div class="phase-banner">
+      <strong>Documento de decisão técnica</strong> — Avalia o impacto de pivotar de <strong>single-user</strong> (RLS por <code>user_id</code>) para
+      <strong>SaaS multi-tenant</strong> (RLS por <code>tenant_id</code>/empresa), conforme
+      <code>docs/banco-multi-cliente/SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql</code>.
+      &nbsp;|&nbsp; Baseline: <code>SUPABASE_SCHEMA_COMPLETO.sql</code>. &nbsp;|&nbsp; MVP: <strong>1 empresa por usuário</strong>.
+    </div>
+
+    <nav>
+      <h2>Índice</h2>
+      <ol>
+        <li><a href="#sumario">Sumário Executivo (veredito)</a></li>
+        <li><a href="#comparacao">Comparação: single-user × multi-tenant</a></li>
+        <li><a href="#modelo">O modelo multi-tenant (como funciona)</a></li>
+        <li><a href="#impacto">Impacto por componente do app</a></li>
+        <li><a href="#mudancas">Detalhe das mudanças de código</a></li>
+        <li><a href="#setup">Setup do Supabase (pré-requisito)</a></li>
+        <li><a href="#fases">Impacto nas Fases 4+</a></li>
+        <li><a href="#riscos">Riscos e decisões</a></li>
+        <li><a href="#veredito">Veredito final + checklist de migração</a></li>
+        <li><a href="#fontes">Fontes</a></li>
+      </ol>
+    </nav>
+
+    <!-- 1 -->
+    <section id="sumario">
+      <h2>1. Sumário Executivo (veredito)</h2>
+      <div class="verdict-box">
+        <div class="verdict-title">✅ VIÁVEL — a migração para multi-tenant é incremental e bem isolada.</div>
+        <p>O isolamento de dados passa de <strong><code>user_id</code> (o dono)</strong> para <strong><code>tenant_id</code> (a empresa)</strong>. O impacto no app já construído é <strong>concentrado</strong> em 3 pontos de código (<code>authStore</code>, <code>syncEngine</code>, <code>signup</code>) + setup do Supabase. A <strong>Clean Architecture isola de novo</strong>: domínio, telas, repositórios locais e schema local ficam praticamente intactos.</p>
+        <p>Risco global: <span class="badge badge-med">MÉDIO</span> — sobretudo pela <strong>segurança 100% dependente da RLS</strong> (sem isolamento físico entre empresas) e pela necessidade de habilitar o <em>Custom Access Token Hook</em>.</p>
+      </div>
+
+      <table class="summary-grid">
+        <tbody>
+          <tr><td>Veredito</td><td><strong>VIÁVEL e recomendado.</strong> Migração incremental, sem reescrita do app.</td></tr>
+          <tr><td>Risco global</td><td><span class="badge badge-med">MÉDIO</span> — segurança via RLS, hook obrigatório, e testes de isolamento (tenant X ≠ tenant Y).</td></tr>
+          <tr><td>Esforço de código</td><td>Pequeno-médio: 3 arquivos (<code>authStore</code>, <code>syncEngine</code>, <code>signup</code>) + leitura de claim. Domínio/telas/repos locais inalterados.</td></tr>
+          <tr><td>Decisão MVP</td><td><strong>1 empresa por usuário</strong> (o schema suporta multi-empresa + equipe; seletor e convites ficam para fase posterior).</td></tr>
+          <tr><td>Pré-requisito de runtime</td><td>Rodar o SQL multi-tenant + <strong>habilitar o Custom Access Token Hook</strong> no Dashboard do Supabase.</td></tr>
+          <tr><td>Dados existentes</td><td>Como ainda é fase de teste → recomenda-se <strong>banco fresh</strong> (evita backfill de <code>tenant_id</code>).</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 2 -->
+    <section id="comparacao">
+      <h2>2. Comparação: single-user × multi-tenant</h2>
+      <table>
+        <thead><tr><th>Aspecto</th><th>Single-user (<code>SUPABASE_SCHEMA_COMPLETO.sql</code>)</th><th>Multi-tenant (<code>..._SAAS_MULTI_TENANT.sql</code>)</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Unidade de isolamento</strong></td><td><code>user_id</code> (o proprietário)</td><td><strong><code>tenant_id</code> (a empresa)</strong></td></tr>
+          <tr><td>Papel do <code>user_id</code></td><td>Dono dos dados (alvo da RLS)</td><td><strong>Auditoria</strong> — "quem registrou" (default <code>auth.uid()</code>)</td></tr>
+          <tr><td>Tabelas novas</td><td>—</td><td><strong><code>tenants</code></strong> (empresa) + <strong><code>tenant_members</code></strong> (usuário↔empresa + papel)</td></tr>
+          <tr><td>Papéis / equipe</td><td>Usuário único</td><td><code>owner</code> / <code>manager</code> / <code>employee</code> por empresa</td></tr>
+          <tr><td>Tabelas de negócio</td><td>RLS <code>user_id = auth.uid()</code></td><td><code>tenant_id NOT NULL</code> + RLS <code>tenant_id in (select user_tenant_ids())</code></td></tr>
+          <tr><td>Tabelas filhas</td><td>RLS via pai (dono = user)</td><td>RLS via pai (empresa do pai) — seguem <strong>normalizadas</strong> (sem <code>tenant_id</code> próprio)</td></tr>
+          <tr><td>Unicidade</td><td><code>UNIQUE (user_id, name)</code></td><td><code>UNIQUE (tenant_id, name)</code></td></tr>
+          <tr><td>JWT</td><td>—</td><td><strong>Custom Access Token Hook</strong> injeta <code>app_metadata.tenant_ids</code></td></tr>
+          <tr><td>Bootstrap (novo usuário)</td><td>Cria categorias padrão p/ o usuário</td><td>Cria <strong>1 empresa + membership(owner)</strong>; categorias na empresa (nome via <code>business_name</code>)</td></tr>
+          <tr><td>Storage de relatórios</td><td><code>reports/&lt;uid&gt;/</code></td><td><code>reports/&lt;tenant_id&gt;/</code></td></tr>
+          <tr><td>Índices</td><td>Começam por <code>user_id</code></td><td>Começam por <code>tenant_id</code></td></tr>
+        </tbody>
+      </table>
+      <blockquote>As 11 tabelas de negócio são as mesmas; o que muda é a <strong>dimensão de isolamento</strong> (+2 tabelas de tenancy). O modelo de sync por <code>client_id</code> (idempotência) e as referências entre registros (por <code>client_id</code> do pai) <strong>permanecem idênticos</strong>.</blockquote>
+    </section>
+
+    <!-- 3 -->
+    <section id="modelo">
+      <h2>3. O modelo multi-tenant (como funciona)</h2>
+      <h3>3.1 Empresa e equipe</h3>
+      <ul>
+        <li><strong><code>tenants</code></strong> — a empresa/estabelecimento (nome fantasia, CNPJ, logo, <code>owner_user_id</code>). É a unidade de isolamento.</li>
+        <li><strong><code>tenant_members</code></strong> — liga <code>user_id</code> ↔ <code>tenant_id</code> com <code>role</code> (<code>owner</code>/<code>manager</code>/<code>employee</code>). Permite vários usuários por empresa.</li>
+      </ul>
+      <h3>3.2 RLS sem recursão</h3>
+      <p>Funções <code>SECURITY DEFINER</code> que leem <code>tenant_members</code> ignorando a RLS (evita recursão):</p>
+      <ul>
+        <li><code>user_tenant_ids()</code> → empresas do usuário logado. Base de <strong>toda</strong> a RLS: <code>tenant_id in (select user_tenant_ids())</code>.</li>
+        <li><code>is_tenant_owner(tenant_id)</code> → se o usuário é <em>owner</em> (gestão de equipe e dados cadastrais da empresa).</li>
+      </ul>
+      <h3>3.3 Custom Access Token Hook (otimização) — tipo <em>Postgres</em></h3>
+      <p><code>add_tenant_claims</code> é uma <strong>função Postgres (PL/pgSQL)</strong> — por isso, no Dashboard, o hook é do tipo <strong>Postgres</strong> (schema <code>public</code>, função <code>add_tenant_claims</code>), <strong>não</strong> HTTPS (HTTPS seria para chamar uma URL externa). Ela injeta <code>app_metadata.tenant_ids</code> no JWT a cada login.</p>
+      <blockquote>Após habilitar o hook, faça <strong>logout/login</strong> num usuário de teste: tokens antigos não carregam o claim até renovar (~1h) ou novo login.</blockquote>
+
+      <h4>Dois caminhos para a RLS descobrir as empresas do usuário</h4>
+      <p>O resultado é o mesmo; muda a <em>fonte</em> dos <code>tenant_ids</code>:</p>
+      <table>
+        <thead><tr><th></th><th>Caminho padrão (aplicado pelo script)</th><th>Caminho rápido (comentado no script — linhas 426–429)</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Expressão na policy</strong></td><td><code>tenant_id in (select public.user_tenant_ids())</code></td><td><code>tenant_id = any (select (jsonb_array_elements_text(auth.jwt() -&gt; 'app_metadata' -&gt; 'tenant_ids'))::uuid)</code></td></tr>
+          <tr><td><strong>Fonte dos tenant_ids</strong></td><td><strong>SELECT em <code>tenant_members</code></strong> a cada query (função SECURITY DEFINER)</td><td><strong>Direto do JWT</strong> (injetado pelo hook) — sem tocar no banco</td></tr>
+          <tr><td><strong>Custo</strong></td><td>Uma consulta extra por query</td><td>~Zero (já está no token)</td></tr>
+          <tr><td><strong>Atualização (frescor)</strong></td><td><strong>Sempre atual</strong> — mudou a equipe, vale na hora</td><td><strong>Defasado</strong> até o token renovar (~1h) ou novo login</td></tr>
+        </tbody>
+      </table>
+      <blockquote><strong>Trade-off:</strong> o caminho rápido troca <em>frescor</em> por <em>custo/latência</em>. <strong>Recomendação:</strong> no MVP (1 empresa/usuário), ficar no <strong>caminho padrão</strong> (<code>user_tenant_ids()</code>) — sempre correto e com custo irrelevante no volume atual. Migrar para o JWT só se custo/latência pesarem com muitos clientes; nesse caso, trocar <code>(select public.user_tenant_ids())</code> pela expressão do JWT em <strong>todas</strong> as policies (inclusive dentro do <code>EXISTS</code> das tabelas filhas, onde vira <code>p.tenant_id = any (...)</code>). Dica: encapsular a expressão num helper <code>auth_tenant_ids()</code> para manter DRY e alternar fácil entre os dois caminhos.</blockquote>
+      <h3>3.4 Bootstrap e seed</h3>
+      <ul>
+        <li><code>handle_new_user</code> (trigger em <code>auth.users</code>) → ao criar usuário, cria a <strong>1ª empresa</strong> (nome = <code>raw_user_meta_data.business_name</code> ou "Minha Empresa") + <code>tenant_members(owner)</code>.</li>
+        <li><code>seed_tenant_categories</code> (trigger em <code>tenants</code>) → ao criar empresa, semeia 4 categorias padrão.</li>
+      </ul>
+    </section>
+
+    <!-- 4 -->
+    <section id="impacto">
+      <h2>4. Impacto por componente do app (Fases 0–3)</h2>
+      <p class="legend">
+        <span class="chip chip-none">não muda</span>
+        <span class="chip chip-minor">ajuste menor</span>
+        <span class="chip chip-major">ajuste relevante</span>
+      </p>
+      <table>
+        <thead><tr><th>Componente</th><th>Status</th><th>Por quê</th></tr></thead>
+        <tbody>
+          <tr><td>Domínio (<code>entities/</code> + interfaces de repositório)</td><td><span class="chip chip-none">não muda</span></td><td>TS puro; não conhece backend nem tenant.</td></tr>
+          <tr><td>Repositórios Drizzle (<code>data/repositories/*</code>)</td><td><span class="chip chip-none">não muda</span></td><td>Operam no <strong>banco local</strong> (single-tenant no device).</td></tr>
+          <tr><td><code>src/data/local/schema.ts</code> (Drizzle local)</td><td><span class="chip chip-none">não muda</span></td><td>Device = 1 empresa → local segue sem <code>tenant_id</code>. O <code>tenant_id</code> é injetado só no <strong>push</strong>.</td></tr>
+          <tr><td>Telas (auth shell, tabs, placeholders)</td><td><span class="chip chip-none">não muda</span></td><td>Exceto a tela de cadastro (ver abaixo).</td></tr>
+          <tr><td><code>connectivityStore</code> / <code>syncStore</code> / <code>cartStore</code></td><td><span class="chip chip-none">não muda</span></td><td>Estado genérico, agnóstico a tenant.</td></tr>
+          <tr><td><code>OfflineBanner</code> + design system</td><td><span class="chip chip-none">não muda</span></td><td>UI pura.</td></tr>
+          <tr><td><strong><code>src/store/authStore.ts</code></strong></td><td><span class="chip chip-major">ajuste relevante</span></td><td>Passa a carregar e expor o <code>currentTenantId</code> após o login.</td></tr>
+          <tr><td><strong><code>src/data/sync/syncEngine.ts</code></strong></td><td><span class="chip chip-major">ajuste relevante</span></td><td>Push das tabelas com <code>tenant_id</code> direto inclui o tenant; pull filtra por tenant. Filhas inalteradas.</td></tr>
+          <tr><td><strong><code>app/(auth)/signup.tsx</code></strong> + <code>services/auth.ts</code></td><td><span class="chip chip-minor">ajuste menor</span></td><td>Campo "Nome da empresa" → enviado em <code>options.data.business_name</code>.</td></tr>
+          <tr><td><code>src/data/remote/supabaseClient.ts</code></td><td><span class="chip chip-minor">ajuste menor</span></td><td>Sem mudança estrutural; só lê o claim do JWT (no authStore).</td></tr>
+          <tr><td>Docs de arquitetura (01a/01c/02a/02b) + PLANO</td><td><span class="chip chip-major">ajuste relevante</span></td><td>Modelo "proprietário único" → multi-tenant (novo ADR + RLS por tenant).</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 5 -->
+    <section id="mudancas">
+      <h2>5. Detalhe das mudanças de código</h2>
+
+      <h3>5.1 <code>authStore</code> — carregar o tenant atual</h3>
+      <p>Após o login, derivar o tenant do claim do JWT (ou, como fallback, consultar <code>tenant_members</code>):</p>
+      <pre><code>// após getSession()/onAuthStateChange:
+const tenantIds = (session?.user?.app_metadata?.tenant_ids ?? []) as string[];
+let currentTenantId = tenantIds[0] ?? null;
+if (!currentTenantId) {
+  // fallback se o hook não estiver habilitado
+  const { data } = await supabase.from('tenant_members')
+    .select('tenant_id').limit(1).maybeSingle();
+  currentTenantId = data?.tenant_id ?? null;
+}
+set({ session, user: session?.user ?? null, currentTenantId });</code></pre>
+      <p>Expor <code>currentTenantId</code> no estado para o Sync Engine consumir. (MVP: 1 empresa → pega a 1ª.)</p>
+
+      <h3>5.2 <code>syncEngine.ts</code> — enviar <code>tenant_id</code> no push</h3>
+      <ul>
+        <li><strong>Tabelas com <code>tenant_id</code> direto</strong> (products, sales, categories, suppliers, stock_items, stock_entries, reports): o payload do upsert passa a incluir <code>tenant_id: currentTenantId</code>.</li>
+        <li><strong>Filhas NÃO mudam</strong> (<code>sale_items</code>, <code>product_suppliers</code>, <code>product_day_visibility</code>) — herdam o tenant do pai; a RLS valida via <code>EXISTS</code>.</li>
+        <li><strong>Pull</strong>: filtrar pela empresa atual — <code>.eq('tenant_id', currentTenantId)</code> — para não misturar empresas caso o usuário pertença a várias.</li>
+        <li><code>runSync()</code> passa a exigir <code>currentTenantId</code> (no-op sem tenant, como já é no-op sem sessão).</li>
+      </ul>
+      <pre><code>// pushProducts — exemplo
+upsertRemote('products', rows.map((r) => ({
+  client_id: r.id,
+  tenant_id: currentTenantId,        // ← novo
+  name: r.name, price: r.price,
+  is_active: r.isActive,
+  category_client_id: r.categoryId,
+})));</code></pre>
+
+      <h3>5.3 <code>signup</code> — nome da empresa</h3>
+      <ul>
+        <li>Adicionar campo "Nome da empresa" na tela de cadastro.</li>
+        <li><code>signUpWithEmail(email, password, businessName)</code> → <code>supabase.auth.signUp({ email, password, options: { data: { business_name: businessName } } })</code>. O trigger <code>handle_new_user</code> nomeia a 1ª empresa com esse valor.</li>
+        <li>Google OAuth: não há como coletar o nome antes → a empresa nasce como "Minha Empresa" (renomeável na Fase 5 — "Minha Empresa").</li>
+      </ul>
+
+      <h3>5.4 <code>supabaseClient</code></h3>
+      <p>Sem mudança estrutural. O <code>flowType: 'pkce'</code> e o <code>storage</code> (SecureStore) permanecem. O claim <code>tenant_ids</code> chega no JWT quando o hook está habilitado.</p>
+    </section>
+
+    <!-- 6 -->
+    <section id="setup">
+      <h2>6. Setup do Supabase (pré-requisito do runtime)</h2>
+      <ol>
+        <li>Rodar o <code>SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql</code> no SQL Editor (substitui o <code>SUPABASE_SCHEMA_COMPLETO.sql</code> single-user; idempotente). Se o banco já tinha o single-user com dados, preferir <strong>banco fresh</strong>.</li>
+        <li><strong>Habilitar o Custom Access Token Hook (tipo Postgres):</strong> Dashboard → Authentication → Hooks → <em>Custom Access Token</em> → schema <code>public</code>, função <code>add_tenant_claims</code>. Depois, <strong>logout/login</strong> para o novo JWT trazer o claim. Sem o hook, o app usa o fallback por query (mais lento, mas funciona — ver §3.3 para os dois caminhos da RLS).</li>
+        <li>No cadastro, enviar o metadado <code>business_name</code> (já tratado pela mudança no <code>signup</code>).</li>
+        <li>Testar isolamento: usuário do tenant X <strong>não</strong> deve ler/escrever linhas do tenant Y.</li>
+      </ol>
+      <blockquote>O <code>SUPABASE_SCHEMA_COMPLETO.sql</code> (single-user) fica <strong>obsoleto</strong> com a adoção do multi-tenant.</blockquote>
+    </section>
+
+    <!-- 7 -->
+    <section id="fases">
+      <h2>7. Impacto nas Fases 4+ (a fazer)</h2>
+      <ul>
+        <li><strong>Fase 4 (Produtos/Vendas/Estoque/Dashboard):</strong> as telas continuam iguais; o <code>tenant_id</code> é carregado pela <strong>camada de sync</strong> (não pela UI). Queries locais já são da empresa (device = 1 empresa).</li>
+        <li><strong>Fase 5 (Config):</strong> ganha a tela <strong>"Minha Empresa"</strong> — renomear empresa/CNPJ/logo (owner) e, opcionalmente, <strong>gerenciar equipe</strong> (convidar/remover membros = inserir/remover em <code>tenant_members</code>, <em>owner-only</em>). É um RF novo (multi-tenant).</li>
+        <li><strong>Seletor de empresa:</strong> só se o produto evoluir para <em>um usuário em várias empresas</em>. Fora do MVP.</li>
+        <li><strong>Exclusão de conta (RNF-08):</strong> passa a considerar a empresa (excluir empresa vs sair da empresa) — refinar na Edge Function.</li>
+      </ul>
+    </section>
+
+    <!-- 8 -->
+    <section id="riscos">
+      <h2>8. Riscos e decisões</h2>
+      <table>
+        <thead><tr><th>Item</th><th>Nível</th><th>Observação / mitigação</th></tr></thead>
+        <tbody>
+          <tr><td>Segurança 100% na RLS (sem isolamento físico)</td><td><span class="badge badge-med">Médio</span></td><td>Uma empresa nunca pode ver outra. <strong>Testar todas as policies</strong> com 2 tenants antes de clientes reais.</td></tr>
+          <tr><td>Custom Access Token Hook não habilitado</td><td><span class="badge badge-low">Baixo</span></td><td>O claim não chega → usar o fallback por query em <code>tenant_members</code> (já previsto no authStore).</td></tr>
+          <tr><td>Banco local single-tenant</td><td><span class="badge badge-low">Baixo</span></td><td>MVP = 1 empresa. Se um dia houver troca de empresa no mesmo device, <strong>resetar o DB local</strong> (ou escopar por tenant).</td></tr>
+          <tr><td>Migração de dados existentes</td><td><span class="badge badge-low">Baixo</span></td><td>Ainda é teste → <strong>banco fresh</strong>. Se houvesse dados: criar tenant + backfill <code>tenant_id</code> a partir do <code>user_id</code>.</td></tr>
+          <tr><td>Free tier (multi-cliente real)</td><td><span class="badge badge-med">Médio</span></td><td>500MB DB / 1GB Storage; projeto pausa após ~7 dias inativo. Para clientes reais, avaliar plano Pro.</td></tr>
+          <tr><td>Google OAuth sem nome de empresa</td><td><span class="badge badge-low">Baixo</span></td><td>Empresa nasce "Minha Empresa" → renomear em "Minha Empresa" (Fase 5).</td></tr>
+        </tbody>
+      </table>
+      <h3>Decisões adotadas</h3>
+      <ul>
+        <li><strong>MVP = 1 empresa por usuário</strong> (estrutura pronta para multi-empresa + equipe; seletor/convites depois).</li>
+        <li><strong>Filhas normalizadas</strong> (sem <code>tenant_id</code> próprio) — a desnormalização (Sugestão 4) só se a RLS via <code>EXISTS</code> virar gargalo com volume alto.</li>
+      </ul>
+    </section>
+
+    <!-- 9 -->
+    <section id="veredito">
+      <h2>9. Veredito final + checklist de migração</h2>
+      <div class="decision-box">
+        <p><strong>SIM</strong> — migrar para multi-tenant é viável e de baixo atrito no app. A mudança é majoritariamente de <strong>schema/RLS no Supabase</strong> + <strong>3 ajustes de código</strong> (authStore, syncEngine, signup). A Clean Architecture mantém domínio, telas e repositórios locais intactos.</p>
+      </div>
+      <h3>Checklist da migração (código — etapa seguinte, sob novo OK)</h3>
+      <ul>
+        <li>☐ <code>authStore</code>: carregar <code>currentTenantId</code> (claim do JWT / fallback query).</li>
+        <li>☐ <code>syncEngine</code>: enviar <code>tenant_id</code> no push das tabelas diretas; filtrar pull por tenant; exigir tenant no <code>runSync</code>.</li>
+        <li>☐ <code>signup</code> + <code>auth.ts</code>: campo "Nome da empresa" → <code>business_name</code>.</li>
+        <li>☐ Gate local: <code>tsc</code> + <code>eslint</code> + <code>expo export</code> verdes.</li>
+      </ul>
+      <h3>Checklist do backend (você)</h3>
+      <ul>
+        <li>☐ Rodar o <code>SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql</code> (banco fresh).</li>
+        <li>☐ Habilitar o Custom Access Token Hook (<code>add_tenant_claims</code>).</li>
+        <li>☐ Testar isolamento entre 2 empresas.</li>
+      </ul>
+      <h3>Docs a atualizar</h3>
+      <ul>
+        <li>☐ <code>01a</code> (novo ADR de multi-tenancy / auth), <code>01c §8</code> (modelo passa de "proprietário único" → multi-tenant), <code>02a/02b</code> (<code>tenant_id</code> + <code>tenants</code>/<code>tenant_members</code>), e o <code>PLANO</code> (Fases 4+ tenant-aware + "Minha Empresa"/equipe).</li>
+      </ul>
+    </section>
+
+    <!-- 10 -->
+    <section id="fontes">
+      <h2>10. Fontes</h2>
+      <ul>
+        <li>Schema multi-tenant (alvo): <code>docs/banco-multi-cliente/SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql</code></li>
+        <li>Schema single-user (baseline): <code>docs/plano/SUPABASE_SCHEMA_COMPLETO.sql</code></li>
+        <li>Código analisado: <code>src/store/authStore.ts</code>, <code>src/data/sync/syncEngine.ts</code>, <code>src/services/auth.ts</code>, <code>app/(auth)/signup.tsx</code>, <code>src/data/remote/supabaseClient.ts</code>, <code>src/data/local/schema.ts</code></li>
+        <li>Arquitetura: <code>docs/arquitetura/01a</code> (ADR-005 Auth), <code>01c §8</code> (RLS), <code>02a/02b</code> (modelo/operações de BD)</li>
+      </ul>
+    </section>
+
+    <footer>
+      <p>Avaliação de Impacto — Single-user → Multi-tenant SaaS · Projeto Sir Barbecue · 22/06/2026</p>
+      <p>Veredito: VIÁVEL · Risco MÉDIO · MVP = 1 empresa/usuário · Migração de código em etapa separada.</p>
+    </footer>
+
+  </div>
+</body>
+</html>

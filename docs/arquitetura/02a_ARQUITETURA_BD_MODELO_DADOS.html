@@ -59,6 +59,10 @@
       Próximo: <a href="./02b_ARQUITETURA_BD_OPERACOES.html">02b — Operações e Escala</a>
     </div>
 
+    <div class="phase-banner" style="background:#dbeafe;border-color:#93c5fd;color:#1e40af;">
+      <strong>Atualização 23/06/2026 — Multi-tenant SaaS</strong> &nbsp;|&nbsp; Modelo passou de <strong>proprietário único (RLS por user_id)</strong> para <strong>multi-empresa (RLS por tenant_id)</strong>: novas tabelas <code>tenants</code> + <code>tenant_members</code>; tabelas de negócio ganham <code>tenant_id NOT NULL</code>; filhas normalizadas (RLS via pai). Schema canônico: <code>SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql</code> (o DDL aqui reflete o baseline single-user). Avaliação: <code>AVALIACAO_IMPACTO_MULTI_TENANT.html</code>.
+    </div>
+
     <nav>
       <h2>Índice desta Fase</h2>
       <ol>
@@ -140,7 +144,7 @@
       <table>
         <thead><tr><th>Banco Auxiliar</th><th>Tecnologia</th><th>Finalidade</th></tr></thead>
         <tbody>
-          <tr><td>Banco local (dispositivo)</td><td>SQLite via WatermelonDB</td><td>Persistência offline-first de todos os dados</td></tr>
+          <tr><td>Banco local (dispositivo)</td><td>SQLite local (expo-sqlite + Drizzle)</td><td>Persistência offline-first de todos os dados</td></tr>
           <tr><td>Storage de arquivos</td><td>Supabase Storage (S3-compatible)</td><td>PDFs e HTMLs de relatórios gerados</td></tr>
           <tr><td>Auth tokens</td><td>Expo SecureStore</td><td>Tokens JWT no Keychain/Keystore do dispositivo</td></tr>
         </tbody>

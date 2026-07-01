@@ -6,6 +6,8 @@
 > **Elaborado por:** Arquiteto de Soluções (gerado via /arquiteto-solucoes-sistema)
 > **Baseado em:** Designing Data-Intensive Applications — Martin Kleppmann
 > **Próximo documento:** [02b_ARQUITETURA_BD_OPERACOES.md](./02b_ARQUITETURA_BD_OPERACOES.md)
+>
+> **Atualização 23/06/2026 — Multi-tenant SaaS:** o modelo passou de **proprietário único (RLS por `user_id`)** para **multi-empresa (RLS por `tenant_id`)**. Adicionadas as tabelas **`tenants`** e **`tenant_members`** (papéis owner/manager/employee); todas as tabelas de negócio ganham **`tenant_id NOT NULL`** e uniques `(tenant_id, name)`; filhas (sale_items, etc.) seguem normalizadas (RLS via pai). **Schema canônico:** [SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql](../banco-multi-cliente/SUPABASE_SCHEMA_SAAS_MULTI_TENANT.sql) — o DDL abaixo reflete o baseline single-user. Avaliação: [AVALIACAO_IMPACTO_MULTI_TENANT.html](../banco-multi-cliente/AVALIACAO_IMPACTO_MULTI_TENANT.html).
 
 ---
 
@@ -91,13 +93,13 @@
 Os relatórios financeiros gerenciais (RF-19, RF-20) requerem JOINs entre vendas, itens, produtos e custos de fornecedor. Em um banco de documentos, esta operação exigiria múltiplas queries + agregação no application layer, introduzindo complexidade desnecessária e potencial inconsistência. O PostgreSQL suporta essas queries nativamente com performance excelente no volume estimado.
 
 **Por que NOT Firebase Firestore:**
-Firestore é NoSQL orientado a documentos. Embora excelente para offline e realtime, o modelo de dados hierárquico dificulta queries analíticas transversais (ex: "todos os produtos vendidos no mês com custo de cada fornecedor"). O PostgreSQL do Supabase oferece offline via WatermelonDB + realtime via Supabase Realtime sem sacrificar a capacidade analítica.
+Firestore é NoSQL orientado a documentos. Embora excelente para offline e realtime, o modelo de dados hierárquico dificulta queries analíticas transversais (ex: "todos os produtos vendidos no mês com custo de cada fornecedor"). O PostgreSQL do Supabase oferece offline via SQLite local (expo-sqlite + Drizzle) + realtime via Supabase Realtime sem sacrificar a capacidade analítica.
 
 ### 2.2 Bancos de Dados Auxiliares
 
 | Banco Auxiliar | Tecnologia | Finalidade |
 |---------------|-----------|-----------|
-| Banco local (dispositivo) | SQLite via WatermelonDB | Persistência offline-first de todos os dados operacionais |
+| Banco local (dispositivo) | SQLite local (expo-sqlite + Drizzle) | Persistência offline-first de todos os dados operacionais |
 | Storage de arquivos | Supabase Storage (S3-compatible) | PDFs e HTMLs de relatórios gerados |
 | Auth tokens | Expo SecureStore (Keychain/Keystore) | Tokens JWT do usuário no dispositivo |
 
