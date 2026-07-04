@@ -128,48 +128,60 @@ async function pushProductSuppliers(): Promise<void> {
     .where(eq(productSuppliers.needsSync, true));
 }
 
-async function pushSales(tenantId: string): Promise<void> {
-  const rows = await db.select().from(sales).where(eq(sales.needsSync, true));
-  if (rows.length === 0) return;
-  await withRetry(() =>
-    upsertRemote(
-      'sales',
-      rows.map((r) => ({
-        client_id: r.id,
-        tenant_id: tenantId,
-        sale_date: new Date(r.saleDate).toISOString(),
-        total_amount: r.totalAmount,
-        payment_method: r.paymentMethod,
-        consumption_mode: r.consumptionMode,
-      })),
-    ),
-  );
-  await db
-    .update(sales)
-    .set({ needsSync: false, syncedAt: Date.now() })
-    .where(eq(sales.needsSync, true));
-}
+// Vendas + itens enviados UMA VENDA POR VEZ (item 2 — isolamento de falha):
+// o upsert de sale_items é atômico por requisição, então uma venda com estoque
+// insuficiente no servidor (que dispara o CHECK quantity >= 0 via trg_deduct_stock_on_sale)
+// falha sozinha, sem contaminar as demais vendas pendentes.
+// Retorna true se TODAS as vendas subiram; false se ao menos uma falhou (fica pendente p/ retry).
+async function pushSalesWithItems(tenantId: string): Promise<boolean> {
+  const saleRows = await db.select().from(sales).where(eq(sales.needsSync, true));
+  if (saleRows.length === 0) return true;
 
-// Tabela FILHA (normalizada): herda o tenant do pai (sales). NÃO envia tenant_id.
-async function pushSaleItems(): Promise<void> {
-  const rows = await db.select().from(saleItems).where(eq(saleItems.needsSync, true));
-  if (rows.length === 0) return;
-  await withRetry(() =>
-    upsertRemote(
-      'sale_items',
-      rows.map((r) => ({
-        client_id: r.id,
-        sale_client_id: r.saleId,
-        product_client_id: r.productId,
-        quantity: r.quantity,
-        unit_price: r.unitPrice,
-      })),
-    ),
-  );
-  await db
-    .update(saleItems)
-    .set({ needsSync: false, syncedAt: Date.now() })
-    .where(eq(saleItems.needsSync, true));
+  let allOk = true;
+  for (const s of saleRows) {
+    // Itens desta venda (mesmo que já sincronizados — o upsert é idempotente por client_id;
+    // ON CONFLICT DO UPDATE não redispara o AFTER INSERT, então não há dupla dedução).
+    const itemRows = await db.select().from(saleItems).where(eq(saleItems.saleId, s.id));
+    try {
+      // Pai primeiro (FK sale_client_id no servidor).
+      await withRetry(() =>
+        upsertRemote('sales', [
+          {
+            client_id: s.id,
+            tenant_id: tenantId,
+            sale_date: new Date(s.saleDate).toISOString(),
+            total_amount: s.totalAmount,
+            payment_method: s.paymentMethod,
+            consumption_mode: s.consumptionMode,
+          },
+        ]),
+      );
+      if (itemRows.length > 0) {
+        await withRetry(() =>
+          upsertRemote(
+            'sale_items',
+            itemRows.map((r) => ({
+              client_id: r.id,
+              sale_client_id: r.saleId,
+              product_client_id: r.productId,
+              quantity: r.quantity,
+              unit_price: r.unitPrice,
+            })),
+          ),
+        );
+      }
+      const now = Date.now();
+      await db.update(sales).set({ needsSync: false, syncedAt: now }).where(eq(sales.id, s.id));
+      await db
+        .update(saleItems)
+        .set({ needsSync: false, syncedAt: now })
+        .where(eq(saleItems.saleId, s.id));
+    } catch (e) {
+      console.warn('[sync] venda pendente (segue no próximo ciclo)', s.id, e);
+      allOk = false;
+    }
+  }
+  return allOk;
 }
 
 // Estoque: o servidor RECALCULA a quantidade (triggers increment_stock_on_entry /
@@ -357,6 +369,19 @@ export async function refreshPendingCount(): Promise<void> {
 
 let running = false;
 
+// Executa uma etapa do sync isolando a falha (item 2): um erro numa etapa
+// não impede as demais nem os pulls. Retorna true se a etapa passou.
+// (Uma etapa que já sinaliza sucesso parcial retornando boolean é respeitada.)
+async function runStep(label: string, fn: () => Promise<void | boolean>): Promise<boolean> {
+  try {
+    const res = await fn();
+    return res !== false;
+  } catch (e) {
+    console.warn(`[sync] etapa "${label}" falhou`, e);
+    return false;
+  }
+}
+
 /**
  * Orquestra o sync. Requer sessão + empresa ativa (tenant) + conectividade.
  * Sem isso (ou se o backend ainda não tem as tabelas), os dados ficam pendentes.
@@ -373,25 +398,29 @@ export async function runSync(): Promise<void> {
   const store = useSyncStore.getState();
   store.setStatus('syncing');
   try {
-    // Ordem importa (FKs por client_id no servidor):
-    // produtos/fornecedores → associações → vendas/itens → entradas/limite de estoque.
-    await pushProducts(tenantId);
-    await pushSuppliers(tenantId);
-    await pushProductSuppliers();
-    await pushSales(tenantId);
-    await pushSaleItems();
-    await pushStockEntries(tenantId);
-    await pushStockThresholds(tenantId);
+    // Ordem importa (FKs + triggers de estoque no servidor):
+    // catálogo → associações → ENTRADAS de estoque (somam) → vendas/itens (deduzem)
+    // → limite de estoque. As entradas vêm ANTES das vendas (item 1) para o servidor
+    // creditar o saldo antes de deduzir e não estourar o CHECK quantity >= 0.
+    let ok = true;
+    ok = (await runStep('products', () => pushProducts(tenantId))) && ok;
+    ok = (await runStep('suppliers', () => pushSuppliers(tenantId))) && ok;
+    ok = (await runStep('product_suppliers', () => pushProductSuppliers())) && ok;
+    ok = (await runStep('stock_entries', () => pushStockEntries(tenantId))) && ok;
+    ok = (await runStep('sales', () => pushSalesWithItems(tenantId))) && ok;
+    ok = (await runStep('stock_thresholds', () => pushStockThresholds(tenantId))) && ok;
     // Pulls server-wins (depois dos pushes, para a quantidade já refletir as vendas/entradas).
-    await pullCategories(tenantId);
-    await pullProducts(tenantId);
-    await pullSuppliers(tenantId);
-    await pullStockItems(tenantId);
-    store.markSynced();
-  } catch (e) {
-    console.warn('[sync] falhou', e);
-    store.setStatus('error');
-    await refreshPendingCount();
+    ok = (await runStep('pull categories', () => pullCategories(tenantId))) && ok;
+    ok = (await runStep('pull products', () => pullProducts(tenantId))) && ok;
+    ok = (await runStep('pull suppliers', () => pullSuppliers(tenantId))) && ok;
+    ok = (await runStep('pull stock_items', () => pullStockItems(tenantId))) && ok;
+
+    if (ok) {
+      store.markSynced();
+    } else {
+      store.setStatus('error');
+      await refreshPendingCount();
+    }
   } finally {
     running = false;
   }

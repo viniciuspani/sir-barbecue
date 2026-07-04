@@ -84,6 +84,19 @@ sqlite.execSync(`
     table_name TEXT PRIMARY KEY NOT NULL,
     last_synced_at INTEGER NOT NULL DEFAULT 0
   );
+  CREATE TABLE IF NOT EXISTS tabs (
+    id TEXT PRIMARY KEY NOT NULL,
+    customer_name TEXT NOT NULL,
+    opened_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS tab_items (
+    id TEXT PRIMARY KEY NOT NULL,
+    tab_id TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    unit_price REAL NOT NULL,
+    quantity INTEGER NOT NULL
+  );
   CREATE INDEX IF NOT EXISTS idx_sale_items_sale ON sale_items (sale_id);
   CREATE INDEX IF NOT EXISTS idx_stock_entries_product ON stock_entries (product_id);
   CREATE INDEX IF NOT EXISTS idx_product_suppliers_supplier ON product_suppliers (supplier_id);
@@ -91,6 +104,7 @@ sqlite.execSync(`
   CREATE INDEX IF NOT EXISTS idx_products_category ON products (category_id);
   CREATE INDEX IF NOT EXISTS idx_sales_needs_sync ON sales (needs_sync);
   CREATE INDEX IF NOT EXISTS idx_sale_items_needs_sync ON sale_items (needs_sync);
+  CREATE INDEX IF NOT EXISTS idx_tab_items_tab ON tab_items (tab_id);
 `);
 
 // Migração incremental para BDs já existentes (device com Fase 0–3):

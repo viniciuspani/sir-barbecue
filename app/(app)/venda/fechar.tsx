@@ -1,16 +1,17 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { saleRepository, stockRepository } from '@/data/repositories';
+import { saleRepository, stockRepository, tabRepository } from '@/data/repositories';
 import { refreshPendingCount, runSync } from '@/data/sync/syncEngine';
 import type { ConsumptionMode, PaymentMethod } from '@/domain/entities/Sale';
 import type { StockItem } from '@/domain/entities/StockItem';
+import type { Tab } from '@/domain/entities/Tab';
 import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL } from '@/lib/currency';
 import { showToast } from '@/lib/toast';
-import { useCartStore } from '@/store/cartStore';
+import { useCartStore, type CartItem } from '@/store/cartStore';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
 
@@ -27,33 +28,107 @@ const CONSUMPTION: { value: ConsumptionMode; label: string }[] = [
 ];
 
 export default function FecharVenda() {
-  const items = useCartStore((s) => s.items);
-  const add = useCartStore((s) => s.add);
-  const decrement = useCartStore((s) => s.decrement);
-  const clear = useCartStore((s) => s.clear);
-  const total = useCartStore((s) => s.total);
+  // tabId presente → fechamento de comanda; ausente → venda rápida (carrinho).
+  const params = useLocalSearchParams<{ tabId?: string; customerName?: string }>();
+  const tabId = params.tabId;
+  const clearCart = useCartStore((s) => s.clear);
+  const cartItems = useCartStore((s) => s.items);
+
+  // Lista editável desta finalização, semeada do carrinho ou da comanda.
+  // Editar aqui é a revisão final: não altera o carrinho/comanda até confirmar.
+  const [lines, setLines] = useState<CartItem[]>(() =>
+    tabId ? [] : useCartStore.getState().items.map((i) => ({ ...i })),
+  );
 
   const [payment, setPayment] = useState<PaymentMethod>('pix');
   const [consumption, setConsumption] = useState<ConsumptionMode>('on_site');
   const [saving, setSaving] = useState(false);
   const [stock, setStock] = useState<StockItem[]>([]);
+  const [tabs, setTabs] = useState<Tab[]>([]);
 
   useEffect(() => stockRepository.observeItems(setStock), []);
+  useEffect(() => tabRepository.observeAll(setTabs), []);
+
+  useEffect(() => {
+    if (!tabId) return;
+    tabRepository
+      .get(tabId)
+      .then((t) => {
+        if (t) {
+          setLines(
+            t.items.map((i) => ({
+              productId: i.productId,
+              name: i.name,
+              unitPrice: i.unitPrice,
+              quantity: i.quantity,
+            })),
+          );
+        }
+      })
+      .catch(() => undefined);
+  }, [tabId]);
+
   const stockQty = (id: string) => stock.find((s) => s.productId === id)?.quantity ?? 0;
+  const total = lines.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
+
+  // Opção B: o saldo disponível para ESTA finalização é o estoque menos o que já está
+  // comprometido em OUTRAS fontes abertas (carrinho + demais comandas). Assim nunca
+  // confirmamos uma venda que o servidor recusaria pelo CHECK quantity >= 0.
+  const committedElsewhere = (productId: string) => {
+    let n = 0;
+    if (tabId) {
+      // Fechando uma comanda → concorrem o carrinho e as demais comandas.
+      for (const i of cartItems) if (i.productId === productId) n += i.quantity;
+      for (const t of tabs) {
+        if (t.id === tabId) continue;
+        for (const it of t.items) if (it.productId === productId) n += it.quantity;
+      }
+    } else {
+      // Fechando a venda rápida (carrinho é a própria `lines`) → concorrem as comandas.
+      for (const t of tabs) {
+        for (const it of t.items) if (it.productId === productId) n += it.quantity;
+      }
+    }
+    return n;
+  };
+  const availableFor = (productId: string) => stockQty(productId) - committedElsewhere(productId);
+
+  const increment = (id: string) => {
+    if ((lines.find((l) => l.productId === id)?.quantity ?? 0) >= availableFor(id)) {
+      showToast('Estoque insuficiente. Registre uma entrada de estoque antes de vender.');
+      return;
+    }
+    setLines((prev) =>
+      prev.map((l) => (l.productId === id ? { ...l, quantity: l.quantity + 1 } : l)),
+    );
+  };
+
+  const decrement = (id: string) => {
+    setLines((prev) =>
+      prev.flatMap((l) => {
+        if (l.productId !== id) return [l];
+        if (l.quantity <= 1) return [];
+        return [{ ...l, quantity: l.quantity - 1 }];
+      }),
+    );
+  };
 
   const onConfirm = async () => {
-    if (items.length === 0) return;
-    // RF-10: trava final — não confirma venda acima do saldo disponível.
-    const insufficient = items.find((i) => i.quantity > stockQty(i.productId));
+    if (lines.length === 0) return;
+    // RF-10 / Opção B: trava final — não confirma venda acima do saldo disponível
+    // (estoque menos reservas de outras comandas/carrinho). Evita o CHECK do servidor.
+    const insufficient = lines.find((i) => i.quantity > availableFor(i.productId));
     if (insufficient) {
-      showToast(`Sem estoque suficiente: ${insufficient.name}`);
+      showToast(
+        `Estoque insuficiente de ${insufficient.name}. Registre uma entrada de estoque antes de vender.`,
+      );
       return;
     }
     setSaving(true);
     await saleRepository.create({
       paymentMethod: payment,
       consumptionMode: consumption,
-      items: items.map((i) => ({
+      items: lines.map((i) => ({
         productId: i.productId,
         quantity: i.quantity,
         unitPrice: i.unitPrice,
@@ -62,9 +137,14 @@ export default function FecharVenda() {
     // RF-10: baixa de estoque LOCAL (só produtos com saldo controlado).
     // No servidor, o trigger deduct_stock_on_sale refaz a baixa quando a venda sincroniza.
     await stockRepository.deductForSale(
-      items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+      lines.map((i) => ({ productId: i.productId, quantity: i.quantity })),
     );
-    clear();
+    // Encerra a fonte: fecha a comanda paga OU limpa o carrinho da venda rápida.
+    if (tabId) {
+      await tabRepository.close(tabId);
+    } else {
+      clearCart();
+    }
     setSaving(false);
     showToast('Venda registrada! ✅');
     refreshPendingCount();
@@ -72,11 +152,11 @@ export default function FecharVenda() {
     router.back();
   };
 
-  if (items.length === 0) {
+  if (lines.length === 0) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.emptyWrap}>
-          <Text style={styles.empty}>Carrinho vazio.</Text>
+          <Text style={styles.empty}>{tabId ? 'Comanda sem itens.' : 'Carrinho vazio.'}</Text>
           <Button title="Voltar" variant="outline" onPress={() => router.back()} />
         </View>
       </SafeAreaView>
@@ -86,9 +166,11 @@ export default function FecharVenda() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Fechar venda</Text>
+        <Text style={styles.title}>
+          {params.customerName ? `Fechar comanda · ${params.customerName}` : 'Fechar venda'}
+        </Text>
 
-        {items.map((i) => (
+        {lines.map((i) => (
           <View key={i.productId} style={styles.item}>
             <View style={styles.itemMain}>
               <Text style={styles.itemName}>{i.name}</Text>
@@ -105,13 +187,7 @@ export default function FecharVenda() {
               <Text style={styles.qty}>{i.quantity}</Text>
               <Pressable
                 style={styles.qtyBtn}
-                onPress={() => {
-                  if (i.quantity >= stockQty(i.productId)) {
-                    showToast('Sem estoque disponível.');
-                    return;
-                  }
-                  add({ productId: i.productId, name: i.name, unitPrice: i.unitPrice });
-                }}
+                onPress={() => increment(i.productId)}
                 accessibilityLabel={`Aumentar ${i.name}`}
               >
                 <Text style={styles.qtyBtnText}>+</Text>
@@ -147,7 +223,7 @@ export default function FecharVenda() {
 
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>{formatBRL(total())}</Text>
+          <Text style={styles.totalValue}>{formatBRL(total)}</Text>
         </View>
 
         <Button title="Confirmar venda" onPress={onConfirm} loading={saving} />

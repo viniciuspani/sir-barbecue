@@ -89,6 +89,24 @@ export const syncCheckpoints = sqliteTable('sync_checkpoints', {
   lastSyncedAt: integer('last_synced_at').notNull().default(0),
 });
 
+// Comandas (tabs) — estado de trabalho LOCAL, identificado pelo nome do cliente.
+// Não é sincronizado: uma comanda só vira `sales`/`sale_items` no momento do pagamento.
+export const tabs = sqliteTable('tabs', {
+  id: text('id').primaryKey(),
+  customerName: text('customer_name').notNull(),
+  openedAt: integer('opened_at').notNull(), // epoch ms
+});
+
+// Itens vinculados à comanda. Denormaliza name/unit_price (como o carrinho) para render sem join.
+export const tabItems = sqliteTable('tab_items', {
+  id: text('id').primaryKey(),
+  tabId: text('tab_id').notNull(), // -> tabs.id
+  productId: text('product_id').notNull(),
+  name: text('name').notNull(),
+  unitPrice: real('unit_price').notNull(),
+  quantity: integer('quantity').notNull(),
+});
+
 export type CategoryRow = typeof categories.$inferSelect;
 export type ProductRow = typeof products.$inferSelect;
 export type NewProductRow = typeof products.$inferInsert;
@@ -100,3 +118,5 @@ export type StockItemRow = typeof stockItems.$inferSelect;
 export type StockEntryRow = typeof stockEntries.$inferSelect;
 export type SupplierRow = typeof suppliers.$inferSelect;
 export type ProductSupplierRow = typeof productSuppliers.$inferSelect;
+export type TabRow = typeof tabs.$inferSelect;
+export type TabItemRow = typeof tabItems.$inferSelect;
