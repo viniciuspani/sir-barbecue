@@ -12,6 +12,7 @@ import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL } from '@/lib/currency';
 import { showToast } from '@/lib/toast';
 import { useCartStore, type CartItem } from '@/store/cartStore';
+import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
 
@@ -166,6 +167,7 @@ export default function FecharVenda() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <BrandLogo />
         <Text style={styles.title}>
           {params.customerName ? `Fechar comanda · ${params.customerName}` : 'Fechar venda'}
         </Text>

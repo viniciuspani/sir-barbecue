@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing } from '@/design/tokens';
 import { signInWithEmail, signInWithGoogle } from '@/services/auth';
 import { useAuthStore } from '@/store/authStore';
+import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
 import { TextField } from '@/ui/TextField';
 
@@ -41,6 +42,7 @@ export default function Login() {
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.brandBox}>
+            <BrandLogo size={96} style={styles.logo} />
             <Text style={styles.brand}>Sir Barbecue</Text>
             <Text style={styles.tagline}>La Brasa Espetinhos</Text>
           </View>
@@ -108,6 +110,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { flexGrow: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.sm },
   brandBox: { alignItems: 'center', marginBottom: spacing.xl },
+  logo: { alignSelf: 'center', marginBottom: spacing.md },
   brand: { color: colors.gold, fontSize: 32, fontWeight: '700' },
   tagline: { color: colors.textSecondary, fontSize: 16, marginTop: spacing.sm },
   error: { color: colors.danger, fontSize: 14, marginBottom: spacing.sm },

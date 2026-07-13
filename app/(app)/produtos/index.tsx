@@ -9,6 +9,7 @@ import type { Category } from '@/domain/entities/Category';
 import type { Product } from '@/domain/entities/Product';
 import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL } from '@/lib/currency';
+import { BrandLogo } from '@/ui/BrandLogo';
 
 export default function ProdutosList() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -28,6 +29,7 @@ export default function ProdutosList() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <BrandLogo style={styles.brand} />
       <View style={styles.header}>
         <Text style={styles.title}>Produtos</Text>
         <Text style={styles.count}>{products.length} item(ns)</Text>
@@ -73,12 +75,12 @@ export default function ProdutosList() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
+  brand: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   header: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
     paddingBottom: spacing.sm,
   },
   title: { color: colors.textPrimary, fontSize: 26, fontWeight: '700' },

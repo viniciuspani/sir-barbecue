@@ -3,6 +3,10 @@ import { supabase } from '@/data/remote/supabaseClient';
 // Serviço de empresa (multi-tenant). Dados ficam no servidor (tenants/tenant_members) —
 // estas operações são ONLINE; a RLS garante o isolamento e o owner-only nas escritas.
 
+// Nome padrão criado no bootstrap (handle_new_user). Usado para detectar que o
+// usuário ainda não personalizou o negócio (nudge de onboarding na Home).
+export const DEFAULT_TENANT_NAME = 'Minha Empresa';
+
 export type Tenant = {
   id: string;
   name: string;

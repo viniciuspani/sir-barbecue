@@ -26,6 +26,7 @@ import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL, formatQuantity } from '@/lib/currency';
 import { showToast } from '@/lib/toast';
 import { useCartStore } from '@/store/cartStore';
+import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
 import { TextField } from '@/ui/TextField';
@@ -150,6 +151,7 @@ export default function NovaVenda() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <BrandLogo style={styles.brand} />
       <Text style={styles.title}>Nova Venda</Text>
 
       {/* Seletor de destino: venda rápida | comandas abertas | nova comanda */}
@@ -327,12 +329,12 @@ export default function NovaVenda() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
+  brand: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   title: {
     color: colors.textPrimary,
     fontSize: 26,
     fontWeight: '700',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
   },
   targetsWrap: { paddingTop: spacing.sm },
   targets: { paddingHorizontal: spacing.lg, gap: spacing.sm, alignItems: 'center' },

@@ -9,6 +9,7 @@ import type { Product } from '@/domain/entities/Product';
 import type { StockItem } from '@/domain/entities/StockItem';
 import { colors, radii, spacing } from '@/design/tokens';
 import { formatQuantity } from '@/lib/currency';
+import { BrandLogo } from '@/ui/BrandLogo';
 
 function isLow(item: StockItem): boolean {
   return item.alertThreshold > 0 && item.quantity <= item.alertThreshold;
@@ -31,6 +32,7 @@ export default function EstoqueList() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <BrandLogo style={styles.brand} />
       <View style={styles.header}>
         <Text style={styles.title}>Estoque</Text>
         <Text style={styles.count}>{items.length} item(ns)</Text>
@@ -79,12 +81,12 @@ export default function EstoqueList() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
+  brand: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   header: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
     paddingBottom: spacing.sm,
   },
   title: { color: colors.textPrimary, fontSize: 26, fontWeight: '700' },

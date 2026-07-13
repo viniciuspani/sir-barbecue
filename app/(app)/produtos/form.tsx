@@ -8,6 +8,7 @@ import type { Category } from '@/domain/entities/Category';
 import { colors, spacing } from '@/design/tokens';
 import { formatMoneyInput, parseBRL } from '@/lib/currency';
 import { WEEKDAYS_PT } from '@/lib/dates';
+import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
 import { MoneyField } from '@/ui/MoneyField';
@@ -68,6 +69,7 @@ export default function ProdutoForm() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <BrandLogo />
         <Text style={styles.title}>{isEdit ? 'Editar produto' : 'Novo produto'}</Text>
 
         <TextField

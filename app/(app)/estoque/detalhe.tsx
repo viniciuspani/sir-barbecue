@@ -9,6 +9,7 @@ import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL, formatQuantity, parseBRL } from '@/lib/currency';
 import { formatDatePtBR } from '@/lib/dates';
 import { showToast } from '@/lib/toast';
+import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
 import { TextField } from '@/ui/TextField';
 
@@ -51,6 +52,7 @@ export default function EstoqueDetalhe() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <BrandLogo />
         <Text style={styles.title}>{productName}</Text>
 
         <View style={styles.balanceCard}>

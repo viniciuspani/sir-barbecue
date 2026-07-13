@@ -6,12 +6,20 @@
     "scheme": "sirbarbecue",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.labrasa.sirbarbecue"
     },
     "android": {
-      "package": "com.labrasa.sirbarbecue"
+      "package": "com.labrasa.sirbarbecue",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#090909"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",

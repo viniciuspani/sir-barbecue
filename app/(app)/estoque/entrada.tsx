@@ -8,6 +8,7 @@ import type { Product } from '@/domain/entities/Product';
 import { colors, spacing } from '@/design/tokens';
 import { parseBRL } from '@/lib/currency';
 import { showToast } from '@/lib/toast';
+import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
 import { MoneyField } from '@/ui/MoneyField';
@@ -50,6 +51,7 @@ export default function RegistrarEntrada() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <BrandLogo />
         <Text style={styles.title}>Registrar entrada</Text>
 
         <Text style={styles.section}>Produto</Text>
