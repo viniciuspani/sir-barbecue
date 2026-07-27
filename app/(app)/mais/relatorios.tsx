@@ -1,9 +1,11 @@
+import { Redirect } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
 import { productRepository, saleRepository } from '@/data/repositories';
+import { usePermissions } from '@/lib/permissions';
 import type { Product } from '@/domain/entities/Product';
 import type { PaymentMethod, Sale } from '@/domain/entities/Sale';
 import { colors, radii, spacing } from '@/design/tokens';
@@ -42,6 +44,7 @@ function periodStart(period: Period): number {
 }
 
 export default function Relatorios() {
+  const { canAccessReports } = usePermissions();
   const [sales, setSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [period, setPeriod] = useState<Period>('month');
@@ -107,6 +110,9 @@ export default function Relatorios() {
     const topProducts = [...byProduct.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
     return { count: inPeriod.length, total, byPayment, topProducts };
   }, [sales, period]);
+
+  // employee não acessa Relatórios (guarda de deep-link; a RLS confirma no servidor).
+  if (!canAccessReports) return <Redirect href="/mais" />;
 
   return (
     <ScrollView contentContainerStyle={styles.content}>

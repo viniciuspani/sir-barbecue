@@ -68,7 +68,8 @@ Angular só venceria com time grande/governança enterprise — não é o caso. 
 2. `/` **Dashboard** — KPIs: clientes ativos / em trial / atrasados, MRR, lucro do mês; mini-gráfico.
 3. `/clientes` — **tabela** (TanStack Table): nome, badge de status, device vinculado, fim do período/trial,
    último pagamento, **switch on/off** (`admin_set_tenant_access`). Filtro por status + busca.
-4. `/clientes/:tenantId` — detalhe: dados da empresa, assinatura (status/plano/valor/forma pgto/vencimento),
+4. `/clientes/:tenantId` — detalhe: dados da empresa, assinatura (status/plano/valor/forma pgto/vencimento,
+   início do trial `trialStartedAt`, início do relacionamento pago `contractStartedAt`),
    **dispositivos** (`tenant_devices`, ativar/desativar), **histórico de pagamentos** + "lançar pagamento"
    (insert em `payments`), ações: mudar status / on-off.
 5. `/financeiro` — receita (`payments`) × despesa (`app_expenses`) × lucro; gráfico mensal (Recharts);

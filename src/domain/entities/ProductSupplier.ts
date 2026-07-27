@@ -5,6 +5,8 @@ export interface ProductSupplier {
   supplierId: string;
   purchasePrice: number;
   isPreferred: boolean;
+  /** Vínculo ativo. Inativo (troca de fornecedor) sai do custo, fica no histórico. */
+  isActive: boolean;
   needsSync: boolean;
   syncedAt?: number;
 }

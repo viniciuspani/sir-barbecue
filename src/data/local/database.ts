@@ -59,7 +59,18 @@ sqlite.execSync(`
     supplier_id TEXT NOT NULL,
     purchase_price REAL NOT NULL,
     is_preferred INTEGER NOT NULL DEFAULT 0,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    pending_delete INTEGER NOT NULL DEFAULT 0,
     needs_sync INTEGER NOT NULL DEFAULT 1,
+    synced_at INTEGER
+  );
+  CREATE TABLE IF NOT EXISTS product_supplier_price_history (
+    id TEXT PRIMARY KEY NOT NULL,
+    product_id TEXT NOT NULL,
+    supplier_id TEXT NOT NULL,
+    purchase_price REAL NOT NULL,
+    is_preferred INTEGER NOT NULL DEFAULT 0,
+    recorded_at INTEGER NOT NULL,
     synced_at INTEGER
   );
   CREATE TABLE IF NOT EXISTS stock_items (
@@ -74,7 +85,6 @@ sqlite.execSync(`
     id TEXT PRIMARY KEY NOT NULL,
     product_id TEXT NOT NULL,
     quantity REAL NOT NULL,
-    unit_cost REAL,
     entry_date INTEGER NOT NULL,
     notes TEXT,
     needs_sync INTEGER NOT NULL DEFAULT 1,
@@ -99,6 +109,7 @@ sqlite.execSync(`
   );
   CREATE INDEX IF NOT EXISTS idx_sale_items_sale ON sale_items (sale_id);
   CREATE INDEX IF NOT EXISTS idx_stock_entries_product ON stock_entries (product_id);
+  CREATE INDEX IF NOT EXISTS idx_price_history_product ON product_supplier_price_history (product_id, recorded_at DESC);
   CREATE INDEX IF NOT EXISTS idx_product_suppliers_supplier ON product_suppliers (supplier_id);
   CREATE INDEX IF NOT EXISTS idx_products_needs_sync ON products (needs_sync);
   CREATE INDEX IF NOT EXISTS idx_products_category ON products (category_id);
@@ -112,6 +123,26 @@ sqlite.execSync(`
 const productCols = sqlite.getAllSync<{ name: string }>('PRAGMA table_info(products)');
 if (!productCols.some((c) => c.name === 'visible_days')) {
   sqlite.execSync('ALTER TABLE products ADD COLUMN visible_days TEXT');
+}
+
+// Migração incremental: custo passou a ser centralizado no fornecedor
+// (product_suppliers), removendo unit_cost de stock_entries em devices existentes.
+const stockEntryCols = sqlite.getAllSync<{ name: string }>('PRAGMA table_info(stock_entries)');
+if (stockEntryCols.some((c) => c.name === 'unit_cost')) {
+  sqlite.execSync('ALTER TABLE stock_entries DROP COLUMN unit_cost');
+}
+
+// Migração incremental: inativação/exclusão de vínculo produto↔fornecedor.
+// is_active (soft delete p/ troca de fornecedor) e pending_delete (marca de
+// exclusão definitiva a propagar no sync) em devices existentes.
+const productSupplierCols = sqlite.getAllSync<{ name: string }>(
+  'PRAGMA table_info(product_suppliers)',
+);
+if (!productSupplierCols.some((c) => c.name === 'is_active')) {
+  sqlite.execSync('ALTER TABLE product_suppliers ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1');
+}
+if (!productSupplierCols.some((c) => c.name === 'pending_delete')) {
+  sqlite.execSync('ALTER TABLE product_suppliers ADD COLUMN pending_delete INTEGER NOT NULL DEFAULT 0');
 }
 
 export const db = drizzle(sqlite, { schema });

@@ -50,8 +50,10 @@ trigger `updated_at`):
 
 - `platform_admins (user_id pk)` — o dono da aplicação (você). Semeado via SQL.
 - `subscriptions` — **1 por tenant**: `status` (`trial|active|past_due|canceled`),
-  `trial_ends_at`, `current_period_end`, `plan`, `monthly_price`, `payment_method`,
-  **`blocked_by_owner boolean`** (kill switch on/off), `notes`.
+  `trial_started_at`, `trial_ends_at`, `current_period_end`, `plan`, `monthly_price`,
+  `payment_method`, **`blocked_by_owner boolean`** (kill switch on/off), `notes`,
+  `contract_started_at` (início do relacionamento pago — gravado por trigger na 1ª vez
+  que `status` vira `'active'`, não é sobrescrito depois).
 - `tenant_devices` — `device_id ↔ tenant_id` (+ `platform`, `first_seen_at`, `last_seen_at`, `active`).
 - `payments` — recebimentos: `tenant_id`, `amount`, `method`, `paid_at`, `reference_month`, `status`.
 - `app_expenses` — suas despesas: `name`, `category`, `amount`, `incurred_at`, `recurring`.

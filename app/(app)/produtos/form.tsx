@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { categoryRepository, productRepository } from '@/data/repositories';
 import type { Category } from '@/domain/entities/Category';
 import { colors, spacing } from '@/design/tokens';
+import { usePermissions } from '@/lib/permissions';
 import { formatMoneyInput, parseBRL } from '@/lib/currency';
 import { WEEKDAYS_PT } from '@/lib/dates';
 import { BrandLogo } from '@/ui/BrandLogo';
@@ -17,6 +18,7 @@ import { TextField } from '@/ui/TextField';
 export default function ProdutoForm() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEdit = !!id;
+  const { canWriteCatalog } = usePermissions();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [name, setName] = useState('');
@@ -65,6 +67,10 @@ export default function ProdutoForm() {
     setSaving(false);
     router.back();
   };
+
+  // Camada extra ao guard de _layout: só owner/manager escreve catálogo. A RLS
+  // (products_write) é a barreira real; isto evita a tela de edição por deep-link.
+  if (!canWriteCatalog) return <Redirect href="/venda" />;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

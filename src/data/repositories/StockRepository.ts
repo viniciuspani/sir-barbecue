@@ -29,7 +29,6 @@ function toEntry(row: StockEntryRow): StockEntry {
     id: row.id,
     productId: row.productId,
     quantity: row.quantity,
-    unitCost: row.unitCost ?? undefined,
     entryDate: row.entryDate,
     notes: row.notes ?? undefined,
     needsSync: row.needsSync,
@@ -51,7 +50,6 @@ export class DrizzleStockRepository implements StockRepository {
         id: Crypto.randomUUID(),
         productId: input.productId,
         quantity: input.quantity,
-        unitCost: input.unitCost ?? null,
         notes: input.notes ?? null,
         entryDate,
         needsSync: true,
@@ -100,7 +98,8 @@ export class DrizzleStockRepository implements StockRepository {
       .select()
       .from(stockEntries)
       .where(eq(stockEntries.productId, productId))
-      .orderBy(desc(stockEntries.entryDate));
+      .orderBy(desc(stockEntries.entryDate))
+      .limit(10);
     return rows.map(toEntry);
   }
 

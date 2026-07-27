@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -24,7 +25,9 @@ import type { StockItem } from '@/domain/entities/StockItem';
 import type { Tab } from '@/domain/entities/Tab';
 import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL, formatQuantity } from '@/lib/currency';
+import { roleLabel, usePermissions } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
+import { useAuthStore } from '@/store/authStore';
 import { useCartStore } from '@/store/cartStore';
 import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
@@ -36,7 +39,16 @@ function isVisibleToday(p: Product, weekday: number): boolean {
   return !p.visibleDays || p.visibleDays.length === 0 || p.visibleDays.includes(weekday);
 }
 
+// Nome de exibição do operador: prioriza nome do perfil, cai para o e-mail.
+function operatorName(user: { email?: string; user_metadata?: Record<string, unknown> } | null): string {
+  const meta = user?.user_metadata ?? {};
+  const name = (meta.name ?? meta.full_name) as string | undefined;
+  return name?.trim() || user?.email || 'Operador';
+}
+
 export default function NovaVenda() {
+  const { role } = usePermissions();
+  const user = useAuthStore((s) => s.user);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [stock, setStock] = useState<StockItem[]>([]);
@@ -153,6 +165,17 @@ export default function NovaVenda() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <BrandLogo style={styles.brand} />
       <Text style={styles.title}>Nova Venda</Text>
+
+      {/* Operador logado + papel — visibilidade de quem está no caixa. */}
+      <View style={styles.operatorRow}>
+        <Ionicons name="person-circle-outline" size={18} color={colors.textSecondary} />
+        <Text style={styles.operatorName} numberOfLines={1}>
+          {operatorName(user)}
+        </Text>
+        <View style={styles.roleBadge}>
+          <Text style={styles.roleBadgeText}>{roleLabel(role)}</Text>
+        </View>
+      </View>
 
       {/* Seletor de destino: venda rápida | comandas abertas | nova comanda */}
       <View style={styles.targetsWrap}>
@@ -336,6 +359,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     paddingHorizontal: spacing.lg,
   },
+  operatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.xs,
+  },
+  operatorName: { color: colors.textSecondary, fontSize: 13, flexShrink: 1 },
+  roleBadge: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  roleBadgeText: { color: colors.gold, fontSize: 12, fontWeight: '700' },
   targetsWrap: { paddingTop: spacing.sm },
   targets: { paddingHorizontal: spacing.lg, gap: spacing.sm, alignItems: 'center' },
   newTab: {

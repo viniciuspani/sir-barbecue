@@ -17,6 +17,7 @@ import { AccessBlocked } from '@/ui/AccessBlocked';
 import { Splash } from '@/ui/Splash';
 
 const RECHECK_INTERVAL_MS = 30 * 60 * 1000; // re-checa o acesso a cada 30 min
+const SYNC_INTERVAL_MS = 5 * 60 * 1000; // fallback: sincroniza a cada 5 min se nenhum gatilho disparar
 
 /**
  * Provider raiz da Presentation (Expo Router v7).
@@ -42,6 +43,16 @@ export default function RootLayout() {
   useEffect(() => {
     if (isOnline && currentTenantId) runSync();
   }, [isOnline, currentTenantId]);
+
+  // Fallback: sincroniza a cada 5 min caso nenhum gatilho (reconexão, pull-to-refresh,
+  // fechamento de venda, mutação de fornecedor) tenha disparado nesse intervalo.
+  useEffect(() => {
+    if (!currentTenantId) return;
+    const interval = setInterval(() => {
+      if (useConnectivityStore.getState().isOnline) void runSync();
+    }, SYNC_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [currentTenantId]);
 
   // Mantém o token de push salvo quando há empresa ativa (só se a permissão já foi concedida).
   useEffect(() => {

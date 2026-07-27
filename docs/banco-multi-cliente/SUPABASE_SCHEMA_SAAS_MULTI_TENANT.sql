@@ -84,6 +84,16 @@ returns boolean language sql stable security definer set search_path = public as
   );
 $$;
 
+-- OWNER ou MANAGER? (base da escrita de catálogo/estoque e do acesso a relatórios — RBAC)
+create or replace function public.is_tenant_owner_or_manager(p_tenant_id uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.tenant_members tm
+    where tm.tenant_id = p_tenant_id and tm.user_id = auth.uid()
+      and tm.role in ('owner','manager')
+  );
+$$;
+
 -- =====================================================================
 -- TABELAS DE NEGÓCIO (todas com tenant_id NOT NULL — Sugestão 1 e 4)
 -- user_id permanece como AUDITORIA (quem registrou), com default auth.uid().
@@ -154,8 +164,24 @@ create table if not exists public.product_suppliers (
   supplier_client_id uuid not null references public.suppliers (client_id) on delete restrict,
   purchase_price     numeric(10,2) not null check (purchase_price >= 0),
   is_preferred       boolean not null default false,
+  is_active          boolean not null default true, -- inativo = trocou de fornecedor; sai do custo, fica no histórico
   updated_at         timestamptz not null default now(),
   constraint product_suppliers_unique unique (product_client_id, supplier_client_id)
+);
+
+-- 5b) product_supplier_price_history — append-only, alimentada só pelo
+--     trigger trg_log_price_history (ver seção TRIGGERS de negócio abaixo).
+--     product_suppliers guarda só o preço VIGENTE; esta tabela guarda a
+--     série temporal. on delete cascade (não restrict): histórico deve
+--     sobreviver à remoção do vínculo, mas não a produto/fornecedor apagado.
+create table if not exists public.product_supplier_price_history (
+  id                 uuid primary key default gen_random_uuid(),
+  client_id          uuid not null unique,
+  product_client_id  uuid not null references public.products (client_id) on delete cascade,
+  supplier_client_id uuid not null references public.suppliers (client_id) on delete cascade,
+  purchase_price     numeric(10,2) not null check (purchase_price >= 0),
+  is_preferred       boolean not null default false,
+  recorded_at        timestamptz not null default now()
 );
 
 -- 6) stock_items (saldo atual por produto) ---------------------------
@@ -179,7 +205,6 @@ create table if not exists public.stock_entries (
   supplier_client_id uuid references public.suppliers (client_id) on delete restrict,
   user_id            uuid not null default auth.uid() references auth.users (id) on delete restrict,
   quantity           numeric(10,3) not null check (quantity > 0),
-  unit_cost          numeric(10,2) check (unit_cost >= 0),
   entry_date         timestamptz not null default now(),
   notes              text,
   updated_at         timestamptz not null default now()
@@ -263,8 +288,11 @@ end $$;
 -- =====================================================================
 
 -- Dedução automática de estoque ao inserir item de venda (RF-10)
+-- SECURITY DEFINER: a trigger roda com o papel de quem inseriu a venda; sem isso,
+-- para um FUNCIONÁRIO (sem write em stock_items) o UPDATE é silenciosamente
+-- filtrado pela RLS (0 linhas, sem erro) e o estoque não é deduzido no servidor.
 create or replace function public.deduct_stock_on_sale()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql security definer set search_path = public as $$
 begin
   update public.stock_items
     set quantity = quantity - new.quantity, updated_at = now()
@@ -277,8 +305,9 @@ create trigger trg_deduct_stock_on_sale
   for each row execute function public.deduct_stock_on_sale();
 
 -- Incremento de estoque ao registrar entrada (RF-09) — herda tenant_id da entrada
+-- SECURITY DEFINER por simetria/robustez com deduct_stock_on_sale (ver acima).
 create or replace function public.increment_stock_on_entry()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql security definer set search_path = public as $$
 begin
   insert into public.stock_items (tenant_id, client_id, product_client_id, user_id, quantity)
     values (new.tenant_id, gen_random_uuid(), new.product_client_id, new.user_id, new.quantity)
@@ -290,6 +319,31 @@ drop trigger if exists trg_increment_stock_on_entry on public.stock_entries;
 create trigger trg_increment_stock_on_entry
   after insert on public.stock_entries
   for each row execute function public.increment_stock_on_entry();
+
+-- Captura de histórico de preço (custo/margem): registra snapshot a cada
+-- INSERT (novo vínculo produto-fornecedor) ou UPDATE de preço/preferido
+-- (edição direta) em product_suppliers. SECURITY DEFINER porque a RLS de
+-- product_supplier_price_history só permite SELECT ao app.
+-- Registra em todo INSERT; em UPDATE só quando preço/preferido de fato mudam
+-- (evita snapshot duplicado ao inativar ou re-sincronizar valores inalterados).
+create or replace function public.log_product_supplier_price_history()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'UPDATE'
+     and new.purchase_price is not distinct from old.purchase_price
+     and new.is_preferred  is not distinct from old.is_preferred then
+    return new;
+  end if;
+  insert into public.product_supplier_price_history
+    (client_id, product_client_id, supplier_client_id, purchase_price, is_preferred, recorded_at)
+  values
+    (gen_random_uuid(), new.product_client_id, new.supplier_client_id, new.purchase_price, new.is_preferred, now());
+  return new;
+end; $$;
+drop trigger if exists trg_log_price_history on public.product_suppliers;
+create trigger trg_log_price_history
+  after insert or update of purchase_price, is_preferred on public.product_suppliers
+  for each row execute function public.log_product_supplier_price_history();
 
 -- =====================================================================
 -- ÍNDICES
@@ -309,6 +363,8 @@ create index if not exists idx_suppliers_tenant             on public.suppliers 
 create index if not exists idx_stock_entries_tenant         on public.stock_entries (tenant_id, entry_date desc);
 create index if not exists idx_reports_tenant               on public.reports (tenant_id, created_at desc);
 create index if not exists idx_product_suppliers_product    on public.product_suppliers (product_client_id, is_preferred);
+create index if not exists idx_product_supplier_price_history_product
+  on public.product_supplier_price_history (product_client_id, recorded_at desc);
 -- product_day_visibility: a UNIQUE (product_client_id, day_of_week) já indexa a FK do pai.
 
 -- =====================================================================
@@ -321,7 +377,8 @@ declare t text;
 begin
   foreach t in array array[
     'tenants','tenant_members','categories','products','product_day_visibility','suppliers',
-    'product_suppliers','stock_items','stock_entries','sales','sale_items','reports','sync_checkpoints'
+    'product_suppliers','product_supplier_price_history','stock_items','stock_entries','sales',
+    'sale_items','reports','sync_checkpoints'
   ] loop
     execute format('alter table public.%I enable row level security;', t);
   end loop;
@@ -343,16 +400,15 @@ drop policy if exists members_manage on public.tenant_members;
 create policy members_manage on public.tenant_members for all to authenticated
   using (public.is_tenant_owner(tenant_id)) with check (public.is_tenant_owner(tenant_id));
 
--- Tabelas com tenant_id DIRETO: isolam por tenant_id.
--- Policy única "tenant_all": membro da empresa pode tudo dentro da empresa.
--- (Variante rápida via JWT — sem ler tabela — está comentada abaixo da função do hook.)
+-- RBAC (papéis owner/manager/employee). Padrão: LEITURA liberada a todos os
+-- membros (o caixa precisa ler para vender) + ESCRITA por papel. Policies
+-- permissivas são OR: a SELECT libera a leitura; a FOR ALL (papel) governa a escrita.
+
+-- VENDAS + bookkeeping de sync: leitura+escrita a TODOS os membros (todos vendem).
 do $$
 declare t text;
 begin
-  foreach t in array array[
-    'categories','products','suppliers',
-    'stock_items','stock_entries','sales','reports','sync_checkpoints'
-  ] loop
+  foreach t in array array['sales','sync_checkpoints'] loop
     execute format('drop policy if exists tenant_all on public.%I;', t);
     execute format(
       'create policy tenant_all on public.%I for all to authenticated
@@ -360,27 +416,6 @@ begin
          with check (tenant_id in (select public.user_tenant_ids()));', t);
   end loop;
 end $$;
-
--- Tabelas FILHAS (normalizadas): RLS pelo tenant do registro PAI, via EXISTS.
--- Não têm tenant_id próprio; herdam o isolamento do produto/venda dono.
-drop policy if exists tenant_all on public.product_day_visibility;
-create policy tenant_all on public.product_day_visibility for all to authenticated
-  using      (exists (select 1 from public.products p
-                      where p.client_id = product_client_id
-                        and p.tenant_id in (select public.user_tenant_ids())))
-  with check (exists (select 1 from public.products p
-                      where p.client_id = product_client_id
-                        and p.tenant_id in (select public.user_tenant_ids())));
-
-drop policy if exists tenant_all on public.product_suppliers;
-create policy tenant_all on public.product_suppliers for all to authenticated
-  using      (exists (select 1 from public.products p
-                      where p.client_id = product_client_id
-                        and p.tenant_id in (select public.user_tenant_ids())))
-  with check (exists (select 1 from public.products p
-                      where p.client_id = product_client_id
-                        and p.tenant_id in (select public.user_tenant_ids())));
-
 drop policy if exists tenant_all on public.sale_items;
 create policy tenant_all on public.sale_items for all to authenticated
   using      (exists (select 1 from public.sales s
@@ -389,6 +424,80 @@ create policy tenant_all on public.sale_items for all to authenticated
   with check (exists (select 1 from public.sales s
                       where s.client_id = sale_client_id
                         and s.tenant_id in (select public.user_tenant_ids())));
+
+-- CATÁLOGO/ESTOQUE: leitura membros; escrita OWNER ou MANAGER.
+do $$
+declare t text;
+begin
+  foreach t in array array['categories','products','stock_items','stock_entries'] loop
+    execute format('drop policy if exists tenant_all on public.%I;', t);
+    execute format('drop policy if exists %1$s_select on public.%1$s;', t);
+    execute format('drop policy if exists %1$s_write on public.%1$s;', t);
+    execute format(
+      'create policy %1$s_select on public.%1$s for select to authenticated
+         using (tenant_id in (select public.user_tenant_ids()));', t);
+    execute format(
+      'create policy %1$s_write on public.%1$s for all to authenticated
+         using (public.is_tenant_owner_or_manager(tenant_id))
+         with check (public.is_tenant_owner_or_manager(tenant_id));', t);
+  end loop;
+end $$;
+
+-- product_day_visibility (filha do produto): idem catálogo, via EXISTS no pai.
+drop policy if exists tenant_all on public.product_day_visibility;
+drop policy if exists pdv_select on public.product_day_visibility;
+drop policy if exists pdv_write on public.product_day_visibility;
+create policy pdv_select on public.product_day_visibility for select to authenticated
+  using (exists (select 1 from public.products p
+                 where p.client_id = product_client_id
+                   and p.tenant_id in (select public.user_tenant_ids())));
+create policy pdv_write on public.product_day_visibility for all to authenticated
+  using      (exists (select 1 from public.products p
+                      where p.client_id = product_client_id
+                        and public.is_tenant_owner_or_manager(p.tenant_id)))
+  with check (exists (select 1 from public.products p
+                      where p.client_id = product_client_id
+                        and public.is_tenant_owner_or_manager(p.tenant_id)));
+
+-- FORNECEDOR: leitura membros; escrita SÓ OWNER.
+drop policy if exists tenant_all on public.suppliers;
+drop policy if exists suppliers_select on public.suppliers;
+drop policy if exists suppliers_write on public.suppliers;
+create policy suppliers_select on public.suppliers for select to authenticated
+  using (tenant_id in (select public.user_tenant_ids()));
+create policy suppliers_write on public.suppliers for all to authenticated
+  using (public.is_tenant_owner(tenant_id)) with check (public.is_tenant_owner(tenant_id));
+
+-- product_suppliers (filha do produto): leitura membros; escrita só owner.
+drop policy if exists tenant_all on public.product_suppliers;
+drop policy if exists product_suppliers_select on public.product_suppliers;
+drop policy if exists product_suppliers_write on public.product_suppliers;
+create policy product_suppliers_select on public.product_suppliers for select to authenticated
+  using (exists (select 1 from public.products p
+                 where p.client_id = product_client_id
+                   and p.tenant_id in (select public.user_tenant_ids())));
+create policy product_suppliers_write on public.product_suppliers for all to authenticated
+  using      (exists (select 1 from public.products p
+                      where p.client_id = product_client_id
+                        and public.is_tenant_owner(p.tenant_id)))
+  with check (exists (select 1 from public.products p
+                      where p.client_id = product_client_id
+                        and public.is_tenant_owner(p.tenant_id)));
+
+-- product_supplier_price_history: somente leitura para o app — só o
+-- trigger trg_log_price_history (SECURITY DEFINER) escreve nesta tabela.
+drop policy if exists tenant_select on public.product_supplier_price_history;
+create policy tenant_select on public.product_supplier_price_history for select to authenticated
+  using (exists (select 1 from public.products p
+                where p.client_id = product_client_id
+                  and p.tenant_id in (select public.user_tenant_ids())));
+
+-- RELATÓRIOS: só owner|manager leem e geram (dados financeiros).
+drop policy if exists tenant_all on public.reports;
+drop policy if exists reports_access on public.reports;
+create policy reports_access on public.reports for all to authenticated
+  using (public.is_tenant_owner_or_manager(tenant_id))
+  with check (public.is_tenant_owner_or_manager(tenant_id));
 
 -- =====================================================================
 -- Sugestão 3: CUSTOM ACCESS TOKEN HOOK — injeta tenant_ids no JWT
@@ -427,6 +536,28 @@ grant select on public.tenant_members to supabase_auth_admin;
 --   using (tenant_id = any (
 --     select (jsonb_array_elements_text(auth.jwt() -> 'app_metadata' -> 'tenant_ids'))::uuid))
 -- Evita o SELECT em tenant_members a cada query (mais barato no free tier).
+
+-- =====================================================================
+-- MANUTENÇÃO — limpeza do histórico de preço de compra
+-- =====================================================================
+
+-- Retenção parametrizável (meses, default 6). SECURITY DEFINER: precisa
+-- limpar histórico de TODOS os tenants (rotina de manutenção, não operação
+-- do usuário) — execução pública revogada, roda só via SQL Editor/pg_cron
+-- com privilégio de owner. Agendamento (pg_cron) fica em
+-- docs/scripts/product_supplier_price_history.sql — requer habilitar a
+-- extensão pg_cron no Dashboard antes.
+create or replace function public.cleanup_product_supplier_price_history(
+  p_retention_months integer default 6
+)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.product_supplier_price_history
+   where recorded_at < now() - (p_retention_months || ' months')::interval;
+end; $$;
+
+revoke execute on function public.cleanup_product_supplier_price_history(integer)
+  from public, authenticated, anon;
 
 -- =====================================================================
 -- SEED + BOOTSTRAP
@@ -483,7 +614,7 @@ drop policy if exists reports_tenant_read on storage.objects;
 create policy reports_tenant_read on storage.objects for select to authenticated
   using (
     bucket_id = 'reports'
-    and ((storage.foldername(name))[1])::uuid in (select public.user_tenant_ids())
+    and public.is_tenant_owner_or_manager(((storage.foldername(name))[1])::uuid)
   );
 
 -- =====================================================================

@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { type Href, useFocusEffect, useRouter } from 'expo-router';
+import { type Href, Redirect, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { productRepository, saleRepository, stockRepository } from '@/data/repositories';
 import { runSync } from '@/data/sync/syncEngine';
+import { usePermissions } from '@/lib/permissions';
 import type { Product } from '@/domain/entities/Product';
 import type { PaymentMethod, Sale } from '@/domain/entities/Sale';
 import type { StockItem } from '@/domain/entities/StockItem';
@@ -33,6 +34,7 @@ function isLow(item: StockItem): boolean {
 
 export default function Inicio() {
   const router = useRouter();
+  const { canAccessHome } = usePermissions();
   const currentTenantId = useAuthStore((s) => s.currentTenantId);
   const userId = useAuthStore((s) => s.user?.id);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -110,6 +112,10 @@ export default function Inicio() {
     await runSync(); // puxa catálogo + envia pendências (no-op offline / sem empresa)
     setRefreshing(false);
   };
+
+  // employee não acessa a Home financeira — cai na Venda (a aba já fica oculta; isto
+  // cobre deep-link/estado inicial). Guard após os hooks (regras de hooks).
+  if (!canAccessHome) return <Redirect href="/venda" />;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

@@ -3,20 +3,37 @@ import { router, type Href } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radii, spacing } from '@/design/tokens';
+import { usePermissions } from '@/lib/permissions';
 import { useAuthStore } from '@/store/authStore';
 
-type Item = { icon: keyof typeof Ionicons.glyphMap; label: string; route: Href; hint?: string };
+// `requires` (opcional): esconde o item quando o papel não tem a permissão. Sem
+// `requires` = visível a todos os membros.
+type Perm = 'company' | 'reports' | 'suppliers';
+type Item = {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  route: Href;
+  hint?: string;
+  requires?: Perm;
+};
 
 const ITEMS: Item[] = [
-  { icon: 'business-outline', label: 'Minha Empresa', route: '/mais/empresa', hint: 'Dados e equipe' },
-  { icon: 'people-outline', label: 'Fornecedores', route: '/mais/fornecedores', hint: 'Cadastro e preços de compra' },
-  { icon: 'bar-chart-outline', label: 'Relatórios', route: '/mais/relatorios', hint: 'Vendas e produtos' },
+  { icon: 'business-outline', label: 'Minha Empresa', route: '/mais/empresa', hint: 'Dados e equipe', requires: 'company' },
+  { icon: 'people-outline', label: 'Fornecedores', route: '/mais/fornecedores', hint: 'Cadastro e preços de compra', requires: 'suppliers' },
+  { icon: 'bar-chart-outline', label: 'Relatórios', route: '/mais/relatorios', hint: 'Vendas e produtos', requires: 'reports' },
   { icon: 'notifications-outline', label: 'Notificações', route: '/mais/notificacoes' },
   { icon: 'person-outline', label: 'Conta', route: '/mais/perfil', hint: 'Perfil e sair' },
 ];
 
 export default function MaisHub() {
   const signOut = useAuthStore((s) => s.signOut);
+  const { canAccessCompany, canAccessReports, canAccessSuppliers } = usePermissions();
+  const items = ITEMS.filter((item) => {
+    if (item.requires === 'company') return canAccessCompany;
+    if (item.requires === 'reports') return canAccessReports;
+    if (item.requires === 'suppliers') return canAccessSuppliers;
+    return true;
+  });
 
   // Ação destrutiva de sessão: confirma antes de sair (o gate redireciona ao login).
   const onLogout = () => {
@@ -34,7 +51,7 @@ export default function MaisHub() {
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      {ITEMS.map((item) => (
+      {items.map((item) => (
         <Pressable
           key={item.label}
           style={({ pressed }) => [styles.row, pressed && styles.pressed]}

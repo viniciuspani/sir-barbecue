@@ -11,14 +11,12 @@ import { showToast } from '@/lib/toast';
 import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
-import { MoneyField } from '@/ui/MoneyField';
 import { TextField } from '@/ui/TextField';
 
 export default function RegistrarEntrada() {
   const [products, setProducts] = useState<Product[]>([]);
   const [productId, setProductId] = useState<string | undefined>();
   const [quantity, setQuantity] = useState('');
-  const [unitCost, setUnitCost] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -40,7 +38,6 @@ export default function RegistrarEntrada() {
     await stockRepository.registerEntry({
       productId,
       quantity: qty,
-      unitCost: unitCost.trim() ? parseBRL(unitCost) : undefined,
       notes: notes.trim() || undefined,
     });
     setSaving(false);
@@ -74,17 +71,19 @@ export default function RegistrarEntrada() {
           placeholder="ex.: 50"
           keyboardType="decimal-pad"
         />
-        <MoneyField
-          label="Custo unitário (R$) — opcional"
-          value={unitCost}
-          onChangeText={setUnitCost}
-        />
         <TextField
           label="Observações — opcional"
           value={notes}
           onChangeText={setNotes}
           placeholder="ex.: compra no atacado"
         />
+
+        <Text style={styles.hint}>
+          O custo do produto é cadastrado no fornecedor, não aqui.{' '}
+          <Text style={styles.hintLink} onPress={() => router.push('/mais/fornecedores')}>
+            Cadastrar preço de compra
+          </Text>
+        </Text>
 
         {!!error && <Text style={styles.error}>{error}</Text>}
 
@@ -101,6 +100,7 @@ const styles = StyleSheet.create({
   title: { color: colors.textPrimary, fontSize: 24, fontWeight: '700', marginBottom: spacing.md },
   section: { color: colors.textPrimary, fontSize: 16, fontWeight: '600', marginTop: spacing.sm },
   hint: { color: colors.textSecondary, fontSize: 13 },
+  hintLink: { color: colors.gold, fontWeight: '600' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs, marginBottom: spacing.sm },
   error: { color: colors.danger, fontSize: 14, marginVertical: spacing.sm },
 });

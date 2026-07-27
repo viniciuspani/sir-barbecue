@@ -120,7 +120,6 @@ create table if not exists public.stock_entries (
   supplier_client_id uuid references public.suppliers (client_id) on delete restrict,
   user_id            uuid not null default auth.uid() references auth.users (id) on delete restrict,
   quantity           numeric(10,3) not null check (quantity > 0),
-  unit_cost          numeric(10,2) check (unit_cost >= 0),
   entry_date         timestamptz not null default now(),
   notes              text,
   updated_at         timestamptz not null default now()

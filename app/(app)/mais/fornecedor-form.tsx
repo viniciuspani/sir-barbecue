@@ -1,15 +1,17 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text } from 'react-native';
 
 import { supplierRepository } from '@/data/repositories';
 import { colors, spacing } from '@/design/tokens';
+import { usePermissions } from '@/lib/permissions';
 import { Button } from '@/ui/Button';
 import { TextField } from '@/ui/TextField';
 
 export default function FornecedorForm() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEdit = !!id;
+  const { canWriteSuppliers } = usePermissions();
 
   const [name, setName] = useState('');
   const [contactName, setContactName] = useState('');
@@ -50,6 +52,9 @@ export default function FornecedorForm() {
     setSaving(false);
     router.back();
   };
+
+  // Só owner escreve fornecedores (guarda de deep-link; a RLS confirma no servidor).
+  if (!canWriteSuppliers) return <Redirect href="/mais" />;
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">

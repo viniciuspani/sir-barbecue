@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Redirect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radii, spacing } from '@/design/tokens';
+import { usePermissions } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
 import { inviteMember } from '@/services/functions';
 import {
@@ -18,6 +20,7 @@ import { Chip } from '@/ui/Chip';
 import { TextField } from '@/ui/TextField';
 
 export default function Empresa() {
+  const { canAccessCompany } = usePermissions();
   const tenantId = useAuthStore((s) => s.currentTenantId);
   const session = useAuthStore((s) => s.session);
   const userId = useAuthStore((s) => s.user?.id);
@@ -122,6 +125,9 @@ export default function Empresa() {
     setInviteEmail('');
     loadMembers();
   };
+
+  // employee não acessa Minha Empresa (guarda de deep-link; a RLS confirma no servidor).
+  if (!canAccessCompany) return <Redirect href="/mais" />;
 
   // Sem empresa ativa: distingue "sem login real" de "logado, mas conta sem empresa".
   if (!tenantId) {

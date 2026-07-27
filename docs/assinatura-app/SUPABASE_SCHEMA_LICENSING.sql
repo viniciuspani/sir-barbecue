@@ -33,8 +33,12 @@ create table if not exists public.subscriptions (
                        check (status in ('trial','active','past_due','canceled')),
   -- Kill switch do dono (on/off). true = acesso bloqueado manualmente.
   blocked_by_owner   boolean not null default false,
+  trial_started_at   timestamptz,                 -- início do trial
   trial_ends_at      timestamptz,                 -- fim do período de teste
   current_period_end timestamptz,                 -- fim do período pago vigente
+  -- Início do relacionamento pago: setado automaticamente (trigger) na 1ª vez
+  -- que o status vira 'active', ou seja, quando o trial converte em cliente.
+  contract_started_at timestamptz,
   plan               varchar(50) not null default 'mensal',
   monthly_price      numeric(10,2) not null default 0 check (monthly_price >= 0),
   payment_method     varchar(20)
@@ -111,8 +115,8 @@ end $$;
 create or replace function public.seed_tenant_subscription()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.subscriptions (tenant_id, status, trial_ends_at)
-    values (new.id, 'trial', now() + interval '7 days')
+  insert into public.subscriptions (tenant_id, status, trial_started_at, trial_ends_at)
+    values (new.id, 'trial', now(), now() + interval '7 days')
   on conflict (tenant_id) do nothing;
   return new;
 end; $$;
@@ -122,12 +126,29 @@ create trigger trg_seed_tenant_subscription
   for each row execute function public.seed_tenant_subscription();
 
 -- Backfill: empresas que já existem e ainda não têm assinatura entram em trial.
-insert into public.subscriptions (tenant_id, status, trial_ends_at)
-  select t.id, 'trial', now() + interval '7 days'
+insert into public.subscriptions (tenant_id, status, trial_started_at, trial_ends_at)
+  select t.id, 'trial', now(), now() + interval '7 days'
     from public.tenants t
     left join public.subscriptions s on s.tenant_id = t.id
    where s.tenant_id is null
 on conflict (tenant_id) do nothing;
+
+-- Registra o início do relacionamento pago: a 1ª vez que o status vira
+-- 'active' (trial convertendo em cliente). Fica travado depois (não é
+-- sobrescrito em reativações via past_due/canceled → active).
+create or replace function public.set_contract_started_at()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  if new.status = 'active' and old.status is distinct from 'active'
+     and new.contract_started_at is null then
+    new.contract_started_at := now();
+  end if;
+  return new;
+end; $$;
+drop trigger if exists trg_subscriptions_contract_started_at on public.subscriptions;
+create trigger trg_subscriptions_contract_started_at
+  before update on public.subscriptions
+  for each row execute function public.set_contract_started_at();
 
 -- =====================================================================
 -- FASE 3 — SUPER-ADMIN HELPER + ROW LEVEL SECURITY
@@ -331,6 +352,8 @@ begin
         'monthlyPrice',  s.monthly_price,
         'paymentMethod', s.payment_method,
         'endsAt',        case when s.status = 'trial' then s.trial_ends_at else s.current_period_end end,
+        'trialStartedAt', s.trial_started_at,
+        'contractStartedAt', s.contract_started_at,
         'deviceCount',   (select count(*) from public.tenant_devices d where d.tenant_id = t.id),
         'lastPaymentAt', (select max(p.paid_at) from public.payments p where p.tenant_id = t.id)
       ) as row_obj
@@ -357,6 +380,8 @@ begin
     'monthlyPrice',  s.monthly_price,
     'paymentMethod', s.payment_method,
     'endsAt',        case when s.status = 'trial' then s.trial_ends_at else s.current_period_end end,
+    'trialStartedAt', s.trial_started_at,
+    'contractStartedAt', s.contract_started_at,
     'deviceCount',   (select count(*) from public.tenant_devices d where d.tenant_id = t.id),
     'lastPaymentAt', (select max(p.paid_at) from public.payments p where p.tenant_id = t.id),
     'cnpj',          t.cnpj,

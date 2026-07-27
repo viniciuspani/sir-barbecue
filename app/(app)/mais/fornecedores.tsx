@@ -1,16 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { supplierRepository } from '@/data/repositories';
 import type { Supplier } from '@/domain/entities/Supplier';
 import { colors, radii, spacing } from '@/design/tokens';
+import { usePermissions } from '@/lib/permissions';
 
 export default function Fornecedores() {
+  const { canAccessSuppliers, canWriteSuppliers } = usePermissions();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
   useEffect(() => supplierRepository.observeAll(setSuppliers), []);
+
+  // employee não acessa Fornecedores (guarda de deep-link; a RLS confirma no servidor).
+  if (!canAccessSuppliers) return <Redirect href="/mais" />;
 
   return (
     <View style={styles.container}>
@@ -44,14 +49,16 @@ export default function Fornecedores() {
           </Pressable>
         )}
       />
-      <Pressable
-        style={styles.fab}
-        onPress={() => router.push('/mais/fornecedor-form')}
-        accessibilityRole="button"
-        accessibilityLabel="Novo fornecedor"
-      >
-        <Ionicons name="add" size={28} color={colors.onGold} />
-      </Pressable>
+      {canWriteSuppliers && (
+        <Pressable
+          style={styles.fab}
+          onPress={() => router.push('/mais/fornecedor-form')}
+          accessibilityRole="button"
+          accessibilityLabel="Novo fornecedor"
+        >
+          <Ionicons name="add" size={28} color={colors.onGold} />
+        </Pressable>
+      )}
     </View>
   );
 }

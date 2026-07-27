@@ -1,9 +1,10 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import * as Crypto from 'expo-crypto';
 
 import { db } from '@/data/local/database';
 import {
   categories,
+  productSupplierPriceHistory,
   productSuppliers,
   products,
   saleItems,
@@ -13,6 +14,8 @@ import {
   suppliers,
 } from '@/data/local/schema';
 import { supabase } from '@/data/remote/supabaseClient';
+import { canWriteCatalog, canWriteSuppliers } from '@/lib/permissions';
+import { showToast } from '@/lib/toast';
 import { useAuthStore } from '@/store/authStore';
 import { useSyncStore } from '@/store/syncStore';
 
@@ -34,6 +37,22 @@ type RemoteSupplier = {
   address: string | null;
 };
 type RemoteStockItem = { product_client_id: string; quantity: number };
+type RemoteProductSupplier = {
+  client_id: string;
+  product_client_id: string;
+  supplier_client_id: string;
+  purchase_price: number;
+  is_preferred: boolean;
+  is_active: boolean;
+};
+type RemotePriceHistory = {
+  client_id: string;
+  product_client_id: string;
+  supplier_client_id: string;
+  purchase_price: number;
+  is_preferred: boolean;
+  recorded_at: string;
+};
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -53,10 +72,17 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
   throw lastError;
 }
 
-// Idempotência: upsert no servidor com ON CONFLICT (client_id).
-async function upsertRemote(table: string, rows: Record<string, unknown>[]): Promise<void> {
+// Idempotência: upsert no servidor com ON CONFLICT (client_id por padrão).
+// onConflict configurável: tabelas com chave natural própria (ex.: product_suppliers,
+// que tem unique (product_client_id, supplier_client_id)) precisam conflitar por ela,
+// senão um re-add com client_id novo tenta INSERT e viola a unique natural.
+async function upsertRemote(
+  table: string,
+  rows: Record<string, unknown>[],
+  onConflict = 'client_id',
+): Promise<void> {
   if (rows.length === 0) return;
-  const { error } = await supabase.from(table).upsert(rows, { onConflict: 'client_id' });
+  const { error } = await supabase.from(table).upsert(rows, { onConflict });
   if (error) throw new Error(`[sync:${table}] ${error.message}`);
 }
 
@@ -107,8 +133,35 @@ async function pushSuppliers(tenantId: string): Promise<void> {
 }
 
 // Associação N:N (normalizada): sem tenant_id; FK por product/supplier (devem já ter subido).
+// Conflito pela chave NATURAL (product+supplier), não por client_id: um vínculo removido
+// (só localmente) e re-adicionado ganha client_id novo; conflitar por client_id tentaria
+// INSERT e violaria a unique (product, supplier). Pela chave natural o re-add vira UPDATE,
+// dispara o trigger de histórico de preço e não quebra o sync.
 async function pushProductSuppliers(): Promise<void> {
-  const rows = await db.select().from(productSuppliers).where(eq(productSuppliers.needsSync, true));
+  // 1) Exclusões definitivas pendentes: propaga o delete pro servidor (por chave natural,
+  //    robusto mesmo se o client_id divergiu) e só então apaga local. Isola por linha p/
+  //    uma falha não travar as demais.
+  const toDelete = await db
+    .select()
+    .from(productSuppliers)
+    .where(eq(productSuppliers.pendingDelete, true));
+  for (const r of toDelete) {
+    await withRetry(async () => {
+      const { error } = await supabase
+        .from('product_suppliers')
+        .delete()
+        .eq('product_client_id', r.productId)
+        .eq('supplier_client_id', r.supplierId);
+      if (error) throw new Error(`[sync:product_suppliers delete] ${error.message}`);
+    });
+    await db.delete(productSuppliers).where(eq(productSuppliers.id, r.id));
+  }
+
+  // 2) Upsert dos vínculos ativos/editados (exclui os marcados p/ exclusão).
+  const rows = await db
+    .select()
+    .from(productSuppliers)
+    .where(and(eq(productSuppliers.needsSync, true), eq(productSuppliers.pendingDelete, false)));
   if (rows.length === 0) return;
   await withRetry(() =>
     upsertRemote(
@@ -119,13 +172,15 @@ async function pushProductSuppliers(): Promise<void> {
         supplier_client_id: r.supplierId,
         purchase_price: r.purchasePrice,
         is_preferred: r.isPreferred,
+        is_active: r.isActive,
       })),
+      'product_client_id,supplier_client_id',
     ),
   );
   await db
     .update(productSuppliers)
     .set({ needsSync: false, syncedAt: Date.now() })
-    .where(eq(productSuppliers.needsSync, true));
+    .where(and(eq(productSuppliers.needsSync, true), eq(productSuppliers.pendingDelete, false)));
 }
 
 // Vendas + itens enviados UMA VENDA POR VEZ (item 2 — isolamento de falha):
@@ -197,7 +252,6 @@ async function pushStockEntries(tenantId: string): Promise<void> {
         tenant_id: tenantId,
         product_client_id: r.productId,
         quantity: r.quantity,
-        unit_cost: r.unitCost,
         entry_date: new Date(r.entryDate).toISOString(),
         notes: r.notes,
       })),
@@ -311,6 +365,79 @@ async function pullSuppliers(tenantId: string): Promise<void> {
   }
 }
 
+// Vínculos produto↔fornecedor: server-wins. Só o OWNER escreve (RBAC), então nos
+// demais aparelhos isto é read-only e reconcilia inativações/edições/exclusões feitas
+// pelo owner. Preserva edições LOCAIS pendentes (needsSync/pendingDelete) e apaga
+// localmente os vínculos já sincronizados que sumiram do servidor (excluídos alhures).
+async function pullProductSuppliers(): Promise<void> {
+  const { data, error } = await supabase
+    .from('product_suppliers')
+    .select('client_id, product_client_id, supplier_client_id, purchase_price, is_preferred, is_active')
+    .returns<RemoteProductSupplier[]>();
+  if (error) throw new Error(`[sync:pull product_suppliers] ${error.message}`);
+  if (!data) return;
+  const now = Date.now();
+  const serverIds = new Set(data.map((r) => r.client_id));
+
+  for (const r of data) {
+    // Não sobrescrever alteração local ainda não sincronizada.
+    const local = await db
+      .select()
+      .from(productSuppliers)
+      .where(eq(productSuppliers.id, r.client_id));
+    if (local.length && (local[0].needsSync || local[0].pendingDelete)) continue;
+    const set = {
+      productId: r.product_client_id,
+      supplierId: r.supplier_client_id,
+      purchasePrice: r.purchase_price,
+      isPreferred: r.is_preferred,
+      isActive: r.is_active,
+      pendingDelete: false,
+      needsSync: false,
+      syncedAt: now,
+    };
+    await db
+      .insert(productSuppliers)
+      .values({ id: r.client_id, ...set })
+      .onConflictDoUpdate({ target: productSuppliers.id, set });
+  }
+
+  // Exclusões feitas em outro aparelho: some do servidor → apaga local (só linhas já
+  // sincronizadas e sem alteração pendente, p/ não perder trabalho local).
+  const localRows = await db.select().from(productSuppliers);
+  for (const row of localRows) {
+    if (!serverIds.has(row.id) && !row.needsSync && !row.pendingDelete) {
+      await db.delete(productSuppliers).where(eq(productSuppliers.id, row.id));
+    }
+  }
+}
+
+// Histórico de preço: gerado pelo servidor (trigger em product_suppliers), pull-only —
+// sem push. Sem tenant_id direto (normalizada); RLS filtra pelo produto pai.
+async function pullProductSupplierPriceHistory(): Promise<void> {
+  const { data, error } = await supabase
+    .from('product_supplier_price_history')
+    .select('client_id, product_client_id, supplier_client_id, purchase_price, is_preferred, recorded_at')
+    .returns<RemotePriceHistory[]>();
+  if (error) throw new Error(`[sync:pull product_supplier_price_history] ${error.message}`);
+  if (!data) return;
+  const now = Date.now();
+  for (const r of data) {
+    const set = {
+      productId: r.product_client_id,
+      supplierId: r.supplier_client_id,
+      purchasePrice: r.purchase_price,
+      isPreferred: r.is_preferred,
+      recordedAt: new Date(r.recorded_at).getTime(),
+      syncedAt: now,
+    };
+    await db
+      .insert(productSupplierPriceHistory)
+      .values({ id: r.client_id, ...set })
+      .onConflictDoUpdate({ target: productSupplierPriceHistory.id, set });
+  }
+}
+
 // Estoque: server-wins na QUANTIDADE; preserva o alert_threshold local (config do cliente).
 async function pullStockItems(tenantId: string): Promise<void> {
   const { data, error } = await supabase
@@ -369,6 +496,16 @@ export async function refreshPendingCount(): Promise<void> {
 
 let running = false;
 
+// Sinaliza (por execução) que alguma etapa foi barrada pela RLS/permissão — para
+// avisar o usuário em vez de deixar a falha silenciosa. Resetado no início de runSync.
+let permissionDenied = false;
+
+// Erro de permissão do Postgres/PostgREST: RLS (42501) ou "row-level security".
+function isPermissionError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return /row-level security|permission denied|42501/i.test(msg);
+}
+
 // Executa uma etapa do sync isolando a falha (item 2): um erro numa etapa
 // não impede as demais nem os pulls. Retorna true se a etapa passou.
 // (Uma etapa que já sinaliza sucesso parcial retornando boolean é respeitada.)
@@ -377,6 +514,7 @@ async function runStep(label: string, fn: () => Promise<void | boolean>): Promis
     const res = await fn();
     return res !== false;
   } catch (e) {
+    if (isPermissionError(e)) permissionDenied = true;
     console.warn(`[sync] etapa "${label}" falhou`, e);
     return false;
   }
@@ -395,6 +533,7 @@ export async function runSync(): Promise<void> {
   if (!tenantId) return; // sem empresa ativa → nada a sincronizar com o servidor
 
   running = true;
+  permissionDenied = false;
   const store = useSyncStore.getState();
   store.setStatus('syncing');
   try {
@@ -402,17 +541,26 @@ export async function runSync(): Promise<void> {
     // catálogo → associações → ENTRADAS de estoque (somam) → vendas/itens (deduzem)
     // → limite de estoque. As entradas vêm ANTES das vendas (item 1) para o servidor
     // creditar o saldo antes de deduzir e não estourar o CHECK quantity >= 0.
+    // Só empurra o que o PAPEL pode escrever no servidor (espelho da RLS): o
+    // funcionário (caixa) empurra apenas vendas/itens. Evita tentar pushes que a
+    // RLS barraria — o que gerava warnings e o toast em pendências órfãs de catálogo.
+    const role = useAuthStore.getState().currentRole;
     let ok = true;
-    ok = (await runStep('products', () => pushProducts(tenantId))) && ok;
-    ok = (await runStep('suppliers', () => pushSuppliers(tenantId))) && ok;
-    ok = (await runStep('product_suppliers', () => pushProductSuppliers())) && ok;
-    ok = (await runStep('stock_entries', () => pushStockEntries(tenantId))) && ok;
+    if (canWriteCatalog(role)) ok = (await runStep('products', () => pushProducts(tenantId))) && ok;
+    if (canWriteSuppliers(role)) ok = (await runStep('suppliers', () => pushSuppliers(tenantId))) && ok;
+    if (canWriteSuppliers(role)) ok = (await runStep('product_suppliers', () => pushProductSuppliers())) && ok;
+    if (canWriteCatalog(role)) ok = (await runStep('stock_entries', () => pushStockEntries(tenantId))) && ok;
     ok = (await runStep('sales', () => pushSalesWithItems(tenantId))) && ok;
-    ok = (await runStep('stock_thresholds', () => pushStockThresholds(tenantId))) && ok;
+    if (canWriteCatalog(role)) ok = (await runStep('stock_thresholds', () => pushStockThresholds(tenantId))) && ok;
     // Pulls server-wins (depois dos pushes, para a quantidade já refletir as vendas/entradas).
     ok = (await runStep('pull categories', () => pullCategories(tenantId))) && ok;
     ok = (await runStep('pull products', () => pullProducts(tenantId))) && ok;
     ok = (await runStep('pull suppliers', () => pullSuppliers(tenantId))) && ok;
+    ok = (await runStep('pull product_suppliers', () => pullProductSuppliers())) && ok;
+    ok =
+      (await runStep('pull product_supplier_price_history', () =>
+        pullProductSupplierPriceHistory(),
+      )) && ok;
     ok = (await runStep('pull stock_items', () => pullStockItems(tenantId))) && ok;
 
     if (ok) {
@@ -420,6 +568,10 @@ export async function runSync(): Promise<void> {
     } else {
       store.setStatus('error');
       await refreshPendingCount();
+      // Falha por permissão (papel sem acesso de escrita): avisa em vez de silenciar.
+      if (permissionDenied) {
+        showToast('Sem permissão para enviar algumas alterações. Fale com o dono ou gerente.');
+      }
     }
   } finally {
     running = false;

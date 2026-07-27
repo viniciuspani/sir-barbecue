@@ -60,7 +60,24 @@ export const productSuppliers = sqliteTable('product_suppliers', {
   supplierId: text('supplier_id').notNull(),
   purchasePrice: real('purchase_price').notNull(),
   isPreferred: integer('is_preferred', { mode: 'boolean' }).notNull().default(false),
+  // Inativo = trocou de fornecedor: some das telas de uso e do custo, fica no histórico.
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  // Marcado para exclusão definitiva: escondido da UI; o sync apaga no servidor e depois local.
+  pendingDelete: integer('pending_delete', { mode: 'boolean' }).notNull().default(false),
   needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
+  syncedAt: integer('synced_at'),
+});
+
+// Histórico de preço de compra — somente leitura, alimentado pelo pull do
+// sync engine (server-generated via trigger). Sem needsSync: o app nunca
+// escreve aqui.
+export const productSupplierPriceHistory = sqliteTable('product_supplier_price_history', {
+  id: text('id').primaryKey(),
+  productId: text('product_id').notNull(),
+  supplierId: text('supplier_id').notNull(),
+  purchasePrice: real('purchase_price').notNull(),
+  isPreferred: integer('is_preferred', { mode: 'boolean' }).notNull().default(false),
+  recordedAt: integer('recorded_at').notNull(), // epoch ms
   syncedAt: integer('synced_at'),
 });
 
@@ -77,7 +94,6 @@ export const stockEntries = sqliteTable('stock_entries', {
   id: text('id').primaryKey(),
   productId: text('product_id').notNull(),
   quantity: real('quantity').notNull(),
-  unitCost: real('unit_cost'),
   entryDate: integer('entry_date').notNull(), // epoch ms
   notes: text('notes'),
   needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
@@ -118,5 +134,6 @@ export type StockItemRow = typeof stockItems.$inferSelect;
 export type StockEntryRow = typeof stockEntries.$inferSelect;
 export type SupplierRow = typeof suppliers.$inferSelect;
 export type ProductSupplierRow = typeof productSuppliers.$inferSelect;
+export type ProductSupplierPriceHistoryRow = typeof productSupplierPriceHistory.$inferSelect;
 export type TabRow = typeof tabs.$inferSelect;
 export type TabItemRow = typeof tabItems.$inferSelect;

@@ -53,7 +53,12 @@ type SaleRow = {
   sale_items: SaleItem[];
 };
 type ProductRow = { client_id: string; name: string };
-type ProductSupplierRow = { product_client_id: string; purchase_price: number; is_preferred: boolean };
+type ProductSupplierRow = {
+  product_client_id: string;
+  purchase_price: number;
+  is_preferred: boolean;
+  is_active: boolean;
+};
 // Agregado por produto no período: quantidade (saída), receita e custo — base da margem.
 type ProductStat = { id: string; qty: number; revenue: number; cost: number; hasCost: boolean };
 
@@ -96,13 +101,14 @@ Deno.serve(async (req: Request) => {
     const nameOf = (id: string) => products.find((p) => p.client_id === id)?.name ?? '—';
 
     // Custo unitário p/ margem (RF-07): preço do fornecedor PREFERIDO; sem preferido, o menor preço
-    // de compra cadastrado; sem cadastro, null (margem exibida como "—").
+    // de compra cadastrado; sem cadastro, null (margem exibida como "—"). Considera só vínculos
+    // ATIVOS — fornecedor inativado (troca de fornecedor) não entra no custo.
     const { data: psData } = await u
       .from('product_suppliers')
-      .select('product_client_id, purchase_price, is_preferred');
+      .select('product_client_id, purchase_price, is_preferred, is_active');
     const supplierCosts = (psData ?? []) as unknown as ProductSupplierRow[];
     const costOf = (id: string): number | null => {
-      const rows = supplierCosts.filter((c) => c.product_client_id === id);
+      const rows = supplierCosts.filter((c) => c.product_client_id === id && c.is_active);
       if (rows.length === 0) return null;
       const preferred = rows.find((c) => c.is_preferred);
       return Number(preferred ? preferred.purchase_price : Math.min(...rows.map((c) => c.purchase_price)));

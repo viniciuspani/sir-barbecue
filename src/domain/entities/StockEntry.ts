@@ -1,10 +1,9 @@
 // Entidade de domínio (TS puro). Entrada de estoque (compra/reposição) — RF-09.
+// Custo do produto é cadastrado no fornecedor (product_suppliers), não aqui.
 export interface StockEntry {
   id: string;
   productId: string;
   quantity: number;
-  /** Custo unitário da entrada (opcional). */
-  unitCost?: number;
   entryDate: number; // epoch ms
   notes?: string;
   needsSync: boolean;
@@ -14,7 +13,6 @@ export interface StockEntry {
 export interface NewStockEntry {
   productId: string;
   quantity: number;
-  unitCost?: number;
   notes?: string;
   entryDate?: number; // default: agora
 }
