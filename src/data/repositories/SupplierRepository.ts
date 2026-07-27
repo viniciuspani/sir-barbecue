@@ -15,6 +15,7 @@ import type { NewProductSupplier, ProductSupplier } from '@/domain/entities/Prod
 import type { ProductSupplierPriceHistory } from '@/domain/entities/ProductSupplierPriceHistory';
 import type { Supplier } from '@/domain/entities/Supplier';
 import type { SupplierRepository } from '@/domain/repositories/SupplierRepository';
+import { getActiveTenantId, getActiveTenantIdOrThrow } from '@/lib/activeTenant';
 
 function toSupplier(row: SupplierRow): Supplier {
   return {
@@ -56,12 +57,20 @@ function toHistoryEntry(row: ProductSupplierPriceHistoryRow): ProductSupplierPri
 /** Implementação do SupplierRepository sobre Drizzle + expo-sqlite (Plano B). */
 export class DrizzleSupplierRepository implements SupplierRepository {
   async list(): Promise<Supplier[]> {
-    const rows = await db.select().from(suppliers);
+    // Só a empresa ativa (isolamento do SQLite compartilhado no aparelho).
+    const tenantId = getActiveTenantId();
+    if (!tenantId) return [];
+    const rows = await db.select().from(suppliers).where(eq(suppliers.tenantId, tenantId));
     return rows.map(toSupplier);
   }
 
   async getById(id: string): Promise<Supplier | null> {
-    const rows = await db.select().from(suppliers).where(eq(suppliers.id, id));
+    const tenantId = getActiveTenantId();
+    if (!tenantId) return null;
+    const rows = await db
+      .select()
+      .from(suppliers)
+      .where(and(eq(suppliers.id, id), eq(suppliers.tenantId, tenantId)));
     return rows.length ? toSupplier(rows[0]) : null;
   }
 
@@ -73,13 +82,14 @@ export class DrizzleSupplierRepository implements SupplierRepository {
       contactName: input.contactName ?? null,
       phone: input.phone ?? null,
       address: input.address ?? null,
+      tenantId: getActiveTenantIdOrThrow(),
       needsSync: true,
     });
     return { id, ...input, needsSync: true };
   }
 
   async update(id: string, patch: Partial<Supplier>): Promise<void> {
-    const set: Partial<SupplierPatch> = { needsSync: true };
+    const set: Partial<SupplierPatch> = { needsSync: true, tenantId: getActiveTenantIdOrThrow() };
     if (patch.name !== undefined) set.name = patch.name;
     if (patch.contactName !== undefined) set.contactName = patch.contactName ?? null;
     if (patch.phone !== undefined) set.phone = patch.phone ?? null;
@@ -131,6 +141,7 @@ export class DrizzleSupplierRepository implements SupplierRepository {
   // o id/client_id e o histórico; caso contrário insere um novo. Espelha a unique
   // (product, supplier) do servidor, evitando duplicata local ao re-adicionar.
   async addLink(input: NewProductSupplier): Promise<void> {
+    const tenantId = getActiveTenantIdOrThrow();
     const existing = await db
       .select()
       .from(productSuppliers)
@@ -148,6 +159,7 @@ export class DrizzleSupplierRepository implements SupplierRepository {
           isPreferred: input.isPreferred ?? existing[0].isPreferred,
           isActive: true,
           pendingDelete: false,
+          tenantId,
           needsSync: true,
         })
         .where(eq(productSuppliers.id, existing[0].id));
@@ -159,6 +171,7 @@ export class DrizzleSupplierRepository implements SupplierRepository {
       supplierId: input.supplierId,
       purchasePrice: input.purchasePrice,
       isPreferred: input.isPreferred ?? false,
+      tenantId,
       needsSync: true,
     });
   }
@@ -167,7 +180,7 @@ export class DrizzleSupplierRepository implements SupplierRepository {
     id: string,
     patch: { purchasePrice?: number; isPreferred?: boolean },
   ): Promise<void> {
-    const set: Partial<ProductSupplierPatch> = { needsSync: true };
+    const set: Partial<ProductSupplierPatch> = { needsSync: true, tenantId: getActiveTenantIdOrThrow() };
     if (patch.purchasePrice !== undefined) set.purchasePrice = patch.purchasePrice;
     if (patch.isPreferred !== undefined) set.isPreferred = patch.isPreferred;
     await db.update(productSuppliers).set(set).where(eq(productSuppliers.id, id));
@@ -177,7 +190,7 @@ export class DrizzleSupplierRepository implements SupplierRepository {
   async inactivateLink(id: string): Promise<void> {
     await db
       .update(productSuppliers)
-      .set({ isActive: false, needsSync: true })
+      .set({ isActive: false, tenantId: getActiveTenantIdOrThrow(), needsSync: true })
       .where(eq(productSuppliers.id, id));
   }
 
@@ -185,7 +198,7 @@ export class DrizzleSupplierRepository implements SupplierRepository {
   async deleteLink(id: string): Promise<void> {
     await db
       .update(productSuppliers)
-      .set({ pendingDelete: true, needsSync: true })
+      .set({ pendingDelete: true, tenantId: getActiveTenantIdOrThrow(), needsSync: true })
       .where(eq(productSuppliers.id, id));
   }
 
@@ -203,6 +216,7 @@ export class DrizzleSupplierRepository implements SupplierRepository {
 type ProductSupplierPatch = {
   purchasePrice: number;
   isPreferred: boolean;
+  tenantId: string;
   needsSync: boolean;
 };
 
@@ -211,5 +225,6 @@ type SupplierPatch = {
   contactName: string | null;
   phone: string | null;
   address: string | null;
+  tenantId: string;
   needsSync: boolean;
 };

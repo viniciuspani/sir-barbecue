@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { type Href, Redirect, useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -12,7 +12,6 @@ import type { PaymentMethod, Sale } from '@/domain/entities/Sale';
 import type { StockItem } from '@/domain/entities/StockItem';
 import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL, formatQuantity } from '@/lib/currency';
-import { hasSeenWelcome, markWelcomeSeen } from '@/services/onboarding';
 import { DEFAULT_TENANT_NAME, fetchTenant } from '@/services/tenant';
 import { useAuthStore } from '@/store/authStore';
 import { BrandLogo } from '@/ui/BrandLogo';
@@ -34,15 +33,13 @@ function isLow(item: StockItem): boolean {
 
 export default function Inicio() {
   const router = useRouter();
-  const { canAccessHome } = usePermissions();
+  const { canAccessHome, role } = usePermissions();
   const currentTenantId = useAuthStore((s) => s.currentTenantId);
-  const userId = useAuthStore((s) => s.user?.id);
   const [sales, setSales] = useState<Sale[]>([]);
   const [stock, setStock] = useState<StockItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [tenantName, setTenantName] = useState<string | null>(null);
-  const welcomeChecked = useRef(false);
 
   useEffect(() => {
     const unsubSales = saleRepository.observeAll(setSales);
@@ -54,18 +51,6 @@ export default function Inicio() {
       unsubProducts();
     };
   }, []);
-
-  // Primeiro login: abre a tela de boas-vindas uma única vez (flag local por usuário).
-  useEffect(() => {
-    if (!currentTenantId || !userId || welcomeChecked.current) return;
-    welcomeChecked.current = true;
-    void (async () => {
-      if (!(await hasSeenWelcome(userId))) {
-        await markWelcomeSeen(userId);
-        router.push(WELCOME_ROUTE);
-      }
-    })();
-  }, [currentTenantId, userId, router]);
 
   // Nome da empresa (para o nudge) — recarrega ao focar a Home (reflete edições).
   useFocusEffect(
@@ -129,7 +114,7 @@ export default function Inicio() {
         <Text style={styles.title}>Início</Text>
         <Text style={styles.subtitle}>{monthLabel}</Text>
 
-        {tenantName === DEFAULT_TENANT_NAME ? (
+        {tenantName === DEFAULT_TENANT_NAME && role === 'owner' ? (
           <Pressable style={styles.nudge} onPress={() => router.push(WELCOME_ROUTE)}>
             <Ionicons name="storefront-outline" size={22} color={colors.gold} />
             <View style={styles.nudgeText}>

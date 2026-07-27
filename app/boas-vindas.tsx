@@ -17,10 +17,17 @@ import { TextField } from '@/ui/TextField';
 export default function BoasVindas() {
   const router = useRouter();
   const tenantId = useAuthStore((s) => s.currentTenantId);
+  const role = useAuthStore((s) => s.currentRole);
   const [name, setName] = useState('');
   const [cnpj, setCnpj] = useState<string | undefined>();
   const [phone, setPhone] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
+
+  // Só o OWNER nomeia a empresa (convidado já entrou numa empresa nomeada). Hardening
+  // de deep-link — o gatilho de 1º login já é owner-only; a RLS tenant_owner_write confirma.
+  useEffect(() => {
+    if (role && role !== 'owner') router.back();
+  }, [role, router]);
 
   // Carrega a empresa para preservar CNPJ/telefone e evitar sobrescrever no update.
   useEffect(() => {

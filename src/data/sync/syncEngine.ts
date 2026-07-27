@@ -88,8 +88,13 @@ async function upsertRemote(
 
 // ---- PUSH (local → servidor) -------------------------------------------------
 
+// ISOLAMENTO POR EMPRESA: cada push filtra needs_sync AND tenant_id = empresa ativa.
+// Assim, linha de outra empresa (ou órfã com tenant_id NULL, criada por conta sem
+// vínculo) NUNCA sobe sob a conta atual. O UPDATE que limpa needs_sync usa o MESMO
+// filtro, para não marcar como sincronizada uma linha de outra empresa.
 async function pushProducts(tenantId: string): Promise<void> {
-  const rows = await db.select().from(products).where(eq(products.needsSync, true));
+  const scope = and(eq(products.needsSync, true), eq(products.tenantId, tenantId));
+  const rows = await db.select().from(products).where(scope);
   if (rows.length === 0) return;
   await withRetry(() =>
     upsertRemote(
@@ -104,14 +109,12 @@ async function pushProducts(tenantId: string): Promise<void> {
       })),
     ),
   );
-  await db
-    .update(products)
-    .set({ needsSync: false, syncedAt: Date.now() })
-    .where(eq(products.needsSync, true));
+  await db.update(products).set({ needsSync: false, syncedAt: Date.now() }).where(scope);
 }
 
 async function pushSuppliers(tenantId: string): Promise<void> {
-  const rows = await db.select().from(suppliers).where(eq(suppliers.needsSync, true));
+  const scope = and(eq(suppliers.needsSync, true), eq(suppliers.tenantId, tenantId));
+  const rows = await db.select().from(suppliers).where(scope);
   if (rows.length === 0) return;
   await withRetry(() =>
     upsertRemote(
@@ -126,10 +129,7 @@ async function pushSuppliers(tenantId: string): Promise<void> {
       })),
     ),
   );
-  await db
-    .update(suppliers)
-    .set({ needsSync: false, syncedAt: Date.now() })
-    .where(eq(suppliers.needsSync, true));
+  await db.update(suppliers).set({ needsSync: false, syncedAt: Date.now() }).where(scope);
 }
 
 // Associação N:N (normalizada): sem tenant_id; FK por product/supplier (devem já ter subido).
@@ -137,14 +137,14 @@ async function pushSuppliers(tenantId: string): Promise<void> {
 // (só localmente) e re-adicionado ganha client_id novo; conflitar por client_id tentaria
 // INSERT e violaria a unique (product, supplier). Pela chave natural o re-add vira UPDATE,
 // dispara o trigger de histórico de preço e não quebra o sync.
-async function pushProductSuppliers(): Promise<void> {
+async function pushProductSuppliers(tenantId: string): Promise<void> {
   // 1) Exclusões definitivas pendentes: propaga o delete pro servidor (por chave natural,
   //    robusto mesmo se o client_id divergiu) e só então apaga local. Isola por linha p/
-  //    uma falha não travar as demais.
+  //    uma falha não travar as demais. Escopado por empresa ativa (isolamento).
   const toDelete = await db
     .select()
     .from(productSuppliers)
-    .where(eq(productSuppliers.pendingDelete, true));
+    .where(and(eq(productSuppliers.pendingDelete, true), eq(productSuppliers.tenantId, tenantId)));
   for (const r of toDelete) {
     await withRetry(async () => {
       const { error } = await supabase
@@ -158,10 +158,12 @@ async function pushProductSuppliers(): Promise<void> {
   }
 
   // 2) Upsert dos vínculos ativos/editados (exclui os marcados p/ exclusão).
-  const rows = await db
-    .select()
-    .from(productSuppliers)
-    .where(and(eq(productSuppliers.needsSync, true), eq(productSuppliers.pendingDelete, false)));
+  const scope = and(
+    eq(productSuppliers.needsSync, true),
+    eq(productSuppliers.pendingDelete, false),
+    eq(productSuppliers.tenantId, tenantId),
+  );
+  const rows = await db.select().from(productSuppliers).where(scope);
   if (rows.length === 0) return;
   await withRetry(() =>
     upsertRemote(
@@ -177,10 +179,7 @@ async function pushProductSuppliers(): Promise<void> {
       'product_client_id,supplier_client_id',
     ),
   );
-  await db
-    .update(productSuppliers)
-    .set({ needsSync: false, syncedAt: Date.now() })
-    .where(and(eq(productSuppliers.needsSync, true), eq(productSuppliers.pendingDelete, false)));
+  await db.update(productSuppliers).set({ needsSync: false, syncedAt: Date.now() }).where(scope);
 }
 
 // Vendas + itens enviados UMA VENDA POR VEZ (item 2 — isolamento de falha):
@@ -189,7 +188,12 @@ async function pushProductSuppliers(): Promise<void> {
 // falha sozinha, sem contaminar as demais vendas pendentes.
 // Retorna true se TODAS as vendas subiram; false se ao menos uma falhou (fica pendente p/ retry).
 async function pushSalesWithItems(tenantId: string): Promise<boolean> {
-  const saleRows = await db.select().from(sales).where(eq(sales.needsSync, true));
+  // Só vendas da empresa ativa (isolamento): venda órfã (tenant_id NULL, de conta sem
+  // vínculo) ou de outra empresa nunca sobe sob a conta atual.
+  const saleRows = await db
+    .select()
+    .from(sales)
+    .where(and(eq(sales.needsSync, true), eq(sales.tenantId, tenantId)));
   if (saleRows.length === 0) return true;
 
   let allOk = true;
@@ -242,7 +246,8 @@ async function pushSalesWithItems(tenantId: string): Promise<boolean> {
 // Estoque: o servidor RECALCULA a quantidade (triggers increment_stock_on_entry /
 // deduct_stock_on_sale). O app envia apenas as ENTRADAS (não a quantidade do stock_items).
 async function pushStockEntries(tenantId: string): Promise<void> {
-  const rows = await db.select().from(stockEntries).where(eq(stockEntries.needsSync, true));
+  const scope = and(eq(stockEntries.needsSync, true), eq(stockEntries.tenantId, tenantId));
+  const rows = await db.select().from(stockEntries).where(scope);
   if (rows.length === 0) return;
   await withRetry(() =>
     upsertRemote(
@@ -257,16 +262,14 @@ async function pushStockEntries(tenantId: string): Promise<void> {
       })),
     ),
   );
-  await db
-    .update(stockEntries)
-    .set({ needsSync: false, syncedAt: Date.now() })
-    .where(eq(stockEntries.needsSync, true));
+  await db.update(stockEntries).set({ needsSync: false, syncedAt: Date.now() }).where(scope);
 }
 
 // alert_threshold é CONFIG do cliente → atualiza o stock_items no servidor por product_client_id
 // (a linha é criada pela entrada). A quantidade é server-owned (reconciliada no pull).
 async function pushStockThresholds(tenantId: string): Promise<void> {
-  const rows = await db.select().from(stockItems).where(eq(stockItems.needsSync, true));
+  const scope = and(eq(stockItems.needsSync, true), eq(stockItems.tenantId, tenantId));
+  const rows = await db.select().from(stockItems).where(scope);
   if (rows.length === 0) return;
   for (const r of rows) {
     await withRetry(async () => {
@@ -278,7 +281,7 @@ async function pushStockThresholds(tenantId: string): Promise<void> {
       if (error) throw new Error(`[sync:stock_items] ${error.message}`);
     });
   }
-  await db.update(stockItems).set({ needsSync: false }).where(eq(stockItems.needsSync, true));
+  await db.update(stockItems).set({ needsSync: false }).where(scope);
 }
 
 // ---- PULL (servidor → local, server-wins) ------------------------------------
@@ -296,10 +299,10 @@ async function pullCategories(tenantId: string): Promise<void> {
   for (const r of data) {
     await db
       .insert(categories)
-      .values({ id: r.client_id, name: r.name, needsSync: false, syncedAt: now })
+      .values({ id: r.client_id, name: r.name, tenantId, needsSync: false, syncedAt: now })
       .onConflictDoUpdate({
         target: categories.id,
-        set: { name: r.name, needsSync: false, syncedAt: now },
+        set: { name: r.name, tenantId, needsSync: false, syncedAt: now },
       });
   }
 }
@@ -323,6 +326,7 @@ async function pullProducts(tenantId: string): Promise<void> {
         price: r.price,
         isActive: r.is_active,
         categoryId: r.category_client_id ?? null,
+        tenantId,
         needsSync: false,
         syncedAt: now,
       })
@@ -333,6 +337,7 @@ async function pullProducts(tenantId: string): Promise<void> {
           price: r.price,
           isActive: r.is_active,
           categoryId: r.category_client_id ?? null,
+          tenantId,
           needsSync: false,
           syncedAt: now,
         },
@@ -355,6 +360,7 @@ async function pullSuppliers(tenantId: string): Promise<void> {
       contactName: r.contact_name ?? null,
       phone: r.phone ?? null,
       address: r.address ?? null,
+      tenantId,
       needsSync: false,
       syncedAt: now,
     };
@@ -456,7 +462,7 @@ async function pullStockItems(tenantId: string): Promise<void> {
     if (existing.length) {
       await db
         .update(stockItems)
-        .set({ quantity: r.quantity, needsSync: false, syncedAt: now })
+        .set({ quantity: r.quantity, tenantId, needsSync: false, syncedAt: now })
         .where(eq(stockItems.productId, r.product_client_id));
     } else {
       await db.insert(stockItems).values({
@@ -464,6 +470,7 @@ async function pullStockItems(tenantId: string): Promise<void> {
         productId: r.product_client_id,
         quantity: r.quantity,
         alertThreshold: 0,
+        tenantId,
         needsSync: false,
         syncedAt: now,
       });
@@ -548,7 +555,7 @@ export async function runSync(): Promise<void> {
     let ok = true;
     if (canWriteCatalog(role)) ok = (await runStep('products', () => pushProducts(tenantId))) && ok;
     if (canWriteSuppliers(role)) ok = (await runStep('suppliers', () => pushSuppliers(tenantId))) && ok;
-    if (canWriteSuppliers(role)) ok = (await runStep('product_suppliers', () => pushProductSuppliers())) && ok;
+    if (canWriteSuppliers(role)) ok = (await runStep('product_suppliers', () => pushProductSuppliers(tenantId))) && ok;
     if (canWriteCatalog(role)) ok = (await runStep('stock_entries', () => pushStockEntries(tenantId))) && ok;
     ok = (await runStep('sales', () => pushSalesWithItems(tenantId))) && ok;
     if (canWriteCatalog(role)) ok = (await runStep('stock_thresholds', () => pushStockThresholds(tenantId))) && ok;

@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import * as Crypto from 'expo-crypto';
 import { addDatabaseChangeListener } from 'expo-sqlite';
 
@@ -12,6 +12,7 @@ import {
 import type { NewStockEntry, StockEntry } from '@/domain/entities/StockEntry';
 import type { StockItem } from '@/domain/entities/StockItem';
 import type { StockRepository } from '@/domain/repositories/StockRepository';
+import { getActiveTenantId, getActiveTenantIdOrThrow } from '@/lib/activeTenant';
 
 function toItem(row: StockItemRow): StockItem {
   return {
@@ -39,11 +40,17 @@ function toEntry(row: StockEntryRow): StockEntry {
 /** Implementação do StockRepository sobre Drizzle + expo-sqlite (Plano B). */
 export class DrizzleStockRepository implements StockRepository {
   async getItem(productId: string): Promise<StockItem | null> {
-    const rows = await db.select().from(stockItems).where(eq(stockItems.productId, productId));
+    const tenantId = getActiveTenantId();
+    if (!tenantId) return null;
+    const rows = await db
+      .select()
+      .from(stockItems)
+      .where(and(eq(stockItems.productId, productId), eq(stockItems.tenantId, tenantId)));
     return rows.length ? toItem(rows[0]) : null;
   }
 
   async registerEntry(input: NewStockEntry): Promise<void> {
+    const tenantId = getActiveTenantIdOrThrow();
     const entryDate = input.entryDate ?? Date.now();
     await db.transaction(async (tx) => {
       await tx.insert(stockEntries).values({
@@ -52,6 +59,7 @@ export class DrizzleStockRepository implements StockRepository {
         quantity: input.quantity,
         notes: input.notes ?? null,
         entryDate,
+        tenantId,
         needsSync: true,
       });
       const existing = await tx
@@ -61,7 +69,7 @@ export class DrizzleStockRepository implements StockRepository {
       if (existing.length) {
         await tx
           .update(stockItems)
-          .set({ quantity: existing[0].quantity + input.quantity, needsSync: true })
+          .set({ quantity: existing[0].quantity + input.quantity, tenantId, needsSync: true })
           .where(eq(stockItems.productId, input.productId));
       } else {
         await tx.insert(stockItems).values({
@@ -69,6 +77,7 @@ export class DrizzleStockRepository implements StockRepository {
           productId: input.productId,
           quantity: input.quantity,
           alertThreshold: 0,
+          tenantId,
           needsSync: true,
         });
       }
@@ -76,11 +85,12 @@ export class DrizzleStockRepository implements StockRepository {
   }
 
   async setAlertThreshold(productId: string, threshold: number): Promise<void> {
+    const tenantId = getActiveTenantIdOrThrow();
     const existing = await db.select().from(stockItems).where(eq(stockItems.productId, productId));
     if (existing.length) {
       await db
         .update(stockItems)
-        .set({ alertThreshold: threshold, needsSync: true })
+        .set({ alertThreshold: threshold, tenantId, needsSync: true })
         .where(eq(stockItems.productId, productId));
     } else {
       await db.insert(stockItems).values({
@@ -88,22 +98,26 @@ export class DrizzleStockRepository implements StockRepository {
         productId,
         quantity: 0,
         alertThreshold: threshold,
+        tenantId,
         needsSync: true,
       });
     }
   }
 
   async listEntries(productId: string): Promise<StockEntry[]> {
+    const tenantId = getActiveTenantId();
+    if (!tenantId) return [];
     const rows = await db
       .select()
       .from(stockEntries)
-      .where(eq(stockEntries.productId, productId))
+      .where(and(eq(stockEntries.productId, productId), eq(stockEntries.tenantId, tenantId)))
       .orderBy(desc(stockEntries.entryDate))
       .limit(10);
     return rows.map(toEntry);
   }
 
   async deductForSale(items: { productId: string; quantity: number }[]): Promise<void> {
+    const tenantId = getActiveTenantIdOrThrow();
     await db.transaction(async (tx) => {
       for (const it of items) {
         const existing = await tx
@@ -114,7 +128,7 @@ export class DrizzleStockRepository implements StockRepository {
           const next = Math.max(0, existing[0].quantity - it.quantity);
           await tx
             .update(stockItems)
-            .set({ quantity: next, needsSync: true })
+            .set({ quantity: next, tenantId, needsSync: true })
             .where(eq(stockItems.productId, it.productId));
         }
       }
@@ -123,8 +137,14 @@ export class DrizzleStockRepository implements StockRepository {
 
   observeItems(onChange: (items: StockItem[]) => void): () => void {
     const emit = () => {
+      const tenantId = getActiveTenantId();
+      if (!tenantId) {
+        onChange([]);
+        return;
+      }
       db.select()
         .from(stockItems)
+        .where(eq(stockItems.tenantId, tenantId))
         .then((rows) => onChange(rows.map(toItem)))
         .catch(() => undefined);
     };

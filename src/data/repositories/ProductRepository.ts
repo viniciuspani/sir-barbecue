@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import * as Crypto from 'expo-crypto';
 import { addDatabaseChangeListener } from 'expo-sqlite';
 
@@ -6,6 +6,7 @@ import { db } from '@/data/local/database';
 import { products, type ProductRow } from '@/data/local/schema';
 import type { Product } from '@/domain/entities/Product';
 import type { ProductRepository } from '@/domain/repositories/ProductRepository';
+import { getActiveTenantId, getActiveTenantIdOrThrow } from '@/lib/activeTenant';
 
 // visible_days é persistido como JSON de números (0..6). Vazio/null = todos os dias.
 function serializeDays(days?: number[]): string | null {
@@ -42,12 +43,20 @@ function toEntity(row: ProductRow): Product {
  */
 export class DrizzleProductRepository implements ProductRepository {
   async list(): Promise<Product[]> {
-    const rows = await db.select().from(products);
+    // Só a empresa ativa (isolamento do SQLite compartilhado no aparelho).
+    const tenantId = getActiveTenantId();
+    if (!tenantId) return [];
+    const rows = await db.select().from(products).where(eq(products.tenantId, tenantId));
     return rows.map(toEntity);
   }
 
   async getById(id: string): Promise<Product | null> {
-    const rows = await db.select().from(products).where(eq(products.id, id));
+    const tenantId = getActiveTenantId();
+    if (!tenantId) return null;
+    const rows = await db
+      .select()
+      .from(products)
+      .where(and(eq(products.id, id), eq(products.tenantId, tenantId)));
     return rows.length ? toEntity(rows[0]) : null;
   }
 
@@ -60,6 +69,7 @@ export class DrizzleProductRepository implements ProductRepository {
       isActive: input.isActive,
       categoryId: input.categoryId ?? null,
       visibleDays: serializeDays(input.visibleDays),
+      tenantId: getActiveTenantIdOrThrow(),
       needsSync: true,
     });
     return {
@@ -74,7 +84,7 @@ export class DrizzleProductRepository implements ProductRepository {
   }
 
   async update(id: string, patch: Partial<Product>): Promise<void> {
-    const set: Partial<NewProductPatch> = { needsSync: true };
+    const set: Partial<NewProductPatch> = { needsSync: true, tenantId: getActiveTenantIdOrThrow() };
     if (patch.name !== undefined) set.name = patch.name;
     if (patch.price !== undefined) set.price = patch.price;
     if (patch.isActive !== undefined) set.isActive = patch.isActive;
@@ -102,5 +112,6 @@ type NewProductPatch = {
   isActive: boolean;
   categoryId: string | null;
   visibleDays: string | null;
+  tenantId: string;
   needsSync: boolean;
 };

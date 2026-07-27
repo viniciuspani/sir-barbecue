@@ -7,6 +7,7 @@ import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 export const categories = sqliteTable('categories', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
+  tenantId: text('tenant_id'),
   needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
   syncedAt: integer('synced_at'),
 });
@@ -19,6 +20,8 @@ export const products = sqliteTable('products', {
   categoryId: text('category_id'),
   // JSON de números 0..6 (dom..sáb). null/[] = visível em todos os dias (RF-05).
   visibleDays: text('visible_days'),
+  // Empresa dona da linha (carimbo local). Só sincroniza sob a empresa ativa (isolamento).
+  tenantId: text('tenant_id'),
   needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
   syncedAt: integer('synced_at'),
 });
@@ -29,6 +32,7 @@ export const sales = sqliteTable('sales', {
   totalAmount: real('total_amount').notNull(),
   paymentMethod: text('payment_method').notNull(),
   consumptionMode: text('consumption_mode').notNull(),
+  tenantId: text('tenant_id'),
   needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
   syncedAt: integer('synced_at'),
 });
@@ -49,6 +53,7 @@ export const suppliers = sqliteTable('suppliers', {
   contactName: text('contact_name'),
   phone: text('phone'),
   address: text('address'),
+  tenantId: text('tenant_id'),
   needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
   syncedAt: integer('synced_at'),
 });
@@ -64,6 +69,7 @@ export const productSuppliers = sqliteTable('product_suppliers', {
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   // Marcado para exclusão definitiva: escondido da UI; o sync apaga no servidor e depois local.
   pendingDelete: integer('pending_delete', { mode: 'boolean' }).notNull().default(false),
+  tenantId: text('tenant_id'),
   needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
   syncedAt: integer('synced_at'),
 });
@@ -86,6 +92,7 @@ export const stockItems = sqliteTable('stock_items', {
   productId: text('product_id').notNull().unique(),
   quantity: real('quantity').notNull().default(0),
   alertThreshold: real('alert_threshold').notNull().default(0),
+  tenantId: text('tenant_id'),
   needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
   syncedAt: integer('synced_at'),
 });
@@ -96,6 +103,7 @@ export const stockEntries = sqliteTable('stock_entries', {
   quantity: real('quantity').notNull(),
   entryDate: integer('entry_date').notNull(), // epoch ms
   notes: text('notes'),
+  tenantId: text('tenant_id'),
   needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
   syncedAt: integer('synced_at'),
 });

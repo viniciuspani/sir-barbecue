@@ -13,6 +13,7 @@ sqlite.execSync(`
   CREATE TABLE IF NOT EXISTS categories (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
+    tenant_id TEXT,
     needs_sync INTEGER NOT NULL DEFAULT 1,
     synced_at INTEGER
   );
@@ -23,6 +24,7 @@ sqlite.execSync(`
     is_active INTEGER NOT NULL DEFAULT 1,
     category_id TEXT,
     visible_days TEXT,
+    tenant_id TEXT,
     needs_sync INTEGER NOT NULL DEFAULT 1,
     synced_at INTEGER
   );
@@ -32,6 +34,7 @@ sqlite.execSync(`
     total_amount REAL NOT NULL,
     payment_method TEXT NOT NULL,
     consumption_mode TEXT NOT NULL,
+    tenant_id TEXT,
     needs_sync INTEGER NOT NULL DEFAULT 1,
     synced_at INTEGER
   );
@@ -50,6 +53,7 @@ sqlite.execSync(`
     contact_name TEXT,
     phone TEXT,
     address TEXT,
+    tenant_id TEXT,
     needs_sync INTEGER NOT NULL DEFAULT 1,
     synced_at INTEGER
   );
@@ -61,6 +65,7 @@ sqlite.execSync(`
     is_preferred INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1,
     pending_delete INTEGER NOT NULL DEFAULT 0,
+    tenant_id TEXT,
     needs_sync INTEGER NOT NULL DEFAULT 1,
     synced_at INTEGER
   );
@@ -78,6 +83,7 @@ sqlite.execSync(`
     product_id TEXT NOT NULL UNIQUE,
     quantity REAL NOT NULL DEFAULT 0,
     alert_threshold REAL NOT NULL DEFAULT 0,
+    tenant_id TEXT,
     needs_sync INTEGER NOT NULL DEFAULT 1,
     synced_at INTEGER
   );
@@ -87,6 +93,7 @@ sqlite.execSync(`
     quantity REAL NOT NULL,
     entry_date INTEGER NOT NULL,
     notes TEXT,
+    tenant_id TEXT,
     needs_sync INTEGER NOT NULL DEFAULT 1,
     synced_at INTEGER
   );
@@ -143,6 +150,18 @@ if (!productSupplierCols.some((c) => c.name === 'is_active')) {
 }
 if (!productSupplierCols.some((c) => c.name === 'pending_delete')) {
   sqlite.execSync('ALTER TABLE product_suppliers ADD COLUMN pending_delete INTEGER NOT NULL DEFAULT 0');
+}
+
+// Migração incremental: isolamento por empresa. Carimba tenant_id nas tabelas
+// sincronizáveis para que o dado local só suba sob a empresa ativa (trava de
+// segurança contra adoção de dado órfão de outra conta no mesmo aparelho).
+// Linhas legadas ficam com tenant_id NULL de propósito → NÃO sincronizam (o push
+// exige tenant_id = empresa ativa), evitando readotar dados de origem desconhecida.
+for (const table of ['categories', 'products', 'sales', 'suppliers', 'product_suppliers', 'stock_items', 'stock_entries']) {
+  const cols = sqlite.getAllSync<{ name: string }>(`PRAGMA table_info(${table})`);
+  if (!cols.some((c) => c.name === 'tenant_id')) {
+    sqlite.execSync(`ALTER TABLE ${table} ADD COLUMN tenant_id TEXT`);
+  }
 }
 
 export const db = drizzle(sqlite, { schema });

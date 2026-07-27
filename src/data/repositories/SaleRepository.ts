@@ -1,4 +1,4 @@
-import { inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import * as Crypto from 'expo-crypto';
 import { addDatabaseChangeListener } from 'expo-sqlite';
 
@@ -12,6 +12,7 @@ import type {
   SaleItem,
 } from '@/domain/entities/Sale';
 import type { SaleRepository } from '@/domain/repositories/SaleRepository';
+import { getActiveTenantId, getActiveTenantIdOrThrow } from '@/lib/activeTenant';
 
 /**
  * Implementação do SaleRepository sobre Drizzle + expo-sqlite (Plano B).
@@ -19,6 +20,7 @@ import type { SaleRepository } from '@/domain/repositories/SaleRepository';
  */
 export class DrizzleSaleRepository implements SaleRepository {
   async create(input: NewSale): Promise<Sale> {
+    const tenantId = getActiveTenantIdOrThrow();
     const saleId = Crypto.randomUUID();
     const saleDate = input.saleDate ?? Date.now();
     const totalAmount = input.items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
@@ -31,6 +33,7 @@ export class DrizzleSaleRepository implements SaleRepository {
         totalAmount,
         paymentMethod: input.paymentMethod,
         consumptionMode: input.consumptionMode,
+        tenantId,
         needsSync: true,
       });
       for (const item of items) {
@@ -57,7 +60,10 @@ export class DrizzleSaleRepository implements SaleRepository {
   }
 
   async list(): Promise<Sale[]> {
-    const saleRows = await db.select().from(sales);
+    // Só vendas da empresa ativa (Home/Relatórios não mostram dados de outra empresa).
+    const tenantId = getActiveTenantId();
+    if (!tenantId) return [];
+    const saleRows = await db.select().from(sales).where(eq(sales.tenantId, tenantId));
     if (saleRows.length === 0) return [];
     const ids = saleRows.map((s) => s.id);
     const itemRows = await db.select().from(saleItems).where(inArray(saleItems.saleId, ids));
