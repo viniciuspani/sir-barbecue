@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { productRepository, saleRepository, stockRepository } from '@/data/repositories';
 import { runSync } from '@/data/sync/syncEngine';
-import { usePermissions } from '@/lib/permissions';
+import { roleLabel, usePermissions } from '@/lib/permissions';
 import type { Product } from '@/domain/entities/Product';
 import type { PaymentMethod, Sale } from '@/domain/entities/Sale';
 import type { StockItem } from '@/domain/entities/StockItem';
@@ -15,6 +15,14 @@ import { formatBRL, formatQuantity } from '@/lib/currency';
 import { DEFAULT_TENANT_NAME, fetchTenant } from '@/services/tenant';
 import { useAuthStore } from '@/store/authStore';
 import { BrandLogo } from '@/ui/BrandLogo';
+
+// Nome de exibição do operador: prioriza nome do perfil, cai para o e-mail.
+// Espelha a mesma função da tela de Venda (app/(app)/venda/index.tsx).
+function operatorName(user: { email?: string; user_metadata?: Record<string, unknown> } | null): string {
+  const meta = user?.user_metadata ?? {};
+  const name = (meta.name ?? meta.full_name) as string | undefined;
+  return name?.trim() || user?.email || 'Operador';
+}
 
 const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   pix: 'Pix',
@@ -35,6 +43,7 @@ export default function Inicio() {
   const router = useRouter();
   const { canAccessHome, role } = usePermissions();
   const currentTenantId = useAuthStore((s) => s.currentTenantId);
+  const user = useAuthStore((s) => s.user);
   const [sales, setSales] = useState<Sale[]>([]);
   const [stock, setStock] = useState<StockItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -114,6 +123,17 @@ export default function Inicio() {
         <Text style={styles.title}>Início</Text>
         <Text style={styles.subtitle}>{monthLabel}</Text>
 
+        {/* Operador logado + papel — mesmo indicador da tela de Venda. */}
+        <View style={styles.operatorRow}>
+          <Ionicons name="person-circle-outline" size={18} color={colors.textSecondary} />
+          <Text style={styles.operatorName} numberOfLines={1}>
+            {operatorName(user)}
+          </Text>
+          <View style={styles.roleBadge}>
+            <Text style={styles.roleBadgeText}>{roleLabel(role)}</Text>
+          </View>
+        </View>
+
         {tenantName === DEFAULT_TENANT_NAME && role === 'owner' ? (
           <Pressable style={styles.nudge} onPress={() => router.push(WELCOME_ROUTE)}>
             <Ionicons name="storefront-outline" size={22} color={colors.gold} />
@@ -148,7 +168,12 @@ export default function Inicio() {
 
         <Text style={styles.section}>Alertas de estoque</Text>
         <View style={styles.block}>
-          {lowStock.length === 0 ? (
+          {stock.length === 0 ? (
+            <Text style={styles.emptyText}>
+              Nenhum produto cadastrado no estoque ainda. Cadastre produtos e registre a entrada de
+              estoque para começar a vender.
+            </Text>
+          ) : lowStock.length === 0 ? (
             <Text style={styles.okText}>Tudo certo — nenhum item abaixo do limite. ✅</Text>
           ) : (
             lowStock.map((item) => (
@@ -175,6 +200,20 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     textTransform: 'capitalize',
   },
+  operatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  operatorName: { color: colors.textSecondary, fontSize: 13, flexShrink: 1 },
+  roleBadge: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  roleBadgeText: { color: colors.gold, fontSize: 12, fontWeight: '700' },
   nudge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -205,6 +244,7 @@ const styles = StyleSheet.create({
   payLabel: { color: colors.textSecondary, fontSize: 15 },
   payValue: { color: colors.textPrimary, fontSize: 15, fontWeight: '600' },
   okText: { color: colors.textSecondary, fontSize: 14 },
+  emptyText: { color: colors.textSecondary, fontSize: 14, lineHeight: 20 },
   alertRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   alertName: { color: colors.textPrimary, fontSize: 15, fontWeight: '600' },
   alertQty: { color: colors.yellow, fontSize: 14, fontWeight: '600' },
