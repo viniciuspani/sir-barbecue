@@ -36,6 +36,19 @@ export async function signUpWithEmail(
   return { error: error ? msg(error) : null, needsConfirmation: !!data?.user && !data.session };
 }
 
+/**
+ * Checa (antes do login) se o e-mail tem um convite PENDENTE para entrar numa
+ * empresa existente. Usa a RPC pública has_pending_invite (só devolve booleano).
+ * Se falhar/offline, assume `false` (trata como usuário novo → pede empresa).
+ */
+export async function hasPendingInvite(email: string): Promise<boolean> {
+  const trimmed = email.trim();
+  if (!trimmed) return false;
+  const { data, error } = await supabase.rpc('has_pending_invite', { p_email: trimmed });
+  if (error) return false;
+  return data === true;
+}
+
 export async function resendConfirmation(email: string): Promise<AuthResult> {
   const { error } = await supabase.auth.resend({ type: 'signup', email: email.trim() });
   return { error: error ? msg(error) : null };

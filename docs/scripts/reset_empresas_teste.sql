@@ -1,6 +1,6 @@
 -- =====================================================================
 -- Sir Barbecue — RESET DE TESTE: apaga TODAS as empresas e usuários,
--- mantendo apenas o super-admin (viniciuspani@hotmail.com).
+-- mantendo apenas o super-admin (e-mail definido em app.admin_email — ver abaixo).
 --
 -- Como rodar: Supabase → SQL Editor → New query → cole tudo → Run.
 -- ATENÇÃO: IRREVERSÍVEL. Apaga dados de TODAS as empresas cadastradas
@@ -12,7 +12,20 @@
 -- não são dados de teste de empresa).
 -- =====================================================================
 
+-- >>> OBRIGATÓRIO: defina o e-mail do super-admin a PRESERVAR (não versionado).
+--     Preencha antes de rodar. Se ficar vazio, o script ABORTA (fail-safe) em vez
+--     de apagar o próprio admin.
+select set_config('app.admin_email', '', false);  -- <<< PREENCHA: 'voce@exemplo.com'
+
 begin;
+
+-- Guarda fail-safe: sem e-mail definido, aborta a transação (não apaga nada).
+do $$
+begin
+  if coalesce(current_setting('app.admin_email', true), '') = '' then
+    raise exception 'Defina app.admin_email (super-admin a preservar) antes de rodar o reset.';
+  end if;
+end $$;
 
 -- 1) Apaga todas as empresas — cascateia automaticamente para:
 --    tenant_members, categories, products, product_day_visibility,
@@ -28,7 +41,7 @@ truncate table public.tenants cascade;
 --    Cascateia para auth.identities/auth.sessions/auth.refresh_tokens etc.
 --    e também para public.platform_admins (caso algum outro admin exista).
 delete from auth.users
- where email <> 'viniciuspani@hotmail.com';
+ where email <> current_setting('app.admin_email', true);
 
 commit;
 

@@ -176,7 +176,14 @@ export default function Relatorios() {
               <Text style={styles.modalClose}>Fechar</Text>
             </TouchableOpacity>
           </View>
-          <WebView source={{ html: reportHtml ?? '' }} style={styles.webview} />
+          <WebView
+            source={{ html: reportHtml ?? '' }}
+            style={styles.webview}
+            originWhitelist={['about:']}
+            javaScriptEnabled={false}
+            domStorageEnabled={false}
+            setSupportMultipleWindows={false}
+          />
         </View>
       </Modal>
     </ScrollView>

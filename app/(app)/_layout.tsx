@@ -15,6 +15,8 @@ import { Splash } from '@/ui/Splash';
 
 // Rota do passo de boas-vindas (cast até o typegen do expo-router reconhecê-la).
 const WELCOME_ROUTE = '/boas-vindas' as Href;
+// Rota top-level do reset de senha (mesmo motivo do cast acima).
+const RESET_ROUTE = '/reset-password' as Href;
 
 /**
  * Grupo autenticado: gate de sessão + banner offline + bottom tabs.
@@ -29,6 +31,7 @@ export default function AppLayout() {
   const membershipStatus = useAuthStore((s) => s.membershipStatus);
   const userId = useAuthStore((s) => s.user?.id);
   const currentTenantId = useAuthStore((s) => s.currentTenantId);
+  const passwordRecovery = useAuthStore((s) => s.passwordRecovery);
   const { canAccessHome, canAccessProducts, canAccessStock, role } = usePermissions();
   const welcomeChecked = useRef(false);
 
@@ -57,6 +60,8 @@ export default function AppLayout() {
   }, [membershipStatus, userId, currentTenantId, role, router]);
 
   if (initializing) return <Splash />;
+  // Sessão vinda do link de recuperação: só é login depois da nova senha.
+  if (passwordRecovery) return <Redirect href={RESET_ROUTE} />;
   if (!authenticated) return <Redirect href="/(auth)/login" />;
 
   // Trava de acesso por vínculo (o dev bypass não passa por resolução de empresa).

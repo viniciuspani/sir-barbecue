@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/data/remote/supabaseClient';
 import { colors, spacing } from '@/design/tokens';
 import { updatePassword } from '@/services/auth';
+import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/ui/Button';
 import { TextField } from '@/ui/TextField';
 
@@ -21,10 +22,14 @@ type Phase = 'verifying' | 'ready' | 'invalid';
 /**
  * Handler do deep link de recuperação de senha: `sirbarbecue://reset-password?code=...`.
  * Top-level (fora dos grupos) de propósito: a sessão de recovery criada aqui NÃO deve
- * acionar o gate de (app)/(auth) antes do usuário definir a nova senha.
+ * acionar o gate de (app)/(auth) antes do usuário definir a nova senha — quem garante
+ * isso é a flag `passwordRecovery` do authStore, marcada ANTES da troca do código.
  */
 export default function ResetPassword() {
   const params = useLocalSearchParams<{ code?: string }>();
+  const beginPasswordRecovery = useAuthStore((s) => s.beginPasswordRecovery);
+  const endPasswordRecovery = useAuthStore((s) => s.endPasswordRecovery);
+  const signOut = useAuthStore((s) => s.signOut);
   const [phase, setPhase] = useState<Phase>('verifying');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -33,6 +38,8 @@ export default function ResetPassword() {
 
   useEffect(() => {
     let active = true;
+    // Antes de qualquer await: a sessão que o exchange cria não pode ser lida como login.
+    beginPasswordRecovery();
     (async () => {
       const code = typeof params.code === 'string' ? params.code : undefined;
       if (!code) {
@@ -52,7 +59,16 @@ export default function ResetPassword() {
     return () => {
       active = false;
     };
-  }, [params.code]);
+  }, [params.code, beginPasswordRecovery]);
+
+  // Desistir da recuperação: encerra a sessão de recovery (senão o usuário ficaria
+  // "logado" sem nunca ter provado saber a senha) e volta ao login.
+  const onCancel = async () => {
+    setLoading(true);
+    await signOut(); // já limpa a flag de recuperação
+    setLoading(false);
+    router.replace('/(auth)/login');
+  };
 
   const onSubmit = async () => {
     setError(null);
@@ -66,11 +82,14 @@ export default function ResetPassword() {
     }
     setLoading(true);
     const { error: e } = await updatePassword(password);
-    setLoading(false);
     if (e) {
+      setLoading(false);
       setError(e);
       return;
     }
+    // Só agora a sessão vale como login: senha nova definida.
+    await endPasswordRecovery();
+    setLoading(false);
     router.replace('/(app)');
   };
 
@@ -90,11 +109,7 @@ export default function ResetPassword() {
               <Text style={styles.subtitle}>
                 Link inválido ou expirado. Solicite um novo a partir do login.
               </Text>
-              <Button
-                title="Voltar ao login"
-                variant="outline"
-                onPress={() => router.replace('/(auth)/login')}
-              />
+              <Button title="Voltar ao login" variant="outline" onPress={onCancel} />
             </>
           )}
 
@@ -121,6 +136,7 @@ export default function ResetPassword() {
               />
               {!!error && <Text style={styles.error}>{error}</Text>}
               <Button title="Salvar nova senha" onPress={onSubmit} loading={loading} />
+              <Button title="Cancelar" variant="text" onPress={onCancel} disabled={loading} />
             </>
           )}
         </ScrollView>

@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "com.labrasa.sirbarbecue",
+      "allowBackup": false,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#090909"

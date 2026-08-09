@@ -3,8 +3,10 @@
 // e registra a linha em `reports` (status ready). Chamada por usuário autenticado.
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+// CORS restrito (o app mobile chama via functions.invoke, sem preflight de browser).
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? '';
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
@@ -31,11 +33,26 @@ function userClient(req: Request): SupabaseClient {
   });
 }
 
-async function getCallerTenant(req: Request): Promise<{ userId: string; tenantId: string } | null> {
+// Resolve o tenant do chamador. Se o corpo trouxer tenant_id, VALIDA que o usuário
+// pertence a ele (via user_tenant_ids); senão cai para o claim/primeira membership.
+async function getCallerTenant(
+  req: Request,
+  requestedTenantId: string | null,
+): Promise<{ userId: string; tenantId: string } | null> {
   const u = userClient(req);
   const { data } = await u.auth.getUser();
   const user = data.user;
   if (!user) return null;
+
+  if (requestedTenantId) {
+    const { data: allowed } = await u.rpc('user_tenant_ids');
+    const list: string[] = Array.isArray(allowed)
+      ? allowed.map((r) => (typeof r === 'string' ? r : (r as { user_tenant_ids?: string }).user_tenant_ids ?? '')).filter(Boolean)
+      : [];
+    if (!list.includes(requestedTenantId)) return null; // não é membro do tenant pedido
+    return { userId: user.id, tenantId: requestedTenantId };
+  }
+
   const meta = user.app_metadata as { tenant_ids?: unknown } | undefined;
   const ids = meta?.tenant_ids;
   const claim = Array.isArray(ids) && typeof ids[0] === 'string' ? ids[0] : null;
@@ -78,14 +95,32 @@ const TYPE_LABELS: Record<string, string> = {
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
-    const caller = await getCallerTenant(req);
-    if (!caller) return json({ error: 'Não autenticado.' }, 401);
+    const body = (await req.json().catch(() => ({}))) as {
+      type?: string;
+      from?: string;
+      to?: string;
+      tenant_id?: string;
+    };
 
-    const body = (await req.json().catch(() => ({}))) as { type?: string; from?: string; to?: string };
+    const caller = await getCallerTenant(req, body.tenant_id ?? null);
+    if (!caller) return json({ error: 'Não autenticado ou sem acesso à empresa.' }, 401);
+
     const type = body.type ?? 'monthly_sales';
     const now = new Date();
     const start = body.from ? new Date(body.from) : new Date(now.getFullYear(), now.getMonth(), 1);
     const end = body.to ? new Date(body.to) : now;
+
+    // Validação do intervalo (evita DoS por datas inválidas ou janela gigante).
+    const MAX_RANGE_MS = 366 * 24 * 60 * 60 * 1000; // 1 ano
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return json({ error: 'Datas inválidas.' }, 400);
+    }
+    if (start.getTime() > end.getTime()) {
+      return json({ error: 'A data inicial deve ser anterior à final.' }, 400);
+    }
+    if (end.getTime() - start.getTime() > MAX_RANGE_MS) {
+      return json({ error: 'Intervalo máximo do relatório é de 1 ano.' }, 400);
+    }
 
     const u = userClient(req); // RLS restringe à empresa do usuário
     const { data: salesData, error } = await u
@@ -195,7 +230,13 @@ function brl(n: number): string {
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/\//g, '&#47;');
 }
 
 function renderHtml(r: {
@@ -331,6 +372,7 @@ function renderHtml(r: {
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Relatório — ${escapeHtml(TYPE_LABELS[r.type] ?? r.type)}</title>
 <style>

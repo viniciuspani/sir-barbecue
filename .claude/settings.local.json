@@ -9,7 +9,11 @@
       "PowerShell($f = Get-Item \"c:\\\\develop\\\\MOBILE\\\\sir-barbecue\\\\docs\\\\design\\\\telas_la_brasa.html\"; \"$\\($f.Length / 1KB -as [int]\\) KB — $\\([Math]::Round\\($f.Length/1KB,1\\)\\) KB\")",
       "PowerShell(eas --version; \"EASVER_EXIT=$LASTEXITCODE\")",
       "WebSearch",
-      "PowerShell(npm create vite@latest \"c:/develop/WEB/sir-barbecue-admin\" -- --template react-ts --no-interactive 2>&1)"
+      "PowerShell(npm create vite@latest \"c:/develop/WEB/sir-barbecue-admin\" -- --template react-ts --no-interactive 2>&1)",
+      "Bash(cd /c/develop/WEB/sir-barbecue-admin && echo \"===PACKAGE===\" && cat package.json && echo \"\" && echo \"===GITIGNORE===\" && cat .gitignore && echo \"\" && echo \"===ENV.EXAMPLE===\" && cat .env.example && echo \"\" && echo \"===README===\" && cat README.md)",
+      "Read(//c/develop/WEB/sir-barbecue-admin/**)",
+      "Bash(find \"C:\\\\develop\\\\WEB\\\\sir-barbecue-admin\\\\src\" -type f | grep -v node_modules | sort)",
+      "Read(//c/develop/WEB/sir-barbecue-admin/src/**)"
     ]
   }
 }

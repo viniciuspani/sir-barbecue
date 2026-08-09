@@ -9,6 +9,11 @@ import {
   getCachedMembership,
   setCachedMembership,
 } from '@/services/membership';
+import {
+  clearPasswordRecoveryPending,
+  isPasswordRecoveryPending,
+  markPasswordRecoveryPending,
+} from '@/services/passwordRecovery';
 import type { TenantRole } from '@/services/tenant';
 import { useCartStore } from '@/store/cartStore';
 
@@ -30,9 +35,19 @@ interface AuthState {
   membershipStatus: MembershipStatus;
   /** Bypass temporário de desenvolvimento (sem sessão real). */
   devAuthenticated: boolean;
+  /**
+   * Recuperação de senha em andamento: a sessão atual veio do link "esqueci minha
+   * senha" e NÃO vale como login até o usuário definir a nova senha. Enquanto true,
+   * os gates de (auth)/(app) mandam o usuário para /reset-password.
+   */
+  passwordRecovery: boolean;
   setSession: (session: Session | null) => void;
   signInDev: () => void;
   signOut: () => Promise<void>;
+  /** Marca o início do fluxo de recuperação (chamado pelo handler do deep link). */
+  beginPasswordRecovery: () => void;
+  /** Encerra o fluxo (senha redefinida ou cancelamento) e libera os gates. */
+  endPasswordRecovery: () => Promise<void>;
   init: () => Promise<void>;
 }
 
@@ -49,10 +64,13 @@ async function resolveMembership(userId: string): Promise<ResolvedMembership> {
     // CRÍTICO: filtrar por user_id. A RLS members_select deixa o membro enxergar a
     // equipe INTEIRA da empresa; sem este filtro, .limit(1) retornava uma linha
     // arbitrária (tipicamente a do owner) e resolvia o papel errado.
+    // order determinístico: p/ usuário multi-empresa escolhe SEMPRE a mais antiga
+    // (1º vínculo), evitando papel/tenant "aleatório" entre execuções.
     const { data, error } = await supabase
       .from('tenant_members')
       .select('tenant_id, role')
       .eq('user_id', userId)
+      .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle();
     if (error) throw error; // erro real (rede/permissão) → trata como offline (cache)
@@ -93,6 +111,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   currentRole: null,
   membershipStatus: 'resolving',
   devAuthenticated: false,
+  passwordRecovery: false,
   setSession: (session) => set({ session, user: session?.user ?? null }),
   signInDev: () => set({ devAuthenticated: true }),
   signOut: async () => {
@@ -102,6 +121,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       // ignore — Supabase pode não estar configurado ainda
     }
     await resetWorkingState();
+    await clearPasswordRecoveryPending();
     set({
       session: null,
       user: null,
@@ -109,23 +129,43 @@ export const useAuthStore = create<AuthState>((set) => ({
       currentTenantId: null,
       currentRole: null,
       membershipStatus: 'none',
+      passwordRecovery: false,
     });
+  },
+  // Síncrono de propósito: precisa valer ANTES de o exchangeCodeForSession criar a
+  // sessão, senão o gate vê "autenticado" sem a marca e redireciona para o app.
+  // A persistência (await à parte) só cobre o caso de o app ser morto no meio.
+  beginPasswordRecovery: () => {
+    set({ passwordRecovery: true });
+    void markPasswordRecoveryPending();
+  },
+  endPasswordRecovery: async () => {
+    set({ passwordRecovery: false });
+    await clearPasswordRecoveryPending();
   },
   init: async () => {
     try {
       const { data } = await supabase.auth.getSession();
       const session = data.session;
+      // Recuperação interrompida (app morto entre o link e a nova senha): a sessão
+      // persistida é de recovery e continua sem valer como login.
+      // Sem sessão não há o que travar — e a marca precisa ser descartada, senão um
+      // link inválido deixaria a flag "órfã" travando um login legítimo depois.
+      const recoveryPending = session ? await isPasswordRecoveryPending() : false;
+      if (!session) await clearPasswordRecoveryPending();
       const membership = session?.user
         ? await resolveMembership(session.user.id)
         : { tenantId: null, role: null, status: 'none' as MembershipStatus };
-      set({
+      set((s) => ({
         session,
         user: session?.user ?? null,
         currentTenantId: membership.tenantId,
         currentRole: membership.role,
         membershipStatus: membership.status,
         initializing: false,
-      });
+        // nunca rebaixa: o deep link pode ter marcado a flag enquanto o init corria.
+        passwordRecovery: s.passwordRecovery || recoveryPending,
+      }));
 
       // Resolve o vínculo via query DEFERIDA (não chamar supabase dentro do onAuthStateChange).
       const refreshMembership = async (userId: string): Promise<void> => {
@@ -139,6 +179,12 @@ export const useAuthStore = create<AuthState>((set) => ({
         if (!s || event === 'SIGNED_OUT') {
           set({ currentTenantId: null, currentRole: null, membershipStatus: 'none' });
           return;
+        }
+        // Rede de segurança: se o supabase-js identificar o link como recuperação
+        // (fluxo implícito), a sessão também não vale como login.
+        if (event === 'PASSWORD_RECOVERY') {
+          set({ passwordRecovery: true });
+          void markPasswordRecoveryPending();
         }
         set({ membershipStatus: 'resolving' });
         setTimeout(() => void refreshMembership(s.user.id), 0);

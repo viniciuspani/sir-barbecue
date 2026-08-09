@@ -490,10 +490,14 @@ grant execute on function public.is_platform_admin() to authenticated;
 -- =====================================================================
 
 -- Marca o dono da aplicação como super-admin pelo e-mail (idempotente).
--- Se o e-mail ainda não estiver cadastrado no Auth, o SELECT não retorna nada
--- (no-op) — rode de novo após criar/logar a conta.
+-- O e-mail NÃO é versionado: defina-o nesta sessão antes de rodar (SQL Editor),
+-- descomentando e preenchendo a linha abaixo:
+--   select set_config('app.admin_email', 'voce@exemplo.com', false);
+-- Se o e-mail não for definido ou ainda não existir no Auth, o SELECT é no-op
+-- (rode de novo após criar/logar a conta).
 insert into public.platform_admins (user_id)
-  select id from auth.users where email = 'viniciuspani@hotmail.com'
+  select id from auth.users
+   where email = nullif(current_setting('app.admin_email', true), '')
 on conflict (user_id) do nothing;
 
 -- =====================================================================

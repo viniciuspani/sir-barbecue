@@ -1,5 +1,5 @@
 import { Link, router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -16,6 +16,8 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollToEnd = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
 
   // Sucesso de login dispara onAuthStateChange → o gate em (auth)/_layout redireciona p/ (app).
   const onLogin = async () => {
@@ -40,7 +42,11 @@ export default function Login() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}
       >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.brandBox}>
             <BrandLogo size={96} style={styles.logo} />
             <Text style={styles.brand}>Sir Barbecue</Text>
@@ -65,6 +71,7 @@ export default function Login() {
             secureTextEntry
             autoCapitalize="none"
             textContentType="password"
+            onFocus={scrollToEnd}
           />
 
           {!!error && <Text style={styles.error}>{error}</Text>}
@@ -108,7 +115,13 @@ export default function Login() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
-  content: { flexGrow: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.sm },
+  content: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: spacing.xl,
+    paddingBottom: spacing.xxl,
+    gap: spacing.sm,
+  },
   brandBox: { alignItems: 'center', marginBottom: spacing.xl },
   logo: { alignSelf: 'center', marginBottom: spacing.md },
   brand: { color: colors.gold, fontSize: 32, fontWeight: '700' },

@@ -114,16 +114,26 @@ export default function Empresa() {
       showToast('Informe o e-mail.');
       return;
     }
+    const email = inviteEmail.trim();
     setInviting(true);
-    const { error, invited } = await inviteMember(inviteEmail.trim(), inviteRole);
+    const { error, invited } = await inviteMember(email, inviteRole);
     setInviting(false);
     if (error) {
       showToast(error);
       return;
     }
-    showToast(invited ? 'Convite enviado por e-mail!' : 'Membro adicionado!');
     setInviteEmail('');
     loadMembers();
+    if (invited) {
+      // Convite pendente: a pessoa entra ao se cadastrar no app com este e-mail.
+      Alert.alert(
+        'Convite registrado',
+        `Peça para ${email} baixar o app e se cadastrar usando exatamente este e-mail. ` +
+          'Ao concluir o cadastro, ela entra automaticamente na sua equipe.',
+      );
+    } else {
+      showToast('Membro adicionado!');
+    }
   };
 
   // employee não acessa Minha Empresa (guarda de deep-link; a RLS confirma no servidor).
