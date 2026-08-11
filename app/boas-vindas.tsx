@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing } from '@/design/tokens';
 import { showToast } from '@/lib/toast';
 import { DEFAULT_TENANT_NAME, fetchTenant, updateTenant } from '@/services/tenant';
+import { setCachedTenantName } from '@/services/tenantBranding';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/ui/Button';
 import { TextField } from '@/ui/TextField';
@@ -57,6 +58,7 @@ export default function BoasVindas() {
       showToast(error);
       return;
     }
+    void setCachedTenantName(trimmed);
     showToast('Tudo pronto! Bem-vindo(a). 🔥');
     finish();
   };

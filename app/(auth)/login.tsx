@@ -1,14 +1,19 @@
 import { Link, router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, spacing } from '@/design/tokens';
 import { signInWithEmail, signInWithGoogle } from '@/services/auth';
+import { getCachedTenantName } from '@/services/tenantBranding';
 import { useAuthStore } from '@/store/authStore';
 import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
 import { TextField } from '@/ui/TextField';
+
+// Placeholder exibido enquanto nenhuma empresa com nome próprio foi cadastrada
+// neste aparelho ainda (nem no primeiro cadastro, nem em "Minha Empresa").
+const TAGLINE_PLACEHOLDER = 'Nome do Espetinho';
 
 export default function Login() {
   const signInDev = useAuthStore((s) => s.signInDev);
@@ -16,8 +21,21 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tagline, setTagline] = useState(TAGLINE_PLACEHOLDER);
   const scrollRef = useRef<ScrollView>(null);
   const scrollToEnd = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+
+  // Nome da empresa cadastrada neste aparelho (se houver) — a tela de login roda
+  // ANTES do login, então só há esse nome via cache local (ver services/tenantBranding).
+  useEffect(() => {
+    let active = true;
+    getCachedTenantName().then((name) => {
+      if (active && name) setTagline(name);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Sucesso de login dispara onAuthStateChange → o gate em (auth)/_layout redireciona p/ (app).
   const onLogin = async () => {
@@ -50,7 +68,7 @@ export default function Login() {
           <View style={styles.brandBox}>
             <BrandLogo size={96} style={styles.logo} />
             <Text style={styles.brand}>Sir Barbecue</Text>
-            <Text style={styles.tagline}>La Brasa Espetinhos</Text>
+            <Text style={styles.tagline}>{tagline}</Text>
           </View>
 
           <TextField

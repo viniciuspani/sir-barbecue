@@ -20,7 +20,10 @@ export default function MaisLayout() {
         options={{
           title: 'Mais',
           headerLeft: () => (
-            <BrandLogo size={30} style={{ marginLeft: spacing.md, marginBottom: 0 }} />
+            <BrandLogo
+              size={30}
+              style={{ marginLeft: spacing.md, marginRight: spacing.md, marginBottom: 0 }}
+            />
           ),
         }}
       />

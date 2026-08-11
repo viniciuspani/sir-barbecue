@@ -13,6 +13,7 @@ import type { StockItem } from '@/domain/entities/StockItem';
 import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL, formatQuantity } from '@/lib/currency';
 import { DEFAULT_TENANT_NAME, fetchTenant } from '@/services/tenant';
+import { setCachedTenantName } from '@/services/tenantBranding';
 import { useAuthStore } from '@/store/authStore';
 import { BrandLogo } from '@/ui/BrandLogo';
 
@@ -69,6 +70,7 @@ export default function Inicio() {
         fetchTenant(currentTenantId)
           .then((t) => {
             if (active) setTenantName(t?.name ?? null);
+            if (t?.name) void setCachedTenantName(t.name);
           })
           .catch(() => undefined);
       }

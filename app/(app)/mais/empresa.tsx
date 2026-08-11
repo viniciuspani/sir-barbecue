@@ -14,6 +14,7 @@ import {
   updateTenant,
   type TenantMember,
 } from '@/services/tenant';
+import { setCachedTenantName } from '@/services/tenantBranding';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
@@ -59,6 +60,7 @@ export default function Empresa() {
       setName(t.name);
       setCnpj(t.cnpj ?? '');
       setPhone(t.phone ?? '');
+      void setCachedTenantName(t.name);
       setMembers(await fetchMembers(tenantId));
     } catch {
       setLoadFailed(true);
@@ -78,12 +80,14 @@ export default function Empresa() {
       return;
     }
     setSaving(true);
+    const trimmedName = name.trim();
     const { error } = await updateTenant(tenantId, {
-      name: name.trim(),
+      name: trimmedName,
       cnpj: cnpj.trim(),
       phone: phone.trim(),
     });
     setSaving(false);
+    if (!error) void setCachedTenantName(trimmedName);
     showToast(error ?? 'Empresa atualizada! ✅');
   };
 
