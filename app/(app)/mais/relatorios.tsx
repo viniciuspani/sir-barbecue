@@ -10,6 +10,7 @@ import type { Product } from '@/domain/entities/Product';
 import type { PaymentMethod, Sale } from '@/domain/entities/Sale';
 import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL, formatQuantity } from '@/lib/currency';
+import { reportError } from '@/lib/feedback';
 import { showToast } from '@/lib/toast';
 import { generateReport, getReportSignedUrl } from '@/services/functions';
 import { Button } from '@/ui/Button';
@@ -87,8 +88,12 @@ export default function Relatorios() {
       const res = await fetch(url);
       const html = await res.text();
       setReportHtml(html);
-    } catch {
-      showToast('Falha ao carregar o relatório.');
+    } catch (e) {
+      await reportError(e, {
+        action: 'Carregar o relatório gerado',
+        title: 'Não foi possível abrir o relatório',
+        meta: { reportType, period },
+      });
     }
     setGenerating(false);
   };

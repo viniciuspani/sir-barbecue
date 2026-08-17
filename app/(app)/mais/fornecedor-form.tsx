@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text } from 'react-native';
 
 import { supplierRepository } from '@/data/repositories';
 import { colors, spacing } from '@/design/tokens';
+import { logSilently, reportError } from '@/lib/feedback';
 import { usePermissions } from '@/lib/permissions';
 import { Button } from '@/ui/Button';
 import { TextField } from '@/ui/TextField';
@@ -31,7 +32,7 @@ export default function FornecedorForm() {
         setPhone(s.phone ?? '');
         setAddress(s.address ?? '');
       })
-      .catch(() => undefined);
+      .catch((e) => logSilently(e, { action: 'Carregar o fornecedor para edição' }));
   }, [id]);
 
   const onSave = async () => {
@@ -47,10 +48,18 @@ export default function FornecedorForm() {
       phone: phone.trim() || undefined,
       address: address.trim() || undefined,
     };
-    if (isEdit && id) await supplierRepository.update(id, payload);
-    else await supplierRepository.create(payload);
-    setSaving(false);
-    router.back();
+    try {
+      if (isEdit && id) await supplierRepository.update(id, payload);
+      else await supplierRepository.create(payload);
+      router.back();
+    } catch (e) {
+      await reportError(e, {
+        action: isEdit ? 'Salvar alterações do fornecedor' : 'Cadastrar fornecedor',
+        meta: { supplierId: id ?? null },
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Só owner escreve fornecedores (guarda de deep-link; a RLS confirma no servidor).

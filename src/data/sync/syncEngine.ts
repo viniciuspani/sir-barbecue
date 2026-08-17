@@ -1,9 +1,10 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import * as Crypto from 'expo-crypto';
 
 import { db } from '@/data/local/database';
 import {
   categories,
+  errorLogs,
   productSupplierPriceHistory,
   productSuppliers,
   products,
@@ -14,12 +15,18 @@ import {
   suppliers,
 } from '@/data/local/schema';
 import { supabase } from '@/data/remote/supabaseClient';
+import { isPermissionError } from '@/lib/errors';
+import { logSilently } from '@/lib/feedback';
 import { canWriteCatalog, canWriteSuppliers } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
 import { useAuthStore } from '@/store/authStore';
 import { useSyncStore } from '@/store/syncStore';
 
 const MAX_ATTEMPTS = 3;
+// Teto por ciclo: um aparelho que ficou dias offline não sobe o log inteiro de uma vez.
+const ERROR_LOG_BATCH = 50;
+// O sync repete a cada 5 min; registra a mesma falha no máximo 1x por hora.
+const SYNC_LOG_DEDUPE_MS = 60 * 60 * 1000;
 
 type RemoteProduct = {
   client_id: string;
@@ -236,7 +243,12 @@ async function pushSalesWithItems(tenantId: string): Promise<boolean> {
         .set({ needsSync: false, syncedAt: now })
         .where(eq(saleItems.saleId, s.id));
     } catch (e) {
-      console.warn('[sync] venda pendente (segue no próximo ciclo)', s.id, e);
+      logSilently(e, {
+        action: 'Enviar venda para o servidor',
+        screen: 'sync',
+        meta: { saleId: s.id },
+        dedupeMs: SYNC_LOG_DEDUPE_MS,
+      });
       allOk = false;
     }
   }
@@ -282,6 +294,69 @@ async function pushStockThresholds(tenantId: string): Promise<void> {
     });
   }
   await db.update(stockItems).set({ needsSync: false }).where(scope);
+}
+
+// Log de erros: sobe para consulta no painel do dono.
+//
+// Duas diferenças propositais em relação às demais etapas:
+//  1) NÃO filtra por tenant na origem. Um erro pode ter sido gravado antes do
+//     login ou sem vínculo com empresa (justamente os casos mais críticos de
+//     diagnosticar) — esses sobem carimbados com a empresa/usuário ativos agora,
+//     e o `context` já marca preAuth: true para o suporte saber disso.
+//  2) Roda para TODOS os papéis: qualquer usuário registra o próprio erro
+//     (a RLS do servidor exige user_id = auth.uid()).
+async function pushErrorLogs(tenantId: string, userId: string): Promise<void> {
+  const rows = await db
+    .select()
+    .from(errorLogs)
+    .where(eq(errorLogs.needsSync, true))
+    .orderBy(errorLogs.occurredAt)
+    .limit(ERROR_LOG_BATCH);
+  if (rows.length === 0) return;
+
+  await withRetry(() =>
+    upsertRemote(
+      'error_logs',
+      rows.map((r) => ({
+        client_id: r.id,
+        tenant_id: r.tenantId ?? tenantId,
+        user_id: r.userId ?? userId,
+        ref_code: r.refCode,
+        occurred_at: new Date(r.occurredAt).toISOString(),
+        severity: r.severity,
+        screen: r.screen,
+        action: r.action,
+        message: r.message,
+        detail: r.detail,
+        user_message: r.userMessage,
+        context: r.context ? safeParseJson(r.context) : null,
+        app_version: r.appVersion,
+        platform: r.platform,
+        os_version: r.osVersion,
+      })),
+    ),
+  );
+
+  const now = Date.now();
+  await db
+    .update(errorLogs)
+    .set({ needsSync: false, syncedAt: now, tenantId, userId })
+    .where(
+      inArray(
+        errorLogs.id,
+        rows.map((r) => r.id),
+      ),
+    );
+}
+
+// context é jsonb no servidor: envia objeto, não string. Se o JSON estiver
+// corrompido, sobe como null — o log nunca deve travar por causa do contexto.
+function safeParseJson(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 // ---- PULL (servidor → local, server-wins) ------------------------------------
@@ -507,12 +582,6 @@ let running = false;
 // avisar o usuário em vez de deixar a falha silenciosa. Resetado no início de runSync.
 let permissionDenied = false;
 
-// Erro de permissão do Postgres/PostgREST: RLS (42501) ou "row-level security".
-function isPermissionError(e: unknown): boolean {
-  const msg = e instanceof Error ? e.message : String(e);
-  return /row-level security|permission denied|42501/i.test(msg);
-}
-
 // Executa uma etapa do sync isolando a falha (item 2): um erro numa etapa
 // não impede as demais nem os pulls. Retorna true se a etapa passou.
 // (Uma etapa que já sinaliza sucesso parcial retornando boolean é respeitada.)
@@ -522,7 +591,14 @@ async function runStep(label: string, fn: () => Promise<void | boolean>): Promis
     return res !== false;
   } catch (e) {
     if (isPermissionError(e)) permissionDenied = true;
-    console.warn(`[sync] etapa "${label}" falhou`, e);
+    // Sync é rotina de fundo: registra sem interromper o atendimento. Janela de
+    // deduplicação longa porque o ciclo se repete a cada 5 min — um servidor com
+    // problema geraria centenas de linhas idênticas por dia.
+    logSilently(e, {
+      action: `Sincronizar dados (${label})`,
+      screen: 'sync',
+      dedupeMs: SYNC_LOG_DEDUPE_MS,
+    });
     return false;
   }
 }
@@ -569,6 +645,18 @@ export async function runSync(): Promise<void> {
         pullProductSupplierPriceHistory(),
       )) && ok;
     ok = (await runStep('pull stock_items', () => pullStockItems(tenantId))) && ok;
+
+    // Log de erros por ÚLTIMO e FORA do `ok`: é diagnóstico, não dado de negócio.
+    // Se o envio do log falhar, o sync não pode ser marcado como erro (senão um
+    // problema no log viraria alarme falso no PDV). E a falha NÃO gera novo log —
+    // seria um erro sobre o erro, realimentando a fila indefinidamente.
+    try {
+      // user_id vem da SESSÃO (não do store): a RLS do servidor exige
+      // user_id = auth.uid(), e o store pode estar um passo atrás numa troca de conta.
+      await pushErrorLogs(tenantId, data.session.user.id);
+    } catch (e) {
+      console.warn('[sync] envio do log de erros adiado', e);
+    }
 
     if (ok) {
       store.markSynced();

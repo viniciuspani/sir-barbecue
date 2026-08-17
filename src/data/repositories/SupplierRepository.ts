@@ -16,6 +16,7 @@ import type { ProductSupplierPriceHistory } from '@/domain/entities/ProductSuppl
 import type { Supplier } from '@/domain/entities/Supplier';
 import type { SupplierRepository } from '@/domain/repositories/SupplierRepository';
 import { getActiveTenantId, getActiveTenantIdOrThrow } from '@/lib/activeTenant';
+import { logSilently } from '@/lib/feedback';
 
 function toSupplier(row: SupplierRow): Supplier {
   return {
@@ -99,7 +100,9 @@ export class DrizzleSupplierRepository implements SupplierRepository {
 
   observeAll(onChange: (items: Supplier[]) => void): () => void {
     const emit = () => {
-      this.list().then(onChange).catch(() => undefined);
+      this.list()
+        .then(onChange)
+        .catch((e) => logSilently(e, { action: 'Carregar fornecedores' }));
     };
     emit();
     const subscription = addDatabaseChangeListener((event) => {

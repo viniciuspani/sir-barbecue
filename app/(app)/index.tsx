@@ -12,6 +12,7 @@ import type { PaymentMethod, Sale } from '@/domain/entities/Sale';
 import type { StockItem } from '@/domain/entities/StockItem';
 import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL, formatQuantity } from '@/lib/currency';
+import { logSilently } from '@/lib/feedback';
 import { DEFAULT_TENANT_NAME, fetchTenant } from '@/services/tenant';
 import { setCachedTenantName } from '@/services/tenantBranding';
 import { useAuthStore } from '@/store/authStore';
@@ -72,7 +73,7 @@ export default function Inicio() {
             if (active) setTenantName(t?.name ?? null);
             if (t?.name) void setCachedTenantName(t.name);
           })
-          .catch(() => undefined);
+          .catch((e) => logSilently(e, { action: 'Carregar o nome da empresa na Home' }));
       }
       return () => {
         active = false;

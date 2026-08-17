@@ -1,4 +1,5 @@
 import { supabase } from '@/data/remote/supabaseClient';
+import { logSilently } from '@/lib/feedback';
 
 // Serviço de empresa (multi-tenant). Dados ficam no servidor (tenants/tenant_members) —
 // estas operações são ONLINE; a RLS garante o isolamento e o owner-only nas escritas.
@@ -23,12 +24,19 @@ function msg(e: unknown): string {
   return 'Erro inesperado. Verifique a conexão.';
 }
 
+// Estas consultas degradam para null/[] quando falham — o que torna um erro de
+// permissão indistinguível de "não há dados". O log preserva a causa real.
+function record(error: unknown, action: string): void {
+  if (error) logSilently(error, { action, screen: 'empresa' });
+}
+
 export async function fetchTenant(tenantId: string): Promise<Tenant | null> {
   const { data, error } = await supabase
     .from('tenants')
     .select('id, name, cnpj, phone, logo_url')
     .eq('id', tenantId)
     .maybeSingle();
+  record(error, 'Buscar os dados da empresa');
   if (error || !data) return null;
   const row = data as {
     id: string;
@@ -54,6 +62,7 @@ export async function updateTenant(
     .from('tenants')
     .update({ name: patch.name, cnpj: patch.cnpj || null, phone: patch.phone || null })
     .eq('id', tenantId);
+  record(error, 'Salvar os dados da empresa');
   return { error: error ? msg(error) : null };
 }
 
@@ -62,6 +71,7 @@ export async function fetchMembers(tenantId: string): Promise<TenantMember[]> {
     .from('tenant_members')
     .select('user_id, role')
     .eq('tenant_id', tenantId);
+  record(error, 'Buscar a equipe da empresa');
   if (error || !data) return [];
   return (data as { user_id: string; role: string }[]).map((r) => ({
     userId: r.user_id,
@@ -78,5 +88,6 @@ export async function removeMember(
     .delete()
     .eq('tenant_id', tenantId)
     .eq('user_id', userId);
+  record(error, 'Remover membro da equipe');
   return { error: error ? msg(error) : null };
 }

@@ -1,6 +1,7 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
 import { supabase } from '@/data/remote/supabaseClient';
+import { logSilently } from '@/lib/feedback';
 
 // Wrappers das Edge Functions (multi-tenant). O JWT da sessão é anexado automaticamente
 // pelo supabase.functions.invoke — as functions resolvem o tenant pelo token.
@@ -9,6 +10,11 @@ async function callFunction<T>(
   name: string,
   body: Record<string, unknown>,
 ): Promise<{ data: T | null; error: string | null }> {
+  // A tela decide como avisar o usuário (cada uma já trata o `error` retornado);
+  // aqui garantimos que a causa técnica não se perca.
+  const record = (cause: unknown) =>
+    logSilently(cause, { action: `Chamar serviço "${name}"`, screen: 'edge-function' });
+
   const { data, error } = await supabase.functions.invoke(name, { body });
   if (error) {
     // FunctionsHttpError (status != 2xx): tenta extrair a mensagem do corpo { error }.
@@ -16,12 +22,17 @@ async function callFunction<T>(
       const parsed = (await (error.context as Response).json().catch(() => null)) as
         | { error?: string }
         | null;
+      record({ message: parsed?.error ?? error.message, name: 'FunctionsHttpError' });
       return { data: null, error: parsed?.error ?? 'Falha na função.' };
     }
+    record(error);
     return { data: null, error: error.message };
   }
   const payload = data as { error?: string } | null;
-  if (payload?.error) return { data: null, error: payload.error };
+  if (payload?.error) {
+    record({ message: payload.error, name: 'FunctionError' });
+    return { data: null, error: payload.error };
+  }
   return { data: data as T, error: null };
 }
 

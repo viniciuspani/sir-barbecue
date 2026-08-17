@@ -7,6 +7,7 @@ import { productRepository, stockRepository } from '@/data/repositories';
 import type { Product } from '@/domain/entities/Product';
 import { colors, spacing } from '@/design/tokens';
 import { parseBRL } from '@/lib/currency';
+import { reportError } from '@/lib/feedback';
 import { showToast } from '@/lib/toast';
 import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
@@ -35,14 +36,19 @@ export default function RegistrarEntrada() {
       return;
     }
     setSaving(true);
-    await stockRepository.registerEntry({
-      productId,
-      quantity: qty,
-      notes: notes.trim() || undefined,
-    });
-    setSaving(false);
-    showToast('Entrada registrada! ✅');
-    router.back();
+    try {
+      await stockRepository.registerEntry({
+        productId,
+        quantity: qty,
+        notes: notes.trim() || undefined,
+      });
+      showToast('Entrada registrada! ✅');
+      router.back();
+    } catch (e) {
+      await reportError(e, { action: 'Registrar entrada de estoque', meta: { productId, qty } });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

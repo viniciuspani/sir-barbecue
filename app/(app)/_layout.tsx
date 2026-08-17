@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 
 import { colors } from '@/design/tokens';
+import { logSilently } from '@/lib/feedback';
 import { usePermissions } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
 import { hasSeenWelcome, markWelcomeSeen } from '@/services/onboarding';
@@ -48,7 +49,10 @@ export default function AppLayout() {
     void (async () => {
       if (await hasSeenWelcome(userId)) return;
       await markWelcomeSeen(userId);
-      const tenant = await fetchTenant(currentTenantId).catch(() => null);
+      const tenant = await fetchTenant(currentTenantId).catch((e) => {
+        logSilently(e, { action: 'Carregar a empresa para as boas-vindas' });
+        return null;
+      });
       if (role === 'owner') {
         if (!tenant || tenant.name === DEFAULT_TENANT_NAME) router.push(WELCOME_ROUTE);
       } else {

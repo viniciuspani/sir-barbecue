@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, spacing } from '@/design/tokens';
+import { logSilently } from '@/lib/feedback';
 import { showToast } from '@/lib/toast';
 import { DEFAULT_TENANT_NAME, fetchTenant, updateTenant } from '@/services/tenant';
 import { setCachedTenantName } from '@/services/tenantBranding';
@@ -40,7 +41,7 @@ export default function BoasVindas() {
         setPhone(t.phone);
         if (t.name && t.name !== DEFAULT_TENANT_NAME) setName(t.name);
       })
-      .catch(() => undefined);
+      .catch((e) => logSilently(e, { action: 'Carregar a empresa nas boas-vindas' }));
   }, [tenantId]);
 
   const finish = () => router.back();

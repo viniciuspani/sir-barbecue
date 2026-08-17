@@ -4,6 +4,8 @@ import { create } from 'zustand';
 import { db } from '@/data/local/database';
 import { tabItems, tabs } from '@/data/local/schema';
 import { supabase } from '@/data/remote/supabaseClient';
+import { logSilently } from '@/lib/feedback';
+import { clearBreadcrumbs } from '@/services/breadcrumbs';
 import {
   clearCachedMembership,
   getCachedMembership,
@@ -82,8 +84,11 @@ async function resolveMembership(userId: string): Promise<ResolvedMembership> {
     // Query OK e SEM linha → usuário autenticado mas sem vínculo com empresa.
     await clearCachedMembership(userId);
     return { tenantId: null, role: null, status: 'none' };
-  } catch {
+  } catch (e) {
     // Falha de rede/erro → fallback no cache (usuário já verificado antes, offline).
+    // Registra em silêncio: o app segue funcionando, mas a causa fica no log
+    // (era o cenário que fazia o papel do usuário "resolver errado" sem rastro).
+    logSilently(e, { action: 'Resolver empresa e papel do usuário', screen: 'auth' });
     const cached = await getCachedMembership(userId);
     if (cached) return { tenantId: cached.tenantId, role: cached.role, status: 'member' };
     return { tenantId: null, role: null, status: 'none' };
@@ -94,11 +99,14 @@ async function resolveMembership(userId: string): Promise<ResolvedMembership> {
 // vazar dados de uma conta para outra no mesmo aparelho.
 async function resetWorkingState(): Promise<void> {
   useCartStore.getState().clear();
+  // A trilha de navegação também é working state: o rastro de um usuário não
+  // pode aparecer no log de erro do próximo que entrar no mesmo aparelho.
+  clearBreadcrumbs();
   try {
     await db.delete(tabItems);
     await db.delete(tabs);
-  } catch {
-    // ignore — banco pode não estar pronto
+  } catch (e) {
+    logSilently(e, { action: 'Limpar dados da sessão anterior', screen: 'auth' });
   }
 }
 
@@ -117,8 +125,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   signOut: async () => {
     try {
       await supabase.auth.signOut();
-    } catch {
-      // ignore — Supabase pode não estar configurado ainda
+    } catch (e) {
+      // Não bloqueia a saída: a sessão local é limpa de qualquer forma.
+      logSilently(e, { action: 'Sair da conta', screen: 'auth' });
     }
     await resetWorkingState();
     await clearPasswordRecoveryPending();
@@ -190,7 +199,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         setTimeout(() => void refreshMembership(s.user.id), 0);
       });
     } catch (e) {
-      console.warn('[auth] init falhou (Supabase não configurado?)', e);
+      logSilently(e, { action: 'Iniciar a sessão do usuário', screen: 'auth', severity: 'fatal' });
       set({
         session: null,
         user: null,

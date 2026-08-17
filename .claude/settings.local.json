@@ -13,7 +13,14 @@
       "Bash(cd /c/develop/WEB/sir-barbecue-admin && echo \"===PACKAGE===\" && cat package.json && echo \"\" && echo \"===GITIGNORE===\" && cat .gitignore && echo \"\" && echo \"===ENV.EXAMPLE===\" && cat .env.example && echo \"\" && echo \"===README===\" && cat README.md)",
       "Read(//c/develop/WEB/sir-barbecue-admin/**)",
       "Bash(find \"C:\\\\develop\\\\WEB\\\\sir-barbecue-admin\\\\src\" -type f | grep -v node_modules | sort)",
-      "Read(//c/develop/WEB/sir-barbecue-admin/src/**)"
+      "Read(//c/develop/WEB/sir-barbecue-admin/src/**)",
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "Bash(npx expo *)",
+      "Bash(xargs grep -l \"generateRoutes\\\\|writeTypedRoutes\\\\|__routes\")",
+      "Bash(cd /c/develop/WEB/sir-barbecue-admin && ls src/components/ui && echo \"===format===\" && cat src/lib/format.ts && echo \"===supabase===\" && cat src/lib/supabase.ts)",
+      "Bash(cd c:/develop/WEB/sir-barbecue-admin && grep -n \"export function use\\\\|rpc\\(\\\\|from\\(\" src/hooks/useAdmin.ts | head -40 && echo \"=== ERROS PAGE head ===\" && head -50 src/pages/Erros.tsx)",
+      "Bash(sed -n \"/mockErrorLogs/,/^];/p\" src/lib/mock.ts)"
     ]
   }
 }

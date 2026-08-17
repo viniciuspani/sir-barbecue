@@ -10,6 +10,7 @@ import type { Supplier } from '@/domain/entities/Supplier';
 import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL, formatQuantity, parseBRL } from '@/lib/currency';
 import { formatDatePtBR } from '@/lib/dates';
+import { logSilently, reportError } from '@/lib/feedback';
 import { showToast } from '@/lib/toast';
 import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
@@ -36,12 +37,14 @@ export default function EstoqueDetalhe() {
 
   useEffect(() => {
     if (!productId) return;
+    const onLoadFail = (e: unknown) =>
+      logSilently(e, { action: 'Carregar o detalhe do estoque', meta: { productId } });
     productRepository
       .getById(productId)
       .then((p) => {
         if (p) setProductName(p.name);
       })
-      .catch(() => undefined);
+      .catch(onLoadFail);
     stockRepository
       .getItem(productId)
       .then((it) => {
@@ -50,10 +53,10 @@ export default function EstoqueDetalhe() {
           setThreshold(it.alertThreshold > 0 ? String(it.alertThreshold) : '');
         }
       })
-      .catch(() => undefined);
-    stockRepository.listEntries(productId).then(setEntries).catch(() => undefined);
-    supplierRepository.list().then(setSuppliers).catch(() => undefined);
-    supplierRepository.listLinksByProduct(productId).then(setSupplierLinks).catch(() => undefined);
+      .catch(onLoadFail);
+    stockRepository.listEntries(productId).then(setEntries).catch(onLoadFail);
+    supplierRepository.list().then(setSuppliers).catch(onLoadFail);
+    supplierRepository.listLinksByProduct(productId).then(setSupplierLinks).catch(onLoadFail);
   }, [productId]);
 
   const currentCost = useMemo(() => pickCurrentCost(supplierLinks), [supplierLinks]);
@@ -70,9 +73,14 @@ export default function EstoqueDetalhe() {
   const onSaveAlert = async () => {
     if (!productId) return;
     setSaving(true);
-    await stockRepository.setAlertThreshold(productId, parseBRL(threshold));
-    setSaving(false);
-    showToast('Alerta atualizado! ✅');
+    try {
+      await stockRepository.setAlertThreshold(productId, parseBRL(threshold));
+      showToast('Alerta atualizado! ✅');
+    } catch (e) {
+      await reportError(e, { action: 'Salvar o alerta de estoque', meta: { productId } });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

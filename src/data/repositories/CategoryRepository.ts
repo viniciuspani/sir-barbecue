@@ -7,6 +7,7 @@ import { categories, type CategoryRow } from '@/data/local/schema';
 import type { Category } from '@/domain/entities/Category';
 import type { CategoryRepository } from '@/domain/repositories/CategoryRepository';
 import { getActiveTenantId, getActiveTenantIdOrThrow } from '@/lib/activeTenant';
+import { logSilently } from '@/lib/feedback';
 
 function toEntity(row: CategoryRow): Category {
   return {
@@ -36,7 +37,9 @@ export class DrizzleCategoryRepository implements CategoryRepository {
 
   observeAll(onChange: (items: Category[]) => void): () => void {
     const emit = () => {
-      this.list().then(onChange).catch(() => undefined);
+      this.list()
+        .then(onChange)
+        .catch((e) => logSilently(e, { action: 'Carregar categorias' }));
     };
     emit();
     const subscription = addDatabaseChangeListener((event) => {

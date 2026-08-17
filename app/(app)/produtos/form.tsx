@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { categoryRepository, productRepository } from '@/data/repositories';
 import type { Category } from '@/domain/entities/Category';
 import { colors, spacing } from '@/design/tokens';
+import { logSilently, reportError } from '@/lib/feedback';
 import { usePermissions } from '@/lib/permissions';
 import { formatMoneyInput, parseBRL } from '@/lib/currency';
 import { WEEKDAYS_PT } from '@/lib/dates';
@@ -43,7 +44,7 @@ export default function ProdutoForm() {
         setIsActive(p.isActive);
         setDays(p.visibleDays ?? []);
       })
-      .catch(() => undefined);
+      .catch((e) => logSilently(e, { action: 'Carregar o produto para edição' }));
   }, [id]);
 
   const toggleDay = (d: number) =>
@@ -62,10 +63,19 @@ export default function ProdutoForm() {
     }
     setSaving(true);
     const payload = { name: name.trim(), price: parsedPrice, isActive, categoryId, visibleDays: days };
-    if (isEdit && id) await productRepository.update(id, payload);
-    else await productRepository.create(payload);
-    setSaving(false);
-    router.back();
+    try {
+      if (isEdit && id) await productRepository.update(id, payload);
+      else await productRepository.create(payload);
+      router.back();
+    } catch (e) {
+      await reportError(e, {
+        action: isEdit ? 'Salvar alterações do produto' : 'Cadastrar produto',
+        meta: { productId: id ?? null },
+      });
+    } finally {
+      // No finally: sem isto, uma falha deixava o botão travado em "carregando".
+      setSaving(false);
+    }
   };
 
   // Camada extra ao guard de _layout: só owner/manager escreve catálogo. A RLS

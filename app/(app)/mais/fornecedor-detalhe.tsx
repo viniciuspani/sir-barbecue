@@ -9,6 +9,7 @@ import type { ProductSupplier } from '@/domain/entities/ProductSupplier';
 import type { Supplier } from '@/domain/entities/Supplier';
 import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL, formatMoneyInput, parseBRL } from '@/lib/currency';
+import { logSilently, reportError } from '@/lib/feedback';
 import { usePermissions } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/ui/Button';
@@ -27,13 +28,23 @@ export default function FornecedorDetalhe() {
   const [editPrice, setEditPrice] = useState('');
 
   const reloadLinks = () => {
-    if (id) supplierRepository.listLinks(id).then(setLinks).catch(() => undefined);
+    if (id)
+      supplierRepository
+        .listLinks(id)
+        .then(setLinks)
+        .catch((e) => logSilently(e, { action: 'Carregar produtos do fornecedor' }));
   };
 
   useEffect(() => {
     if (!id) return;
-    supplierRepository.getById(id).then(setSupplier).catch(() => undefined);
-    supplierRepository.listLinks(id).then(setLinks).catch(() => undefined);
+    supplierRepository
+      .getById(id)
+      .then(setSupplier)
+      .catch((e) => logSilently(e, { action: 'Carregar o fornecedor' }));
+    supplierRepository
+      .listLinks(id)
+      .then(setLinks)
+      .catch((e) => logSilently(e, { action: 'Carregar produtos do fornecedor' }));
     const unsub = productRepository.observeAll(setProducts);
     return unsub;
   }, [id]);
@@ -51,19 +62,31 @@ export default function FornecedorDetalhe() {
       showToast('Informe o preço de compra.');
       return;
     }
-    await supplierRepository.addLink({ supplierId: id, productId: pickProductId, purchasePrice: pp });
-    setPickProductId(undefined);
-    setPrice('');
-    reloadLinks();
-    void runSync(); // reflete rápido no servidor/histórico (no-op offline)
-    showToast('Produto associado! ✅');
+    try {
+      await supplierRepository.addLink({
+        supplierId: id,
+        productId: pickProductId,
+        purchasePrice: pp,
+      });
+      setPickProductId(undefined);
+      setPrice('');
+      reloadLinks();
+      void runSync(); // reflete rápido no servidor/histórico (no-op offline)
+      showToast('Produto associado! ✅');
+    } catch (e) {
+      await reportError(e, { action: 'Associar produto ao fornecedor' });
+    }
   };
 
   const onInactivate = async (linkId: string) => {
-    await supplierRepository.inactivateLink(linkId);
-    reloadLinks();
-    void runSync();
-    showToast('Fornecedor inativado. O histórico foi preservado.');
+    try {
+      await supplierRepository.inactivateLink(linkId);
+      reloadLinks();
+      void runSync();
+      showToast('Fornecedor inativado. O histórico foi preservado.');
+    } catch (e) {
+      await reportError(e, { action: 'Inativar vínculo com o fornecedor' });
+    }
   };
 
   const onDelete = (linkId: string, name: string) => {
@@ -76,10 +99,14 @@ export default function FornecedorDetalhe() {
           text: 'Excluir',
           style: 'destructive',
           onPress: async () => {
-            await supplierRepository.deleteLink(linkId);
-            reloadLinks();
-            void runSync();
-            showToast('Vínculo excluído.');
+            try {
+              await supplierRepository.deleteLink(linkId);
+              reloadLinks();
+              void runSync();
+              showToast('Vínculo excluído.');
+            } catch (e) {
+              await reportError(e, { action: 'Excluir vínculo com o fornecedor' });
+            }
           },
         },
       ],
@@ -98,12 +125,16 @@ export default function FornecedorDetalhe() {
       showToast('Informe o preço de compra.');
       return;
     }
-    await supplierRepository.updateLink(editingId, { purchasePrice: pp });
-    setEditingId(null);
-    setEditPrice('');
-    reloadLinks();
-    void runSync();
-    showToast('Preço atualizado! ✅');
+    try {
+      await supplierRepository.updateLink(editingId, { purchasePrice: pp });
+      setEditingId(null);
+      setEditPrice('');
+      reloadLinks();
+      void runSync();
+      showToast('Preço atualizado! ✅');
+    } catch (e) {
+      await reportError(e, { action: 'Atualizar preço de compra' });
+    }
   };
 
   // employee não acessa Fornecedores (guarda de deep-link; a RLS confirma no servidor).

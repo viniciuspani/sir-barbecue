@@ -9,6 +9,7 @@ import type { Supplier } from '@/domain/entities/Supplier';
 import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL } from '@/lib/currency';
 import { formatDatePtBR } from '@/lib/dates';
+import { logSilently } from '@/lib/feedback';
 import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
@@ -27,18 +28,20 @@ export default function HistoricoPreco() {
 
   useEffect(() => {
     if (!productId) return;
+    const onLoadFail = (e: unknown) =>
+      logSilently(e, { action: 'Carregar o histórico de preço', meta: { productId } });
     productRepository
       .getById(productId)
       .then((p) => {
         if (p) setProductName(p.name);
       })
-      .catch(() => undefined);
-    supplierRepository.list().then(setSuppliers).catch(() => undefined);
-    supplierRepository.listPriceHistory(productId, MAX_ITEMS).then(setHistory).catch(() => undefined);
+      .catch(onLoadFail);
+    supplierRepository.list().then(setSuppliers).catch(onLoadFail);
+    supplierRepository.listPriceHistory(productId, MAX_ITEMS).then(setHistory).catch(onLoadFail);
     supplierRepository
       .listLinksByProduct(productId)
       .then((links) => setActiveSupplierIds(new Set(links.map((l) => l.supplierId))))
-      .catch(() => undefined);
+      .catch(onLoadFail);
   }, [productId]);
 
   const supplierName = (id: string) => suppliers.find((s) => s.id === id)?.name ?? '—';

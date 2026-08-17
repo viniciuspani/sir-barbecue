@@ -10,6 +10,7 @@ import type { StockItem } from '@/domain/entities/StockItem';
 import type { Tab } from '@/domain/entities/Tab';
 import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL } from '@/lib/currency';
+import { logSilently, reportError } from '@/lib/feedback';
 import { showToast } from '@/lib/toast';
 import { useCartStore, type CartItem } from '@/store/cartStore';
 import { BrandLogo } from '@/ui/BrandLogo';
@@ -66,7 +67,7 @@ export default function FecharVenda() {
           );
         }
       })
-      .catch(() => undefined);
+      .catch((e) => logSilently(e, { action: 'Carregar a comanda', meta: { tabId } }));
   }, [tabId]);
 
   const stockQty = (id: string) => stock.find((s) => s.productId === id)?.quantity ?? 0;
@@ -126,31 +127,42 @@ export default function FecharVenda() {
       return;
     }
     setSaving(true);
-    await saleRepository.create({
-      paymentMethod: payment,
-      consumptionMode: consumption,
-      items: lines.map((i) => ({
-        productId: i.productId,
-        quantity: i.quantity,
-        unitPrice: i.unitPrice,
-      })),
-    });
-    // RF-10: baixa de estoque LOCAL (só produtos com saldo controlado).
-    // No servidor, o trigger deduct_stock_on_sale refaz a baixa quando a venda sincroniza.
-    await stockRepository.deductForSale(
-      lines.map((i) => ({ productId: i.productId, quantity: i.quantity })),
-    );
-    // Encerra a fonte: fecha a comanda paga OU limpa o carrinho da venda rápida.
-    if (tabId) {
-      await tabRepository.close(tabId);
-    } else {
-      clearCart();
+    try {
+      await saleRepository.create({
+        paymentMethod: payment,
+        consumptionMode: consumption,
+        items: lines.map((i) => ({
+          productId: i.productId,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+        })),
+      });
+      // RF-10: baixa de estoque LOCAL (só produtos com saldo controlado).
+      // No servidor, o trigger deduct_stock_on_sale refaz a baixa quando a venda sincroniza.
+      await stockRepository.deductForSale(
+        lines.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+      );
+      // Encerra a fonte: fecha a comanda paga OU limpa o carrinho da venda rápida.
+      if (tabId) {
+        await tabRepository.close(tabId);
+      } else {
+        clearCart();
+      }
+      showToast('Venda registrada! ✅');
+      refreshPendingCount();
+      runSync(); // tenta enviar agora (no-op offline / sem empresa ativa)
+      router.back();
+    } catch (e) {
+      // Venda é o momento crítico do PDV: o operador precisa saber que NÃO
+      // registrou, com o código em mãos, em vez de achar que deu certo.
+      await reportError(e, {
+        action: tabId ? 'Fechar comanda' : 'Confirmar venda',
+        title: 'Não foi possível registrar a venda',
+        meta: { tabId: tabId ?? null, itemCount: lines.length, total },
+      });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    showToast('Venda registrada! ✅');
-    refreshPendingCount();
-    runSync(); // tenta enviar agora (no-op offline / sem empresa ativa)
-    router.back();
   };
 
   if (lines.length === 0) {

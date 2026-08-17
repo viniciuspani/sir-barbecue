@@ -15,6 +15,8 @@ hook JWT e o bucket `reports` **já estão no banco**.
 | `invite-member` | Owner adiciona membro **existente** ou **convida um novo por e-mail** (`tenant_members`) | owner |
 | `delete-account` | Exclui a conta + empresas que o usuário possui (RNF-08) — **destrutivo** | usuário logado |
 | `send-push` | Envia push (Expo) para uma lista de tokens | usuário logado / cron |
+| `health` | **Health check público**: runtime + round-trip no Postgres (`saude_db()`). 200 = ok, 503 = banco fora | monitor externo + painel admin (sem auth) |
+| `health-webhook` | Recebe as notificações de queda/retorno do monitor externo e grava em `health_events` (histórico do painel) | HetrixTools (token na URL) |
 
 ## Pré-requisitos
 ```bash
@@ -31,10 +33,30 @@ supabase functions deploy generate-report
 supabase functions deploy invite-member
 supabase functions deploy delete-account
 supabase functions deploy send-push
+supabase functions deploy health --no-verify-jwt          # ATENÇÃO: sem JWT (ver abaixo)
+supabase functions deploy health-webhook --no-verify-jwt  # idem, protegida por token na URL
 ```
-> `verify_jwt` fica **ligado** por padrão (exige usuário autenticado) — correto para as 4.
-> Quando a `send-push` passar a ser chamada por cron/trigger (infra de push, abaixo), use
-> `supabase functions deploy send-push --no-verify-jwt` (ou chame com o `service_role`).
+> `verify_jwt` fica **ligado** por padrão (exige usuário autenticado) — correto para as 4
+> primeiras. Quando a `send-push` passar a ser chamada por cron/trigger (infra de push, abaixo),
+> use `supabase functions deploy send-push --no-verify-jwt` (ou chame com o `service_role`).
+>
+> As duas funções de saúde saem **sem JWT** — quem as chama é um serviço externo, sem
+> credencial do Supabase. Pelo dashboard: criar a função e desligar **Verify JWT** em Function
+> Settings. A `health` só lê e não expõe dado de cliente (booleanos + latência); a
+> `health-webhook` **escreve**, então é protegida por `SAUDE_WEBHOOK_TOKEN` na querystring e
+> recusa tudo se o segredo não estiver configurado.
+
+### Secrets usados por estas funções
+```bash
+# origens do navegador autorizadas a chamar o /health (painel admin) — lista por vírgula
+supabase secrets set ALLOWED_ORIGIN="https://sir-barbecue-admin.netlify.app,http://localhost:5173"
+# segredo do webhook do monitor externo (obrigatório para a health-webhook funcionar)
+supabase secrets set SAUDE_WEBHOOK_TOKEN="<segredo longo e aleatório>"
+```
+> Nomenclatura: as funções se chamam `health`/`health-webhook`, mas o secret
+> `SAUDE_WEBHOOK_TOKEN` e a RPC `saude_db()` mantêm o nome antigo **de propósito** — já estão
+> configurados e testados em produção, e renomear quebraria o que está funcionando por ganho
+> zero.
 
 ## Como o app chama (exemplos)
 ```ts
@@ -69,6 +91,20 @@ await supabase.functions.invoke('send-push', { body: { tokens, title, body, data
   usuário no Auth.
 - **send-push** — sender puro. O lookup de tokens por usuário e os disparos automáticos exigem a
   infra abaixo.
+- **health** — `GET`/`HEAD` público, sem corpo de requisição. **Pré-requisito:** aplicar
+  `docs/banco-multi-cliente/MIGRATION_06_saude.sql` (RPC `saude_db()`). Usa só a **anon key**
+  (nunca a `service_role`) e devolve apenas `ok`/latência — a mensagem crua do Postgres vai
+  para os Logs. Env opcional `SAUDE_TOKEN`: se definida, exige `?token=<valor>` (desligada por
+  padrão, senão o monitor não consegue chamar). Passo a passo do monitor externo em
+  `docs/monitoramento/MONITOR_SAUDE.md`.
+  ```bash
+  curl -i https://ltwaotffsxbxkeydwoxm.supabase.co/functions/v1/health   # 200 + {"status":"ok",...}
+  ```
+- **health-webhook** — `POST` do HetrixTools (payload `monitor_status`/`timestamp`/`monitor_errors`).
+  **Pré-requisito:** `docs/banco-multi-cliente/MIGRATION_07_health_events.sql`. Grava com a
+  `service_role` (a tabela não tem policy de INSERT: ninguém logado forja uma queda) e ignora
+  reentregas pelo índice de deduplicação. Configuração no HetrixTools em
+  `docs/monitoramento/MONITOR_SAUDE.md` §4.2.
 
 ## Infra de push (RF-11) — IMPLEMENTADA
 - **Tabela `push_tokens`** + RLS + **trigger `notify_low_stock`**: aplicar

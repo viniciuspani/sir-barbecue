@@ -6,6 +6,7 @@ import { db } from '@/data/local/database';
 import { tabItems, tabs, type TabItemRow, type TabRow } from '@/data/local/schema';
 import type { NewTabItem, Tab } from '@/domain/entities/Tab';
 import type { TabRepository } from '@/domain/repositories/TabRepository';
+import { logSilently } from '@/lib/feedback';
 
 function toTab(row: TabRow, itemRows: TabItemRow[]): Tab {
   return {
@@ -94,7 +95,9 @@ export class DrizzleTabRepository implements TabRepository {
 
   observeAll(onChange: (tabs: Tab[]) => void): () => void {
     const emit = () => {
-      this.list().then(onChange).catch(() => undefined);
+      this.list()
+        .then(onChange)
+        .catch((e) => logSilently(e, { action: 'Carregar comandas' }));
     };
     emit();
     const subscription = addDatabaseChangeListener((event) => {

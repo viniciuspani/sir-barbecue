@@ -7,6 +7,7 @@ import { products, type ProductRow } from '@/data/local/schema';
 import type { Product } from '@/domain/entities/Product';
 import type { ProductRepository } from '@/domain/repositories/ProductRepository';
 import { getActiveTenantId, getActiveTenantIdOrThrow } from '@/lib/activeTenant';
+import { logSilently } from '@/lib/feedback';
 
 // visible_days é persistido como JSON de números (0..6). Vazio/null = todos os dias.
 function serializeDays(days?: number[]): string | null {
@@ -96,7 +97,9 @@ export class DrizzleProductRepository implements ProductRepository {
   observeAll(onChange: (items: Product[]) => void): () => void {
     // Reatividade via change listener do expo-sqlite (substitui os observables do WDB).
     const emit = () => {
-      this.list().then(onChange).catch(() => undefined);
+      this.list()
+        .then(onChange)
+        .catch((e) => logSilently(e, { action: 'Carregar produtos' }));
     };
     emit();
     const subscription = addDatabaseChangeListener((event) => {

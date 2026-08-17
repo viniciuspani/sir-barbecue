@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radii, spacing } from '@/design/tokens';
+import { logSilently, reportError } from '@/lib/feedback';
 import { usePermissions } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
 import { inviteMember } from '@/services/functions';
@@ -41,7 +42,10 @@ export default function Empresa() {
   const isOwner = myRole === 'owner';
 
   const loadMembers = () => {
-    if (tenantId) fetchMembers(tenantId).then(setMembers).catch(() => undefined);
+    if (tenantId)
+      fetchMembers(tenantId)
+        .then(setMembers)
+        .catch((e) => logSilently(e, { action: 'Carregar a equipe da empresa' }));
   };
 
   const load = useCallback(async () => {
@@ -62,7 +66,9 @@ export default function Empresa() {
       setPhone(t.phone ?? '');
       void setCachedTenantName(t.name);
       setMembers(await fetchMembers(tenantId));
-    } catch {
+    } catch (e) {
+      // A tela já mostra o estado de falha; o log guarda a causa.
+      logSilently(e, { action: 'Carregar os dados da empresa' });
       setLoadFailed(true);
     } finally {
       setLoading(false);
@@ -107,7 +113,7 @@ export default function Empresa() {
                 loadMembers();
               }
             })
-            .catch(() => undefined);
+            .catch((e) => void reportError(e, { action: 'Remover membro da equipe' }));
         },
       },
     ]);

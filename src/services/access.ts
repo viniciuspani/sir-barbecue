@@ -2,6 +2,7 @@ import * as Application from 'expo-application';
 import { Platform } from 'react-native';
 
 import { supabase } from '@/data/remote/supabaseClient';
+import { logSilently } from '@/lib/feedback';
 import { secureStorage } from '@/services/secureStorage';
 
 /**
@@ -98,7 +99,10 @@ export async function evaluateAccess(tenantId: string): Promise<AccessVerdict> {
     const verdict = normalize(data);
     await writeCache(tenantId, verdict);
     return verdict;
-  } catch {
+  } catch (e) {
+    // Cair no cache é comportamento esperado offline, mas um erro REAL aqui
+    // (RPC ausente, permissão) bloquearia clientes legítimos sem deixar rastro.
+    logSilently(e, { action: 'Verificar o acesso da assinatura', screen: 'access' });
     const cached = await readCache(tenantId);
     if (!cached) {
       return { allowed: true, reason: 'unverified', endsAt: null, daysRemaining: 0 };
@@ -138,7 +142,8 @@ export async function bindDevice(tenantId: string): Promise<void> {
       p_platform: Platform.OS,
       p_tenant_id: tenantId,
     });
-  } catch {
-    // Falha de vínculo não deve bloquear o app.
+  } catch (e) {
+    // Falha de vínculo não deve bloquear o app — mas fica registrada.
+    logSilently(e, { action: 'Vincular o aparelho à empresa', screen: 'access' });
   }
 }

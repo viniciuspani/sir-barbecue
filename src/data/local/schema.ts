@@ -131,6 +131,32 @@ export const tabItems = sqliteTable('tab_items', {
   quantity: integer('quantity').notNull(),
 });
 
+// Log de erros — grava LOCAL primeiro (o erro mais importante é o que acontece
+// offline) e sobe para o servidor pelo sync. tenantId/userId são NULLABLE de
+// propósito: um erro pode ocorrer antes do login ou sem vínculo com empresa.
+export const errorLogs = sqliteTable('error_logs', {
+  id: text('id').primaryKey(),
+  // Código curto mostrado ao usuário no alerta; localiza este registro no log.
+  refCode: text('ref_code').notNull(),
+  occurredAt: integer('occurred_at').notNull(), // epoch ms
+  severity: text('severity').notNull().default('error'), // 'error' | 'fatal'
+  screen: text('screen'), // rota no momento do erro (ex.: /venda/fechar)
+  action: text('action'), // o que o usuário estava fazendo (ex.: Fechar venda)
+  // JSON: últimos passos (breadcrumbs), conectividade, papel, metadados da tela.
+  context: text('context'),
+  message: text('message').notNull(),
+  // Mensagem COMPLETA: stack + code/details/hint do Postgres/Supabase.
+  detail: text('detail'),
+  userMessage: text('user_message'),
+  userId: text('user_id'),
+  tenantId: text('tenant_id'),
+  appVersion: text('app_version'),
+  platform: text('platform'),
+  osVersion: text('os_version'),
+  needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
+  syncedAt: integer('synced_at'),
+});
+
 export type CategoryRow = typeof categories.$inferSelect;
 export type ProductRow = typeof products.$inferSelect;
 export type NewProductRow = typeof products.$inferInsert;
@@ -145,3 +171,5 @@ export type ProductSupplierRow = typeof productSuppliers.$inferSelect;
 export type ProductSupplierPriceHistoryRow = typeof productSupplierPriceHistory.$inferSelect;
 export type TabRow = typeof tabs.$inferSelect;
 export type TabItemRow = typeof tabItems.$inferSelect;
+export type ErrorLogRow = typeof errorLogs.$inferSelect;
+export type NewErrorLogRow = typeof errorLogs.$inferInsert;

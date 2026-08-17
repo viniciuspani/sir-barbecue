@@ -13,6 +13,7 @@ import type { NewStockEntry, StockEntry } from '@/domain/entities/StockEntry';
 import type { StockItem } from '@/domain/entities/StockItem';
 import type { StockRepository } from '@/domain/repositories/StockRepository';
 import { getActiveTenantId, getActiveTenantIdOrThrow } from '@/lib/activeTenant';
+import { logSilently } from '@/lib/feedback';
 
 function toItem(row: StockItemRow): StockItem {
   return {
@@ -146,7 +147,7 @@ export class DrizzleStockRepository implements StockRepository {
         .from(stockItems)
         .where(eq(stockItems.tenantId, tenantId))
         .then((rows) => onChange(rows.map(toItem)))
-        .catch(() => undefined);
+        .catch((e) => logSilently(e, { action: 'Carregar o estoque' }));
     };
     emit();
     const subscription = addDatabaseChangeListener((event) => {

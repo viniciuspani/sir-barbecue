@@ -13,6 +13,7 @@ import type {
 } from '@/domain/entities/Sale';
 import type { SaleRepository } from '@/domain/repositories/SaleRepository';
 import { getActiveTenantId, getActiveTenantIdOrThrow } from '@/lib/activeTenant';
+import { logSilently } from '@/lib/feedback';
 
 /**
  * Implementação do SaleRepository sobre Drizzle + expo-sqlite (Plano B).
@@ -89,7 +90,9 @@ export class DrizzleSaleRepository implements SaleRepository {
 
   observeAll(onChange: (items: Sale[]) => void): () => void {
     const emit = () => {
-      this.list().then(onChange).catch(() => undefined);
+      this.list()
+        .then(onChange)
+        .catch((e) => logSilently(e, { action: 'Carregar vendas' }));
     };
     emit();
     const subscription = addDatabaseChangeListener((event) => {
