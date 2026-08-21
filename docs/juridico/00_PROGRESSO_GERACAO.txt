@@ -1,0 +1,26 @@
+================================================================================
+PROGRESSO DE GERAÇÃO — LGPD Jurídico
+================================================================================
+
+App: Sir Barbecue
+Data de Início: 17/08/2026
+Status Geral: CONCLUIDO
+
+--------------------------------------------------------------------------------
+ARQUIVOS A GERAR
+--------------------------------------------------------------------------------
+
+[X] CONCLUIDO 01 | POLITICA_DE_PRIVACIDADE.txt
+[X] CONCLUIDO 02 | TERMOS_DE_USO.txt
+[X] CONCLUIDO 03 | CHECKLIST_PUBLICACAO_STORES.txt
+
+--------------------------------------------------------------------------------
+LEGENDA
+--------------------------------------------------------------------------------
+[ ] PENDENTE   — Ainda não iniciado
+[>] GERANDO    — Geração em progresso
+[X] CONCLUIDO  — Arquivo salvo com sucesso
+
+================================================================================
+Gerado automaticamente via /lgpd-juridico — Claude Code Legal Skill
+================================================================================

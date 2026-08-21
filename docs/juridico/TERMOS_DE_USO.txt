@@ -1,0 +1,481 @@
+================================================================================
+TERMOS DE USO — SIR BARBECUE
+================================================================================
+
+Última atualização: 17/08/2026
+Versão: 1.0
+Versão do aplicativo: 2.1.0
+
+LEIA ESTES TERMOS DE USO ATENTAMENTE ANTES DE UTILIZAR O APLICATIVO.
+
+Estes Termos de Uso ("Termos") constituem um contrato legal entre você
+("Usuário") e Vinicius Pani, inscrita sob o
+CNPJ/CPF nº 105.104.377-88, relativos ao uso do aplicativo Sir Barbecue ("Aplicativo").
+
+Ao instalar, acessar ou utilizar o Aplicativo, você declara ter lido,
+compreendido e concordado com estes Termos e com nossa Política de
+Privacidade. Se você não concordar, não utilize o Aplicativo.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. DESCRIÇÃO DO SERVIÇO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+O Sir Barbecue é um aplicativo de gestão (ponto de venda) para pequenos
+negócios de alimentação, que permite ao empreendedor registrar vendas,
+controlar estoque e acompanhar o resultado do negócio pelo celular, inclusive
+sem conexão com a internet.
+
+O Aplicativo é distribuído para Android por meio da Google Play Store.
+
+Funcionalidades disponíveis nesta versão:
+
+  a) Conta e acesso
+     • Cadastro por e-mail e senha, com confirmação de e-mail
+     • Login com conta Google
+     • Recuperação de senha por e-mail
+     • Criação automática da empresa vinculada à sua conta
+
+  b) Equipe e permissões
+     • Convite de membros por e-mail
+     • Três papéis: dono (owner), gerente (manager) e funcionário (employee),
+       cada um com permissões distintas
+     • Remoção de membros pelo dono
+
+  c) Produtos e fornecedores
+     • Cadastro de produtos por categoria, com preço de venda
+     • Ativação/inativação de produtos
+     • Configuração de visibilidade por dia da semana
+     • Cadastro de fornecedores e vínculo produto-fornecedor com preço de
+       compra, com histórico de alterações de preço
+
+  d) Vendas
+     • Registro de venda com múltiplos produtos e quantidades
+     • Comandas nomeadas, mantidas apenas no dispositivo até o pagamento
+     • Registro informativo da forma de pagamento (dinheiro, PIX, crédito
+       ou débito) e da modalidade de consumo (no local ou para levar)
+
+  e) Estoque
+     • Saldo por produto, com atualização automática a cada venda
+     • Registro de entradas de estoque
+     • Limite mínimo por produto com alerta por notificação push
+
+  f) Relatórios e painel
+     • Painel com os números do mês corrente
+     • Relatórios de vendas, produtos e resultado gerencial, com gráficos,
+       gerados no servidor e visualizados dentro do Aplicativo
+     • Compartilhamento do relatório gerado
+
+  g) Funcionamento offline
+     • Operação completa de venda sem internet, com armazenamento local e
+       sincronização automática ao reconectar
+
+IMPORTANTE — O QUE O APLICATIVO NÃO É:
+  • NÃO é um sistema fiscal: não emite nota fiscal, cupom fiscal, NFC-e nem
+    qualquer documento fiscal, e não transmite informações ao fisco
+  • NÃO processa pagamentos: o registro da forma de pagamento é meramente
+    informativo, para fins de controle gerencial. Não há integração com
+    maquininha de cartão, PIX automático ou qualquer meio de pagamento
+  • NÃO é software de contabilidade e não substitui a orientação de
+    contador ou de profissional habilitado
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. ELEGIBILIDADE E CADASTRO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2.1 REQUISITOS DE ELEGIBILIDADE
+
+Para utilizar o Aplicativo, você deve:
+
+a) Ter no mínimo 18 (dezoito) anos de idade — o Aplicativo é uma ferramenta
+   profissional e não se destina a menores;
+b) Ter capacidade jurídica para celebrar contratos;
+c) Fornecer informações verdadeiras, precisas e completas no cadastro;
+d) Manter as informações de cadastro atualizadas;
+e) Não estar suspenso ou banido por violação anterior destes Termos.
+
+2.2 CRIAÇÃO DE CONTA
+
+O cadastro requer e-mail, senha (mínimo de 8 caracteres) e o nome do seu
+negócio. O e-mail precisa ser confirmado antes da liberação do acesso.
+
+Você é responsável por:
+• Manter a confidencialidade das suas credenciais de acesso
+• Todas as atividades realizadas com a sua conta e com as contas dos membros
+  da equipe que você convidar
+• Notificar-nos imediatamente sobre qualquer uso não autorizado
+
+2.3 LOGIN COM CONTA GOOGLE
+
+Você pode criar sua conta ou entrar utilizando credenciais do Google
+(OAuth 2.0). Ao fazer isso, você autoriza o Aplicativo a acessar o e-mail e o
+identificador da sua conta Google, conforme descrito na Política de
+Privacidade. Não temos acesso à sua senha do Google.
+
+2.4 EQUIPE E CONVITES
+
+O dono da empresa pode convidar membros informando o e-mail de cada pessoa.
+Ao convidar alguém, você declara ter autorização dessa pessoa para informar
+o e-mail dela e assume responsabilidade pelo uso que os membros da sua equipe
+fizerem do Aplicativo.
+
+O convidado passa a ter acesso aos dados da empresa conforme o papel que lhe
+for atribuído (gerente ou funcionário). Cabe exclusivamente ao dono conceder
+e revogar esses acessos.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. USO ACEITÁVEL DO APLICATIVO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3.1 CONDUTAS PERMITIDAS
+
+Você pode usar o Aplicativo para as finalidades legítimas de gestão do seu
+próprio negócio, descritas na Seção 1, respeitando a legislação brasileira e
+estes Termos.
+
+3.2 CONDUTAS PROIBIDAS
+
+É expressamente proibido:
+
+a) Usar o Aplicativo para fins ilegais, fraudulentos ou não autorizados;
+b) Tentar obter acesso não autorizado a qualquer parte do sistema, a dados de
+   outras empresas usuárias ou à infraestrutura de servidores;
+c) Transmitir vírus, malware ou qualquer código malicioso;
+d) Fazer engenharia reversa, descompilar, desmontar ou tentar extrair o
+   código-fonte do Aplicativo;
+e) Burlar, desabilitar ou tentar contornar os mecanismos de controle de
+   assinatura, de período de teste ou de vínculo do aparelho à empresa;
+f) Usar bots, scripts ou meios automatizados para acessar o serviço sem
+   autorização prévia por escrito;
+g) Violar direitos de propriedade intelectual nossos ou de terceiros;
+h) Fornecer informações falsas ou enganosas no cadastro ou no uso;
+i) Usar a identidade de outra pessoa ou entidade;
+j) Interferir no funcionamento normal do Aplicativo ou sobrecarregar
+   deliberadamente a infraestrutura;
+k) Cadastrar dados pessoais de terceiros (por exemplo, contatos de
+   fornecedores) sem autorização ou base legal adequada;
+l) Compartilhar suas credenciais de acesso com pessoas fora da sua equipe,
+   ou usar uma mesma licença em mais estabelecimentos do que o contratado.
+
+A violação pode resultar em suspensão ou encerramento imediato da conta, sem
+prejuízo das medidas legais cabíveis.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. PERÍODO DE TESTE, ASSINATURA E PAGAMENTO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4.1 PERÍODO DE TESTE GRATUITO
+
+Ao criar sua conta, a empresa recebe automaticamente um período de teste
+gratuito de 7 (sete) dias, com acesso a todas as funcionalidades. Não é
+exigido cadastro de meio de pagamento para iniciar o teste.
+
+Ao término do período de teste, o acesso é bloqueado até a contratação da
+assinatura. Seus dados permanecem armazenados e são reativados junto com a
+assinatura.
+
+4.2 ASSINATURA
+
+O uso continuado do Aplicativo após o período de teste depende de assinatura
+ativa da empresa, cujo valor e periodicidade são acordados diretamente entre
+você e a Empresa.
+
+Não há cobrança por meio da Google Play Store nem compras dentro do
+Aplicativo. A contratação, a emissão de cobrança e o pagamento ocorrem por
+canal externo, combinado diretamente com a Empresa pelo contato
+contato.sirbarbecue@hotmail.com.
+
+4.3 CONTROLE DE ACESSO
+
+O acesso ao Aplicativo é verificado junto ao servidor na abertura e
+periodicamente durante o uso. Quando não há conexão, o Aplicativo mantém o
+último estado verificado por um período limitado de tolerância, após o qual
+exige nova verificação online.
+
+O acesso poderá ser bloqueado nas seguintes situações: término do período de
+teste sem contratação, inadimplência, cancelamento da assinatura ou suspensão
+por violação destes Termos.
+
+4.4 INADIMPLÊNCIA
+
+Em caso de atraso no pagamento, a Empresa poderá suspender o acesso após
+comunicação prévia ao e-mail cadastrado. Os dados são preservados durante a
+suspensão, conforme a Política de Privacidade.
+
+4.5 CANCELAMENTO E REEMBOLSO
+
+• CANCELAMENTO PELO USUÁRIO: você pode cancelar a assinatura a qualquer
+  momento, mediante comunicação pelo e-mail contato.sirbarbecue@hotmail.com. O acesso
+  permanece disponível até o fim do período já pago, sem renovação posterior.
+
+• DIREITO DE ARREPENDIMENTO (CDC): tratando-se de contratação a distância,
+  você pode desistir da contratação em até 7 (sete) dias contados do
+  pagamento, com devolução integral dos valores pagos, conforme o Art. 49 do
+  Código de Defesa do Consumidor.
+
+• SERVIÇO NÃO PRESTADO: em caso de indisponibilidade prolongada imputável à
+  Empresa, será concedido reembolso proporcional ao período afetado ou
+  extensão equivalente da assinatura, à sua escolha.
+
+• Solicitações de reembolso devem ser enviadas para contato.sirbarbecue@hotmail.com.
+
+4.6 ALTERAÇÃO DE PREÇO
+
+Reajustes serão comunicados com antecedência mínima de 30 (trinta) dias ao
+e-mail cadastrado, e passam a valer no ciclo seguinte. Você pode cancelar a
+assinatura antes da vigência do novo valor, sem ônus.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. PROPRIEDADE INTELECTUAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+5.1 DIREITOS DA EMPRESA
+
+O Aplicativo, incluindo código-fonte, design, logotipo, marca, textos,
+imagens, ícones e funcionalidades, é de titularidade exclusiva da
+Vinicius Pani ou de seus licenciantes, protegido pela Lei nº 9.609/98
+(software), Lei nº 9.610/98 (direitos autorais) e Lei nº 9.279/96
+(propriedade industrial).
+
+Fica vedado ao Usuário, sem autorização prévia por escrito:
+• Reproduzir, copiar, distribuir, vender ou sublicenciar qualquer parte do
+  Aplicativo
+• Usar a marca, o logotipo ou a identidade visual do Sir Barbecue
+• Criar obras derivadas baseadas no Aplicativo
+
+5.2 LICENÇA DE USO
+
+A Empresa concede a você uma licença limitada, não exclusiva, intransferível,
+revogável e pessoal para instalar e usar o Aplicativo em dispositivos sob sua
+posse, exclusivamente para as finalidades descritas nestes Termos e enquanto
+a assinatura estiver ativa.
+
+5.3 DADOS DO USUÁRIO
+
+Os dados operacionais que você insere no Aplicativo (produtos, preços,
+vendas, estoque, fornecedores) são e permanecem SEUS. A Empresa os trata
+apenas para prestar o serviço, conforme a Política de Privacidade, e não os
+utiliza para outras finalidades comerciais.
+
+Você é responsável pela veracidade, legalidade e adequação dos dados que
+insere, especialmente dados pessoais de terceiros.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. DISPONIBILIDADE, ATUALIZAÇÕES E SUPORTE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+6.1 DISPONIBILIDADE
+
+Nos esforçamos para manter o serviço disponível de forma contínua, mas não
+garantimos disponibilidade ininterrupta. O serviço pode ficar temporariamente
+indisponível por manutenção programada, falhas técnicas, indisponibilidade de
+provedores de infraestrutura ou eventos de força maior.
+
+O registro de vendas continua funcionando sem internet; a sincronização com o
+servidor ocorre quando a conexão é restabelecida.
+
+6.2 ATUALIZAÇÕES
+
+O Aplicativo pode ser atualizado periodicamente, inclusive por atualizações
+automáticas de conteúdo entregues pela internet. Algumas atualizações podem
+ser obrigatórias para o uso continuado. Recomendamos manter sempre a versão
+mais recente instalada.
+
+6.3 REQUISITOS TÉCNICOS
+
+O Aplicativo requer Android 10 (API 29) ou superior e conexão com a internet
+para cadastro, login, sincronização, geração de relatórios e verificação da
+assinatura.
+
+6.4 SUPORTE
+
+Suporte ao usuário disponível por:
+• E-mail: contato.sirbarbecue@hotmail.com
+• Horário de atendimento: 08:00h as 17:00h
+
+Ao relatar um problema, informe o código de referência exibido na mensagem de
+erro do Aplicativo — ele identifica exatamente a falha ocorrida e agiliza o
+atendimento.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. LIMITAÇÃO DE RESPONSABILIDADE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+7.1 NA EXTENSÃO MÁXIMA PERMITIDA PELA LEGISLAÇÃO APLICÁVEL:
+
+a) O Aplicativo é fornecido "como está" e "conforme disponível";
+b) Não garantimos que o Aplicativo será livre de erros ou interrupções;
+c) Não somos responsáveis por danos indiretos, incidentais ou lucros
+   cessantes decorrentes do uso ou da impossibilidade de uso do Aplicativo;
+d) Nossa responsabilidade total fica limitada ao valor efetivamente pago por
+   você nos 12 (doze) meses anteriores ao evento que originou o dano.
+
+As limitações acima não afastam a responsabilidade da Empresa por dolo, culpa
+grave ou por vícios do serviço nos termos do Código de Defesa do Consumidor.
+
+7.2 DECISÕES DE NEGÓCIO E INFORMAÇÕES GERENCIAIS
+
+Os relatórios, margens, custos e indicadores exibidos são calculados a partir
+dos dados que VOCÊ cadastra (preços de venda, preços de compra, quantidades).
+A Empresa não garante a exatidão de resultados derivados de dados incorretos
+ou desatualizados, e não se responsabiliza por decisões de negócio tomadas
+com base neles.
+
+7.3 OBRIGAÇÕES FISCAIS E CONTÁBEIS
+
+O Aplicativo não é sistema fiscal e não emite documentos fiscais. O
+cumprimento das obrigações fiscais, tributárias, sanitárias, trabalhistas e
+contábeis do seu negócio é de sua exclusiva responsabilidade.
+
+7.4 RESPONSABILIDADE DO USUÁRIO
+
+O Usuário é o único responsável por:
+• Garantir que seu dispositivo atende aos requisitos técnicos
+• Custos de conexão de dados para uso do Aplicativo
+• Veracidade e legalidade das informações inseridas
+• Guarda das suas credenciais e gestão dos acessos da sua equipe
+• Exportar e guardar as informações que precise preservar antes de excluir a
+  conta
+
+7.5 PERDA DE DADOS
+
+O Aplicativo mantém uma cópia local dos dados no dispositivo e sincroniza com
+o servidor. Ainda assim, dados registrados offline e ainda não sincronizados
+podem ser perdidos em caso de perda, dano, formatação ou desinstalação do
+aparelho antes da sincronização. Recomendamos sincronizar sempre que houver
+conexão disponível.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. ENCERRAMENTO E SUSPENSÃO DE CONTA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+8.1 ENCERRAMENTO PELO USUÁRIO
+
+Você pode excluir sua conta a qualquer momento, diretamente no Aplicativo,
+em "Mais" > "Conta" > "Excluir conta".
+
+ATENÇÃO: a exclusão é IRREVERSÍVEL. Se você é o dono da empresa, a ação
+elimina também a empresa e TODOS os seus dados — produtos, vendas, estoque,
+fornecedores, relatórios e os vínculos de todos os membros da equipe.
+Exporte o que precisar guardar ANTES de confirmar.
+
+8.2 SUSPENSÃO OU ENCERRAMENTO PELA EMPRESA
+
+Nos reservamos o direito de suspender ou encerrar sua conta, com aviso prévio
+sempre que possível, em caso de:
+
+a) Violação destes Termos;
+b) Comportamento fraudulento, abusivo ou ilegal;
+c) Fornecimento de informações falsas;
+d) Inadimplência da assinatura;
+e) Determinação de autoridade competente;
+f) Descontinuação do Aplicativo, com aviso prévio mínimo de 30 (trinta) dias
+   e prazo razoável para você exportar seus dados.
+
+8.3 EFEITOS DO ENCERRAMENTO
+
+Após o encerramento:
+• Seu acesso é revogado
+• Seus dados são tratados conforme a Política de Privacidade
+• Obrigações financeiras pendentes permanecem exigíveis
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+9. PRIVACIDADE E PROTEÇÃO DE DADOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+O tratamento dos seus dados pessoais é regido pela nossa Política de
+Privacidade, disponível em https://sir-barbecue-admin.netlify.app/politica-de-privacidade, incorporada a
+estes Termos por referência.
+
+Ao aceitar estes Termos, você também declara ciência da Política de
+Privacidade.
+
+Quanto aos dados pessoais de terceiros que você insere (contatos de
+fornecedores e e-mails da sua equipe), você atua como controlador desses
+dados perante a LGPD, e a Empresa atua como operadora, tratando-os apenas
+para viabilizar o serviço.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+10. NOTIFICAÇÕES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+As notificações da Empresa ao Usuário serão feitas por notificação push,
+e-mail cadastrado ou aviso exibido dentro do Aplicativo.
+
+As notificações do Usuário à Empresa devem ser enviadas para:
+contato.sirbarbecue@hotmail.com.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+11. ALTERAÇÕES NESTES TERMOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Podemos alterar estes Termos a qualquer momento. Em caso de alterações
+materiais, notificaremos você com antecedência mínima de 15 (quinze) dias, e
+o uso continuado após a entrada em vigor constitui aceitação. Se você não
+concordar com as alterações, poderá encerrar sua conta antes da vigência.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+12. DISPOSIÇÕES GERAIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+12.1 INTEGRALIDADE DO ACORDO
+Estes Termos e a Política de Privacidade constituem o acordo integral entre
+você e a Empresa com relação ao Aplicativo.
+
+12.2 NULIDADE PARCIAL
+Se qualquer disposição for considerada inválida, as demais permanecem em
+pleno vigor.
+
+12.3 TOLERÂNCIA
+A eventual tolerância quanto ao descumprimento de qualquer cláusula não
+constitui novação nem renúncia de direitos.
+
+12.4 CESSÃO
+Você não pode ceder seus direitos sem consentimento prévio por escrito. A
+Empresa pode ceder seus direitos em caso de fusão, aquisição ou venda de
+ativos, mediante notificação ao Usuário.
+
+12.5 FORÇA MAIOR
+A Empresa não será responsável por falhas causadas por eventos fora de seu
+controle razoável, incluindo desastres naturais, pandemias, atos de
+autoridade e falhas de infraestrutura de internet, energia ou de provedores
+de nuvem.
+
+12.6 LOJA DE APLICATIVOS
+A Google não é parte destes Termos e não tem qualquer responsabilidade pelo
+Aplicativo, por seu conteúdo ou pelo suporte ao Usuário. O uso do Aplicativo
+também está sujeito aos termos da Google Play Store.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+13. LEI APLICÁVEL E RESOLUÇÃO DE CONFLITOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Estes Termos são regidos pelas leis da República Federativa do Brasil.
+
+13.1 RESOLUÇÃO AMIGÁVEL
+As partes buscarão resolver eventuais disputas de forma amigável, pelo canal
+de contato indicado na Seção 14, antes de recorrer ao Judiciário.
+
+13.2 RELAÇÕES DE CONSUMO
+Nas relações em que o Usuário se qualifique como consumidor, aplicam-se
+integralmente as disposições do Código de Defesa do Consumidor
+(Lei nº 8.078/1990).
+
+13.3 FORO
+Fica eleito o foro da comarca de Linhares Espirito Santo para dirimir controvérsias
+decorrentes destes Termos, ressalvado, nas relações de consumo, o direito do
+consumidor de demandar no foro de seu domicílio.
+
+Para reclamações de consumidor: www.consumidor.gov.br
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+14. CONTATO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Empresa:  Vinicius Pani
+  CNPJ/CPF: 105.104.377-88
+  E-mail:   contato.sirbarbecue@hotmail.com  
+
+================================================================================
+© 2026 Vinicius Pani. Todos os direitos reservados.
+Estes Termos estão disponíveis em: https://sir-barbecue-admin.netlify.app/termos-de-uso
+================================================================================

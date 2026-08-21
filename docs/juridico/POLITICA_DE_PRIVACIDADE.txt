@@ -1,0 +1,516 @@
+================================================================================
+POLÍTICA DE PRIVACIDADE — SIR BARBECUE
+================================================================================
+
+Última atualização: 17/08/2026
+Versão: 1.0
+Versão do aplicativo: 2.1.0
+
+Esta Política de Privacidade descreve como Vinicius Pani, inscrito sob o CNPJ/CPF nº 105.104.377-88,
+coleta, usa, armazena,
+compartilha e protege as informações pessoais dos usuários ("você" ou "Titular
+dos Dados") do aplicativo Sir Barbecue ("Aplicativo").
+
+O Sir Barbecue é um sistema de gestão (PDV) para pequenos negócios de
+alimentação, no qual o usuário registra vendas, controla estoque, cadastra
+produtos e fornecedores, gerencia sua equipe e emite relatórios gerenciais,
+com funcionamento offline e sincronização automática quando há conexão.
+
+Esta Política está em conformidade com a Lei Geral de Proteção de Dados
+(LGPD — Lei nº 13.709/2018), o Marco Civil da Internet (Lei nº 12.965/2014),
+o Código de Defesa do Consumidor (Lei nº 8.078/1990) e as diretrizes de
+privacidade da Google Play Store.
+
+Ao utilizar o Aplicativo, você concorda com os termos desta Política.
+Se você não concordar, não utilize o Aplicativo.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. QUEM SOMOS — IDENTIFICAÇÃO DO CONTROLADOR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Controlador dos Dados (nos termos do Art. 5º, VI da LGPD):
+
+  Razão Social / Nome:    Vinicius Pani
+  CNPJ / CPF:             105.104.377-88  
+  E-mail de privacidade:  contato.sirbarbecue@hotmail.com  
+
+Para questões sobre privacidade e proteção de dados, incluindo o exercício
+dos direitos previstos no Art. 18 da LGPD, entre em contato pelo e-mail:
+contato.sirbarbecue@hotmail.com.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. QUAIS DADOS COLETAMOS E PARA QUÊ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+O Aplicativo é uma ferramenta de trabalho: a maior parte das informações
+tratadas são dados do NEGÓCIO (produtos, preços, vendas, estoque), que não
+identificam pessoas naturais. As seções abaixo descrevem exclusivamente os
+DADOS PESSOAIS efetivamente tratados.
+
+--- 2.1 DADOS DE CADASTRO E AUTENTICAÇÃO ---
+
+  Dados coletados:
+  • Endereço de e-mail
+  • Senha (armazenada exclusivamente em formato hash criptográfico pelo
+    serviço de autenticação; nunca em texto simples e nunca acessível a nós)
+  • Nome do negócio informado no cadastro
+  • Identificador interno de usuário (UUID)
+  • Quando você opta pelo login com Google: e-mail e identificador da conta
+    Google, fornecidos pelo Google mediante sua autorização (OAuth 2.0)
+
+  Finalidade:
+  • Criar e gerenciar sua conta no Aplicativo
+  • Autenticar seu acesso e manter sua sessão
+  • Criar automaticamente a empresa vinculada à sua conta no primeiro acesso
+  • Permitir a recuperação de senha e a confirmação de e-mail
+
+  Base Legal (LGPD):
+  • Art. 7º, V — Execução de contrato ou de procedimentos preliminares
+  • Art. 7º, I — Consentimento (para o login por conta Google)
+
+  Retenção: Enquanto sua conta estiver ativa. Ver Seção 10.
+
+--- 2.2 DADOS DA EMPRESA E DA EQUIPE ---
+
+  Dados coletados:
+  • Nome da empresa
+  • CNPJ (campo opcional, preenchido por você)
+  • Telefone da empresa (campo opcional, preenchido por você)
+  • E-mail das pessoas que você convida para a sua equipe
+  • Papel de cada membro da equipe (dono, gerente ou funcionário)
+
+  Finalidade:
+  • Identificar a empresa titular dos dados operacionais
+  • Permitir o trabalho compartilhado entre os membros da equipe
+  • Aplicar o controle de permissões por papel (quem pode ver e fazer o quê)
+  • Enviar e processar convites de acesso à equipe
+
+  Base Legal (LGPD):
+  • Art. 7º, V — Execução de contrato
+  • Art. 7º, IX — Legítimo interesse (gestão de acessos e segurança)
+
+  Importante — sua responsabilidade ao convidar alguém: ao informar o e-mail
+  de um membro da equipe, você atua como responsável por essa coleta perante
+  a pessoa convidada, devendo ter autorização dela para tanto.
+
+  Retenção: Enquanto o vínculo existir. A remoção de um membro elimina o
+  vínculo dele com a sua empresa imediatamente.
+
+--- 2.3 DADOS DE CONTATO DE FORNECEDORES (TERCEIROS) ---
+
+  Dados coletados (inseridos por você, não por nós):
+  • Nome do estabelecimento fornecedor
+  • Nome do responsável pelo contato
+  • Telefone
+  • Endereço
+
+  Finalidade:
+  • Permitir que você registre e consulte seus fornecedores
+  • Vincular produtos a fornecedores e registrar o preço de compra, usado
+    para cálculo de custo e margem nos relatórios
+
+  Base Legal (LGPD):
+  • Art. 7º, IX — Legítimo interesse do controlador e do usuário na gestão
+    da atividade comercial
+
+  Importante: esses dados são inseridos por você, por sua conta e risco,
+  no exercício da sua atividade empresarial. Você é responsável por ter base
+  legal adequada para registrar os dados de contato de terceiros e por manter
+  esses dados atualizados e corretos.
+
+  Retenção: Enquanto você mantiver o cadastro. A exclusão do fornecedor no
+  Aplicativo remove o registro dos nossos servidores na próxima sincronização.
+
+--- 2.4 DADOS DE VENDAS E OPERAÇÃO ---
+
+  Dados coletados:
+  • Data, hora, valor total, forma de pagamento e modalidade de consumo
+    (no local ou para levar) de cada venda
+  • Itens vendidos, quantidades e preços unitários
+  • Movimentações de estoque (entradas, saldos e limites de alerta)
+  • Nome ou apelido digitado por você para identificar uma comanda aberta
+
+  ATENÇÃO — VENDAS SÃO ANÔNIMAS: o Aplicativo NÃO cadastra clientes finais.
+  Não coletamos nome, CPF, telefone, e-mail ou qualquer identificação de quem
+  compra no seu estabelecimento. O nome da comanda é um rótulo livre digitado
+  pelo operador para organizar o atendimento, fica ARMAZENADO SOMENTE NO
+  DISPOSITIVO e é eliminado quando a comanda é fechada — ele nunca é enviado
+  aos nossos servidores.
+
+  Finalidade:
+  • Registrar a operação do seu negócio e calcular totais
+  • Atualizar o estoque automaticamente a cada venda
+  • Gerar relatórios diários, mensais, de produtos e gerenciais
+
+  Base Legal (LGPD):
+  • Art. 7º, V — Execução de contrato (prestação do serviço contratado)
+
+  Retenção: Enquanto sua conta estiver ativa. Ver Seção 10.
+
+--- 2.5 IDENTIFICADOR DO DISPOSITIVO (LICENCIAMENTO) ---
+
+  Dados coletados:
+  • Identificador do aparelho fornecido pelo sistema operacional
+    (Android ID no Android; identificador do fornecedor no iOS)
+  • Plataforma do dispositivo (android/ios)
+  • Data do primeiro e do último acesso do aparelho
+
+  Finalidade:
+  • Vincular o aparelho à empresa assinante
+  • Controlar o período de teste gratuito e o status da assinatura,
+    prevenindo uso indevido da licença
+
+  Base Legal (LGPD):
+  • Art. 7º, V — Execução de contrato
+  • Art. 7º, IX — Legítimo interesse (prevenção a fraude e controle de licença)
+
+  Observação: esse identificador NÃO é usado para publicidade, rastreamento
+  entre aplicativos ou criação de perfil comportamental.
+
+  Retenção: Enquanto a assinatura da empresa existir.
+
+--- 2.6 DADOS DE NOTIFICAÇÕES PUSH ---
+
+  Dados coletados:
+  • Token de notificação do dispositivo (Expo Push / Firebase Cloud Messaging)
+  • Plataforma do dispositivo
+
+  Finalidade:
+  • Enviar alertas operacionais do seu próprio negócio, especificamente:
+    aviso de estoque baixo quando um produto atinge o limite mínimo que você
+    configurou, e aviso de relatório pronto
+
+  Base Legal (LGPD):
+  • Art. 7º, I — Consentimento (a permissão de notificação é solicitada
+    explicitamente e o token só é registrado se você a conceder)
+
+  Retenção: Enquanto o Aplicativo permanecer instalado e a permissão de
+  notificações estiver concedida.
+
+  Observação: Você pode desativar as notificações a qualquer momento nas
+  configurações do seu dispositivo, sem prejuízo das demais funcionalidades.
+  Não enviamos notificações publicitárias.
+
+--- 2.7 DADOS DE DIAGNÓSTICO E REGISTRO DE ERROS ---
+
+  Dados coletados quando ocorre uma falha técnica no Aplicativo:
+  • Mensagem e detalhamento técnico do erro
+  • Tela em que o erro ocorreu e ação que estava sendo executada
+  • Sequência das últimas telas visitadas antes da falha
+  • Situação de conectividade (online/offline) no momento do erro
+  • Versão do Aplicativo, plataforma e versão do sistema operacional
+  • Identificador do usuário e da empresa, quando já autenticado
+  • Código curto de referência exibido a você na mensagem de erro
+
+  Finalidade:
+  • Identificar e corrigir falhas técnicas
+  • Prestar suporte: pelo código de referência informado por você,
+    localizamos exatamente o erro ocorrido
+
+  Base Legal (LGPD):
+  • Art. 7º, IX — Legítimo interesse do controlador (manutenção, correção
+    e segurança do serviço)
+
+  Como funciona: o registro é gravado primeiro no próprio dispositivo (o
+  Aplicativo funciona offline) e enviado ao servidor na sincronização
+  seguinte. Campos sensíveis, como senhas e tokens, passam por um mecanismo
+  automático de mascaramento antes da gravação.
+
+  Retenção: até 30 (trinta) dias no dispositivo, com limite de 500 registros
+  locais. No servidor, o registro é retido por 06 meses e é
+  acessível apenas à equipe técnica responsável pelo suporte.
+
+  Observação: o Aplicativo NÃO coleta métricas de comportamento de uso,
+  não faz perfilamento e não utiliza ferramentas de analytics publicitário.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. DADOS QUE NÃO COLETAMOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Para transparência, declaramos expressamente que o Aplicativo NÃO coleta:
+
+• Senhas em texto simples — a autenticação é delegada a serviço especializado
+  que armazena apenas o hash criptográfico da senha
+• Dados dos seus clientes finais — as vendas são registradas de forma anônima
+• Localização geográfica (GPS) — o Aplicativo não solicita nem acessa a
+  localização do dispositivo
+• Imagens, câmera ou galeria de fotos — o Aplicativo não solicita essas
+  permissões
+• Microfone ou gravação de áudio
+• Lista de contatos ou agenda telefônica
+• Dados biométricos (impressão digital, reconhecimento facial)
+• Dados de saúde ou quaisquer outros dados sensíveis (Art. 5º, II da LGPD)
+• Dados de cartão de crédito ou débito — o Aplicativo apenas REGISTRA, de
+  forma informativa, qual foi a forma de pagamento escolhida na venda
+  (dinheiro, PIX, crédito ou débito). Não há processamento de pagamento,
+  captura de dados de cartão nem integração com maquininha nesta versão
+• Identificadores de publicidade (IDFA/AAID) e cookies de rastreamento
+• Histórico de navegação fora do Aplicativo
+
+Também declaramos: NÃO exibimos publicidade dentro do Aplicativo e NÃO
+utilizamos seus dados para treinar sistemas de terceiros.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. COMPARTILHAMENTO DE DADOS COM TERCEIROS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4.1 PRESTADORES DE SERVIÇO (Operadores nos termos do Art. 5º, VII da LGPD)
+
+Compartilhamos dados exclusivamente com empresas de infraestrutura que nos
+permitem prestar o serviço, sempre sob contrato e limitado ao estritamente
+necessário:
+
+• SUPABASE (Supabase, Inc.)
+  Finalidade: autenticação de contas, banco de dados na nuvem, armazenamento
+    dos arquivos de relatório e execução das funções de servidor
+  Dados compartilhados: e-mail, hash da senha, identificador de usuário,
+    dados da empresa e da equipe, fornecedores, produtos, vendas, estoque,
+    registros de erro, token de push e identificador de dispositivo
+  Política de Privacidade: https://supabase.com/privacy
+  Localização dos servidores:  América do Sul (sa-east-1)
+
+• EXPO (Expo / 650 Industries, Inc.)
+  Finalidade: entrega das notificações push e distribuição de atualizações
+    do Aplicativo (over-the-air)
+  Dados compartilhados: token de notificação do dispositivo e conteúdo da
+    notificação enviada
+  Política de Privacidade: https://expo.dev/privacy
+  Localização dos servidores: Estados Unidos
+
+• GOOGLE (Google LLC)
+  Finalidade: (a) autenticação, quando você escolhe entrar com a conta Google;
+    (b) entrega técnica das notificações no Android, por meio do Firebase
+    Cloud Messaging; (c) distribuição do Aplicativo pela Google Play Store
+  Dados compartilhados: e-mail e identificador da conta Google (somente se
+    você usar o login Google); token de notificação do dispositivo
+  Política de Privacidade: https://policies.google.com/privacy
+  Localização dos servidores: Estados Unidos e outros países
+
+• HETRIXTOOLS
+  Finalidade: monitoramento externo de disponibilidade do serviço
+  Dados compartilhados: NENHUM dado pessoal. O monitor consulta apenas um
+    endereço público de verificação de saúde, que devolve o estado técnico
+    do sistema, sem qualquer dado de usuário
+  Política de Privacidade: https://hetrixtools.com/privacy-policy/
+
+Não há outros terceiros. Não utilizamos redes de publicidade, ferramentas de
+analytics comportamental, pixels de rastreamento ou gateways de pagamento.
+
+4.2 OBRIGAÇÃO LEGAL
+
+Podemos divulgar seus dados quando exigido por lei, ordem judicial ou
+requisição de autoridade competente, ou ainda para proteger direitos legais e
+a segurança de usuários e de terceiros (Art. 7º, II e III, e Art. 10 da LGPD).
+
+4.3 O QUE NÃO FAZEMOS
+
+  • NÃO vendemos seus dados pessoais a terceiros
+  • NÃO compartilhamos seus dados para fins publicitários
+  • NÃO compartilhamos os dados operacionais da sua empresa com outras
+    empresas usuárias do Aplicativo — o sistema é multiempresa e cada
+    empresa acessa exclusivamente os próprios dados, com isolamento aplicado
+    tanto no dispositivo quanto no servidor
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. TRANSFERÊNCIA INTERNACIONAL DE DADOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Parte de nossos prestadores de serviço opera servidores fora do Brasil.
+Quando isso ocorre, a transferência é realizada com as garantias previstas no
+Art. 33 da LGPD, especialmente:
+
+• Cláusulas contratuais de proteção de dados firmadas com os prestadores; e
+• Garantias e compromissos de conformidade oferecidos pelos próprios
+  prestadores em suas políticas de privacidade e adendos de proteção de dados.
+
+Países/regiões onde seus dados podem ser processados:
+• América do Sul (sa-east-1) (Supabase)
+• Estados Unidos (Expo, Google/Firebase Cloud Messaging, Google OAuth)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. PROTEÇÃO E SEGURANÇA DOS DADOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Adotamos medidas técnicas e organizacionais adequadas para proteger seus
+dados (Art. 46 da LGPD), incluindo:
+
+• Criptografia de todo o tráfego em trânsito (HTTPS/TLS)
+• Senhas armazenadas apenas como hash criptográfico, não reversível
+• Tokens de sessão guardados no armazenamento seguro do sistema operacional
+  (Keychain no iOS / Keystore no Android)
+• Isolamento por empresa aplicado no servidor por políticas de segurança em
+  nível de linha (Row Level Security), impedindo que uma empresa acesse os
+  dados de outra
+• Controle de acesso por papel (dono, gerente, funcionário), aplicado tanto
+  na interface quanto no servidor
+• Isolamento do banco de dados local por empresa no dispositivo
+• Mascaramento automático de campos sensíveis nos registros de erro
+• Backup do banco de dados em nuvem sob responsabilidade do provedor de
+  infraestrutura
+• Cópia de segurança do aplicativo desabilitada no Android, para evitar que
+  dados locais sejam extraídos por backup do sistema
+• Monitoramento contínuo de disponibilidade do serviço
+
+Nenhum sistema é totalmente imune a incidentes. Em caso de incidente de
+segurança que possa acarretar risco ou dano relevante a você, notificaremos
+você e a Autoridade Nacional de Proteção de Dados (ANPD) em prazo razoável,
+conforme o Art. 48 da LGPD.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. SEUS DIREITOS COMO TITULAR DOS DADOS (ART. 18 DA LGPD)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+A LGPD garante a você os seguintes direitos, exercíveis pelo e-mail
+contato.sirbarbecue@hotmail.com:
+
+I.    CONFIRMAÇÃO E ACESSO — Confirmar se tratamos seus dados e acessar uma
+      cópia dos dados que mantemos sobre você.
+
+II.   CORREÇÃO — Solicitar a correção de dados incompletos, inexatos ou
+      desatualizados. Os dados de cadastro, empresa e fornecedores podem ser
+      editados diretamente no Aplicativo.
+
+III.  ANONIMIZAÇÃO, BLOQUEIO OU ELIMINAÇÃO — Solicitar que dados
+      desnecessários, excessivos ou tratados em desconformidade com a LGPD
+      sejam anonimizados, bloqueados ou eliminados.
+
+IV.   PORTABILIDADE — Solicitar a portabilidade dos seus dados a outro
+      fornecedor de serviço, observados os segredos comercial e industrial.
+
+V.    ELIMINAÇÃO DOS DADOS — Solicitar a eliminação dos dados tratados com
+      base no seu consentimento, exceto nos casos previstos em lei. Você
+      também pode excluir integralmente sua conta dentro do próprio
+      Aplicativo, em "Mais" > "Conta" > "Excluir conta".
+
+VI.   INFORMAÇÃO SOBRE COMPARTILHAMENTO — Obter informações sobre as
+      entidades com as quais compartilhamos seus dados (ver Seção 4).
+
+VII.  REVOGAÇÃO DO CONSENTIMENTO — Revogar o consentimento para tratamentos
+      baseados nele, sem prejuízo da licitude do tratamento anterior. As
+      permissões de notificação podem ser revogadas a qualquer momento nas
+      configurações do dispositivo.
+
+VIII. OPOSIÇÃO — Opor-se a tratamento realizado com fundamento em uma das
+      hipóteses de dispensa de consentimento, em caso de descumprimento da
+      LGPD.
+
+IX.   PETIÇÃO À ANPD — Apresentar reclamação perante a Autoridade Nacional
+      de Proteção de Dados (www.gov.br/anpd).
+
+PRAZO DE RESPOSTA: Atendemos às solicitações em até 15 (quinze) dias, contados
+do recebimento do pedido, conforme o Art. 19, II da LGPD. Podemos solicitar
+informações adicionais para confirmar sua identidade antes de atender ao
+pedido, como medida de segurança.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. PROTEÇÃO DE MENORES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+O Aplicativo é uma ferramenta profissional de gestão de negócio, destinada
+exclusivamente a pessoas maiores de 18 (dezoito) anos.
+
+Não coletamos intencionalmente dados de crianças ou adolescentes. Se você
+tem conhecimento de que um menor de idade nos forneceu dados pessoais sem o
+consentimento específico de ao menos um dos pais ou responsável legal
+(Art. 14 da LGPD), entre em contato pelo e-mail contato.sirbarbecue@hotmail.com para
+que eliminemos essas informações.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+9. COOKIES E TECNOLOGIAS DE RASTREAMENTO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+O Aplicativo NÃO utiliza cookies de navegador para rastreamento, nem
+tecnologias de rastreamento publicitário ou de perfilamento.
+
+Utilizamos, no próprio dispositivo:
+• Banco de dados local, que guarda os dados operacionais da sua empresa e
+  permite o uso do Aplicativo sem conexão com a internet
+• Armazenamento seguro do sistema operacional, que guarda o token de sessão
+  e o status da assinatura
+• Armazenamento local de preferências (por exemplo, se a tela de boas-vindas
+  já foi exibida)
+
+O Aplicativo exibe relatórios em uma janela interna de navegação. Essa janela
+carrega apenas o arquivo de relatório da sua própria empresa e não executa
+rastreamento de terceiros.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+10. RETENÇÃO E EXCLUSÃO DE DADOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• CONTA ATIVA: Os dados são mantidos enquanto sua conta estiver ativa, pois
+  o próprio serviço consiste no histórico da operação do seu negócio.
+
+• EXCLUSÃO DA CONTA: A exclusão está disponível dentro do Aplicativo, em
+  "Mais" > "Conta" > "Excluir conta". A ação é IRREVERSÍVEL e, ao ser
+  confirmada, elimina IMEDIATAMENTE dos nossos servidores:
+  - sua conta de usuário e as credenciais de autenticação;
+  - as empresas das quais você é o dono, com todos os respectivos dados
+    (produtos, vendas, estoque, fornecedores, relatórios e equipe);
+  - seus vínculos com empresas de terceiros das quais você era apenas membro.
+
+  Cópias de segurança (backups) da infraestrutura podem reter os dados por
+  até 30 (trinta) dias após a exclusão, sendo sobrescritas automaticamente
+  ao fim desse período. Durante esse intervalo, os dados ficam inacessíveis
+  ao uso comum e são utilizados apenas para recuperação em caso de desastre.
+
+  Dados armazenados no seu dispositivo são eliminados ao desinstalar o
+  Aplicativo ou ao limpar os dados do aplicativo nas configurações do
+  sistema.
+
+• EXCEÇÕES LEGAIS: Podemos reter, mesmo após a exclusão, dados cuja guarda
+  seja exigida por lei (Art. 16 da LGPD), notadamente:
+  - registros de acesso a aplicação: 6 (seis) meses, por força do Art. 15 do
+    Marco Civil da Internet;
+  - dados e documentos fiscais relativos à sua assinatura, quando houver
+    cobrança: 5 (cinco) anos, por força da legislação tributária.
+
+  Registro importante sobre obrigações fiscais do SEU negócio: o Sir Barbecue
+  é uma ferramenta de gestão, e não um sistema fiscal. Não emitimos documento
+  fiscal e não somos responsáveis pela guarda dos registros fiscais da sua
+  empresa. Se a legislação exigir que você mantenha o histórico das suas
+  vendas por prazo determinado, exporte e guarde essas informações antes de
+  excluir a conta.
+
+• INATIVIDADE: Contas cuja assinatura permaneça cancelada por mais de
+   06 meses poderão ser encerradas mediante notificação prévia
+  ao e-mail cadastrado.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+11. ALTERAÇÕES NESTA POLÍTICA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Podemos atualizar esta Política periodicamente, para refletir mudanças no
+Aplicativo ou na legislação. Em caso de alterações materiais, notificaremos
+você por notificação push, e-mail ou aviso dentro do Aplicativo.
+
+A data da última atualização consta no topo deste documento. O uso continuado
+do Aplicativo após a publicação das alterações constitui aceitação da Política
+revisada.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+12. LEI APLICÁVEL E FORO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Esta Política é regida pelas leis da República Federativa do Brasil, em
+especial pela LGPD (Lei nº 13.709/2018) e pelo Marco Civil da Internet
+(Lei nº 12.965/2014).
+
+Fica eleito o foro da comarca de Linhares Espirito Santo para dirimir quaisquer
+controvérsias decorrentes desta Política, ressalvado, nas relações de
+consumo, o direito do consumidor de demandar no foro de seu domicílio.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+13. CONTATO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  E-mail:   contato.sirbarbecue@hotmail.com  
+
+Você também pode registrar reclamação diretamente à Autoridade Nacional de
+Proteção de Dados — ANPD: www.gov.br/anpd
+
+================================================================================
+© 2026 Vinicius Pani. Todos os direitos reservados.
+Esta Política está disponível em: https://sir-barbecue-admin.netlify.app/politica-de-privacidade
+================================================================================

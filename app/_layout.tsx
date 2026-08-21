@@ -11,7 +11,6 @@ import { bindDevice } from '@/services/access';
 import { trackScreen } from '@/services/breadcrumbs';
 import { installGlobalErrorHandlers } from '@/services/errorHandlers';
 import { startConnectivityMonitor } from '@/services/netinfo';
-import { registerAndSavePushToken } from '@/services/push';
 import { useAccessStore } from '@/store/accessStore';
 import { useAuthStore } from '@/store/authStore';
 import { useConnectivityStore } from '@/store/connectivityStore';
@@ -70,11 +69,6 @@ export default function RootLayout() {
       if (useConnectivityStore.getState().isOnline) void runSync();
     }, SYNC_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [currentTenantId]);
-
-  // Mantém o token de push salvo quando há empresa ativa (só se a permissão já foi concedida).
-  useEffect(() => {
-    if (currentTenantId) void registerAndSavePushToken({ prompt: false });
   }, [currentTenantId]);
 
   // Vincula o aparelho à empresa e verifica o acesso quando o tenant resolve.

@@ -463,7 +463,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     subtitle: 'Seja avisado antes de faltar produto',
     requires: 'stock',
     intro:
-      'Defina um limite mínimo para cada produto. Quando o saldo chegar nesse limite, o produto ganha a etiqueta “Estoque baixo” na aba Estoque — e você pode ativar avisos automáticos no celular.',
+      'Defina um limite mínimo para cada produto. Quando o saldo chegar nesse limite, o produto ganha a etiqueta “Estoque baixo” na aba Estoque.',
     flow: [
       { kind: 'start', label: 'Abra a aba Estoque → toque no produto' },
       {
@@ -478,12 +478,6 @@ export const HELP_TOPICS: HelpTopic[] = [
         icon: 'create-outline',
       },
       { kind: 'step', label: 'Toque em “Salvar alerta”', icon: 'checkmark-done-outline' },
-      {
-        kind: 'decision',
-        label: 'Quer receber aviso no celular, além da etiqueta na lista?',
-        yes: 'Vá em Mais → Notificações → “Ativar notificações”',
-        no: 'A etiqueta “Estoque baixo” já aparece sozinha na aba Estoque',
-      },
       { kind: 'end', label: 'Alerta configurado! ✅' },
     ],
     steps: [
@@ -504,15 +498,9 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: '4. Toque em “Salvar alerta”',
         detail: 'A mensagem “Alerta atualizado!” confirma que o limite foi salvo.',
       },
-      {
-        title: '5. Opcional: ative avisos no celular',
-        detail:
-          'Em Mais → Notificações, toque em “Ativar notificações” para também receber um aviso automático quando algum produto ficar com estoque baixo, além de saber quando um relatório está pronto.',
-      },
     ],
     tips: [
-      'A etiqueta “Estoque baixo” já aparece na lista de Estoque assim que o limite é atingido — não depende de ativar notificações.',
-      'Notificações push exigem uma versão especial do aplicativo — se o botão “Ativar notificações” não funcionar no seu aparelho, confirme com quem administra o sistema se essa opção já está disponível.',
+      'A etiqueta “Estoque baixo” aparece na lista de Estoque assim que o limite é atingido.',
     ],
   },
   {

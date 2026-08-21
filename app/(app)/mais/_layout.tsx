@@ -33,7 +33,6 @@ export default function MaisLayout() {
       <Stack.Screen name="fornecedor-form" options={{ title: 'Fornecedor' }} />
       <Stack.Screen name="fornecedor-detalhe" options={{ title: 'Fornecedor' }} />
       <Stack.Screen name="relatorios" options={{ title: 'Relatórios' }} />
-      <Stack.Screen name="notificacoes" options={{ title: 'Notificações' }} />
       <Stack.Screen name="ajuda" options={{ title: 'Ajuda' }} />
       <Stack.Screen name="ajuda-topico" options={{ title: 'Como fazer' }} />
     </Stack>

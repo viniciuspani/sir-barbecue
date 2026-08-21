@@ -1,0 +1,273 @@
+================================================================================
+CHECKLIST DE PUBLICAÇÃO — GOOGLE PLAY STORE
+================================================================================
+
+App: Sir Barbecue (com.labrasa.sirbarbecue) — versão 2.1.0
+Gerado em: 17/08/2026
+Escopo escolhido: publicação na Google Play Store
+
+Este checklist orienta os passos necessários para publicar os documentos
+jurídicos e manter conformidade com a LGPD e com as políticas da Play Store.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ANTES DE PUBLICAR — AÇÕES OBRIGATÓRIAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ ] 1. SUBSTITUIR OS PLACEHOLDERS
+    Substituir TODOS os campos entre [COLCHETES] nos dois documentos:
+
+    Identificação (ambos os documentos):
+    - [NOME COMPLETO DA EMPRESA OU DESENVOLVEDOR]
+    - [CNPJ/CPF]
+    - [ENDEREÇO COMPLETO]
+    - [CIDADE/ESTADO]  (foro)
+    - [ANO]
+
+    Contatos:
+    - [EMAIL DE PRIVACIDADE]     — canal LGPD (sugestão: privacidade@...)
+    - [EMAIL DE CONTATO]         — canal geral
+    - [EMAIL DE CONTATO COMERCIAL] — contratação da assinatura
+    - [EMAIL DE SUPORTE] e [HORÁRIO] de atendimento
+    - [NOME DO DPO] / [EMAIL DO DPO] — remover o bloco se não houver DPO
+    - [URL DO SITE, SE HOUVER]
+
+    URLs de hospedagem:
+    - [URL ONDE SERÁ HOSPEDADA]  (Política)
+    - [URL ONDE SERÁ HOSPEDADO]  (Termos)
+    - [URL DA POLÍTICA DE PRIVACIDADE] (citada nos Termos, Seção 9)
+
+    Prazos a definir:
+    - [PRAZO, ex: 180 dias]   — retenção do log de erros no servidor
+    - [PRAZO, ex: 12 meses]   — encerramento por inatividade
+
+    Dado técnico a confirmar (aparece 2x na Política, Seções 4.1 e 5):
+    - [REGIÃO DO PROJETO SUPABASE]
+      Onde ver: Supabase Dashboard > Project Settings > General > Region.
+      O projeto é ltwaotffsxbxkeydwoxm.supabase.co. Se a região for
+      sa-east-1 (São Paulo), os dados do banco ficam NO BRASIL e a Seção 5
+      pode ser simplificada para citar apenas Expo/Google (EUA).
+
+[ ] 2. REVISAR COM ADVOGADO (RECOMENDADO)
+    Revisão por advogado especializado em Direito Digital antes da
+    publicação. Os documentos gerados são ponto de partida sólido, mas não
+    substituem assessoria jurídica profissional.
+
+[ ] 3. HOSPEDAR OS DOCUMENTOS ONLINE
+    Ambos precisam estar em URL pública permanente, acessível SEM login:
+    - POLÍTICA DE PRIVACIDADE: https://[seudominio.com]/privacidade
+    - TERMOS DE USO:           https://[seudominio.com]/termos
+
+    Opções gratuitas: GitHub Pages, Notion público, Google Sites.
+    Opção paga: domínio próprio (mais credibilidade e estabilidade da URL).
+    Converta o .txt para HTML ou Markdown ao publicar — o Google exige uma
+    página legível, não um arquivo para download.
+
+[ ] 4. IMPLEMENTAR ACEITE NO APP
+    Situação atual: as telas de cadastro e login (app/(auth)/signup.tsx e
+    app/(auth)/login.tsx) NÃO exibem links para os documentos nem registram
+    aceite. É preciso:
+    - Exibir links para Política e Termos na tela de cadastro
+    - Incluir checkbox obrigatório (NÃO pré-marcado):
+      "Li e concordo com os Termos de Uso e a Política de Privacidade"
+    - Registrar o aceite com data e versão do documento (recomendado LGPD)
+    - Adicionar acesso permanente aos documentos no hub "Mais"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GOOGLE PLAY STORE — REQUISITOS OBRIGATÓRIOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ ] 5. ADICIONAR URL DA POLÍTICA DE PRIVACIDADE
+    Play Console > Seu App > Crescer usuários > Presença na Play Store >
+    Configuração do app > Informações do app > "Política de privacidade".
+    OBRIGATÓRIO — o app coleta e-mail, identificador de dispositivo e
+    dados de diagnóstico.
+
+[ ] 6. PREENCHER O FORMULÁRIO "SEGURANÇA DOS DADOS" (DATA SAFETY)
+    Play Console > Política > Conteúdo do app > Segurança dos dados.
+    Declaração consistente com a Política de Privacidade gerada:
+
+    COLETADOS E ENVIADOS AO SERVIDOR (marcar "Coletados"):
+    • Informações pessoais > Endereço de e-mail
+      Finalidade: gerenciamento de conta. Vinculado ao usuário: SIM.
+    • Informações pessoais > Outras informações
+      (nome da empresa, CNPJ, telefone da empresa, contatos de fornecedores)
+      Finalidade: funcionalidade do app. Vinculado ao usuário: SIM.
+    • IDs do dispositivo ou outros IDs
+      (Android ID, usado para vincular o aparelho à licença)
+      Finalidade: funcionalidade do app + prevenção de fraude.
+      Vinculado ao usuário: SIM.
+    • Registros do app > Registros de falhas e Registros de diagnóstico
+      Finalidade: análise/diagnóstico e suporte. Vinculado ao usuário: SIM.
+    • Mensagens > Outras mensagens no app (token de push)
+      Só marque se o formulário exigir; a finalidade é notificação
+      operacional (alerta de estoque baixo).
+
+    NÃO MARCAR (o app não coleta):
+    • Localização, Fotos/Vídeos, Áudio, Contatos, Calendário, Arquivos
+    • Informações financeiras / de pagamento
+      ATENÇÃO: a forma de pagamento da venda (dinheiro/PIX/crédito/débito)
+      é apenas um rótulo informativo do negócio, sem qualquer dado
+      financeiro do comprador. NÃO declarar como dado financeiro coletado.
+    • Atividade no app para publicidade / Histórico de pesquisa
+    • Informações de saúde, condicionamento físico
+
+    RESPOSTAS-CHAVE DO FORMULÁRIO:
+    • Os dados são criptografados em trânsito?  SIM (HTTPS/TLS)
+    • Os usuários podem solicitar a exclusão dos dados?  SIM — há exclusão
+      de conta dentro do app (Mais > Conta > Excluir conta)
+    • Os dados são compartilhados com terceiros?  Declarar os provedores de
+      infraestrutura (Supabase, Expo, Google) conforme as regras do Google;
+      NÃO há venda de dados nem compartilhamento publicitário
+    • O app segue a Política de Famílias?  NÃO se aplica (público 18+)
+
+    ATENÇÃO: inconsistência entre o Data Safety e a Política de Privacidade
+    é motivo frequente de rejeição e de remoção do app.
+
+[ ] 7. REVISAR PERMISSÕES DO ANDROID
+    Permissões declaradas hoje em android/app/src/main/AndroidManifest.xml:
+    - INTERNET .................. necessária (sincronização) — OK
+    - VIBRATE ................... notificações — OK
+    - READ/WRITE_EXTERNAL_STORAGE (maxSdkVersion=32) — herdada de
+      bibliotecas; avaliar se ainda é necessária (compartilhamento de
+      relatório). Se não for, remover para reduzir escrutínio.
+    - SYSTEM_ALERT_WINDOW ....... herdada do expo-dev-client. NÃO deve ir
+      para o build de produção: é permissão sensível ("sobrepor a outros
+      apps") e o Google costuma questionar. Verificar se o perfil
+      "production" do eas.json não inclui o expo-dev-client e conferir o
+      manifest do AAB final antes de enviar.
+    - Não há CAMERA, LOCATION, CONTACTS, RECORD_AUDIO — nada a justificar.
+
+    Observação técnica (não jurídica): app.json define
+    android.allowBackup = false, mas o AndroidManifest versionado em
+    android/ ainda está com allowBackup="true". Rodar `npm run prebuild`
+    antes de gerar o build de produção, para que a Política ("cópia de
+    segurança desabilitada no Android") corresponda ao app publicado.
+
+[ ] 8. FUNCIONALIDADE "EXCLUIR MINHA CONTA" — JÁ ATENDIDA
+    O Google exige, desde maio/2024, exclusão de conta iniciada DENTRO do
+    app e também por link web público.
+    - Dentro do app: OK — Mais > Conta > "Excluir conta", que aciona a
+      Edge Function delete-account (remove usuário, empresas próprias e
+      vínculos).
+    - Falta: publicar uma PÁGINA WEB pública de solicitação de exclusão e
+      informar a URL em Play Console > Conteúdo do app > Exclusão de dados.
+      A página deve descrever o que é excluído e o que é retido (backups
+      por até 30 dias; registros de acesso por 6 meses; dados fiscais da
+      assinatura por 5 anos).
+
+[ ] 9. CLASSIFICAÇÃO INDICATIVA E PÚBLICO-ALVO
+    Play Console > Conteúdo do app > Classificação de conteúdo e
+    Público-alvo. Declarar faixa 18+ / "não destinado a crianças",
+    coerente com a Seção 8 da Política.
+
+[ ] 10. DECLARAÇÕES ADICIONAIS DO PLAY CONSOLE
+    - App de acesso restrito/assinatura: como a cobrança é FORA da Play
+      Store (contratação direta), confirme o enquadramento na política de
+      pagamentos do Google. Apps de negócio B2B com licença contratada
+      externamente costumam se enquadrar na exceção, mas essa é a checagem
+      de maior risco desta publicação — revise
+      https://support.google.com/googleplay/android-developer/answer/9858738
+      antes de enviar.
+    - Anúncios: declarar que o app NÃO contém anúncios.
+    - Public de destino e conteúdo: sem conteúdo sensível.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SE UM DIA PUBLICAR NA APPLE APP STORE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+O app.json já declara ios.bundleIdentifier (com.labrasa.sirbarbecue). Se a
+publicação na App Store entrar no escopo, será necessário:
+
+[ ] URL da Política de Privacidade em App Store Connect
+[ ] Privacy Nutrition Labels coerentes com o Data Safety acima
+[ ] NSUserTrackingUsageDescription NÃO é necessário (não há rastreamento),
+    mas o identificador de vendor (idForVendor) usado no licenciamento deve
+    ser declarado como "Identificadores do dispositivo — funcionalidade"
+[ ] Login com Apple: a diretriz 4.8 exige oferecer o Sign in with Apple
+    quando há login social de terceiros (o app oferece Google)
+[ ] Exclusão de conta dentro do app (diretriz 5.1.1(v)) — já atendida
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONFORMIDADE LGPD — AÇÕES RECOMENDADAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ ] 11. CANAL DE EXERCÍCIO DE DIREITOS
+    - Criar e-mail dedicado para solicitações LGPD (ex.: privacidade@)
+    - Definir processo interno para responder em até 15 dias (Art. 19, II)
+    - Registrar todas as solicitações recebidas e como foram atendidas
+
+[ ] 12. DESIGNAR OU IDENTIFICAR ENCARREGADO (DPO)
+    - Operação pequena: basta indicar o responsável pelo canal de
+      privacidade e publicar o contato na Política
+    - Se o tratamento crescer, formalizar a designação (Art. 41)
+
+[ ] 13. REVISAR O MECANISMO DE CONSENTIMENTO
+    - Checkbox de aceite livre, informado e NÃO pré-marcado (item 4)
+    - Permissão de notificação já é solicitada explicitamente pelo sistema
+      operacional — manter o comportamento atual, que só registra o token
+      após concessão
+    - Guardar registro do aceite com data e versão do documento
+
+[ ] 14. AVALIAR RELATÓRIO DE IMPACTO (RIPD)
+    Não é obrigatório para este perfil de tratamento, mas registre por
+    escrito as decisões já tomadas (dados mínimos, vendas anônimas,
+    isolamento por empresa, ausência de analytics) — serve de evidência de
+    conformidade caso a ANPD questione.
+
+[ ] 15. CONTRATOS COM OPERADORES
+    Guardar/aceitar os adendos de proteção de dados (DPA) do Supabase,
+    Expo e Google, exigidos pelo Art. 39 da LGPD.
+
+[ ] 16. MANTER OS DOCUMENTOS ATUALIZADOS
+    Atualizar e versionar sempre que:
+    - Entrar uma nova coleta de dados (ex.: ativar o Sentry, que está no
+      package.json mas NÃO é usado no código atual — se for ativado, ele
+      precisa entrar na Política, no Data Safety e na lista de operadores)
+    - Mudar o modelo de cobrança (ex.: adotar gateway ou compra in-app)
+    - Entrar login social novo, câmera, localização ou qualquer permissão
+    - Mudar a região dos servidores
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PONTOS DE ATENÇÃO ESPECÍFICOS DESTE PROJETO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. SENTRY NÃO ESTÁ ATIVO. @sentry/react-native consta no package.json, mas
+   não há import em nenhum arquivo de app/ ou src/. Os documentos foram
+   escritos SEM citá-lo, refletindo o comportamento real. Se ativar, os
+   documentos e o Data Safety precisam ser atualizados ANTES do build.
+
+2. VENDAS SÃO ANÔNIMAS — é o maior ativo de conformidade deste app. O nome
+   da comanda fica só no SQLite local (tabela tabs) e não sobe no sync.
+   Se um dia a comanda passar a sincronizar, ou se for criado cadastro de
+   cliente, a Política muda substancialmente.
+
+3. DADOS DE FORNECEDORES são dados pessoais de terceiros inseridos pelo
+   usuário. A Política e os Termos já atribuem essa responsabilidade ao
+   usuário (controlador) — mantenha esse texto se a funcionalidade evoluir.
+
+4. LOG DE ERROS captura mensagem, stack e trilha de navegação. O mascaramento
+   de campos sensíveis fica em src/lib/errors.ts (função redact). Ao
+   adicionar novos campos ao contexto do log, verifique se a redação cobre
+   o novo dado — a Política afirma que ela existe.
+
+5. COBRANÇA FORA DA PLAY STORE é o principal risco de rejeição. Ver item 10.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AVISOS IMPORTANTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DISCLAIMER LEGAL: Os documentos gerados pela skill /lgpd-juridico são
+elaborados com base nas melhores práticas do mercado e na legislação
+vigente, mas NÃO constituem assessoria jurídica. Para proteção jurídica
+completa, consulte um advogado especializado em Direito Digital e LGPD.
+
+SANÇÕES LGPD: O descumprimento da LGPD pode resultar em sanções da ANPD de
+até 2% do faturamento da empresa no Brasil, limitado a R$ 50 milhões por
+infração (Art. 52 da LGPD).
+
+================================================================================
+Gerado automaticamente via /lgpd-juridico — Claude Code Legal Skill
+Referências: LGPD (Lei nº 13.709/2018), Marco Civil (Lei nº 12.965/2014),
+CDC (Lei nº 8.078/1990), Google Play Developer Program Policies —
+vigentes em 2026
+================================================================================

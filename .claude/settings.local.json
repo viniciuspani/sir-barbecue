@@ -20,7 +20,11 @@
       "Bash(xargs grep -l \"generateRoutes\\\\|writeTypedRoutes\\\\|__routes\")",
       "Bash(cd /c/develop/WEB/sir-barbecue-admin && ls src/components/ui && echo \"===format===\" && cat src/lib/format.ts && echo \"===supabase===\" && cat src/lib/supabase.ts)",
       "Bash(cd c:/develop/WEB/sir-barbecue-admin && grep -n \"export function use\\\\|rpc\\(\\\\|from\\(\" src/hooks/useAdmin.ts | head -40 && echo \"=== ERROS PAGE head ===\" && head -50 src/pages/Erros.tsx)",
-      "Bash(sed -n \"/mockErrorLogs/,/^];/p\" src/lib/mock.ts)"
+      "Bash(sed -n \"/mockErrorLogs/,/^];/p\" src/lib/mock.ts)",
+      "Bash(find \"c:/develop/WEB/sir-barbecue-admin/src\" -maxdepth 3 -type d)",
+      "Bash(curl -sf http://localhost:5173)",
+      "Bash(node screenshot.js)",
+      "Bash(node screenshot2.js)"
     ]
   }
 }

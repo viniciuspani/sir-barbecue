@@ -21,7 +21,6 @@ const ITEMS: Item[] = [
   { icon: 'business-outline', label: 'Minha Empresa', route: '/mais/empresa', hint: 'Dados e equipe', requires: 'company' },
   { icon: 'people-outline', label: 'Fornecedores', route: '/mais/fornecedores', hint: 'Cadastro e preços de compra', requires: 'suppliers' },
   { icon: 'bar-chart-outline', label: 'Relatórios', route: '/mais/relatorios', hint: 'Vendas e produtos', requires: 'reports' },
-  { icon: 'notifications-outline', label: 'Notificações', route: '/mais/notificacoes' },
   { icon: 'help-circle-outline', label: 'Ajuda', route: '/mais/ajuda', hint: 'Como usar o aplicativo' },
   { icon: 'person-outline', label: 'Conta', route: '/mais/perfil', hint: 'Perfil e sair' },
 ];
