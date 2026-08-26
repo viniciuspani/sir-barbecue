@@ -262,16 +262,22 @@ export default function NovaVenda() {
               </Text>
               <Text style={styles.cardPrice}>{formatBRL(item.price)}</Text>
               {noStock ? (
-                <Text style={[styles.cardStock, styles.cardStockOut]}>Sem estoque</Text>
+                <View style={styles.cardStockRow}>
+                  <Ionicons name="close-circle-outline" size={16} color={colors.danger} />
+                  <Text style={[styles.cardStock, styles.cardStockOut]}>Sem estoque</Text>
+                </View>
               ) : low ? (
                 <View style={styles.cardStockRow}>
-                  <Ionicons name="alert-circle-outline" size={12} color={colors.yellow} />
+                  <Ionicons name="alert-circle-outline" size={16} color={colors.yellow} />
                   <Text style={[styles.cardStock, styles.cardStockLow]}>
                     Baixo: {formatQuantity(sQty)}
                   </Text>
                 </View>
               ) : (
-                <Text style={styles.cardStock}>Estoque: {formatQuantity(sQty)}</Text>
+                <View style={styles.cardStockRow}>
+                  <Ionicons name="thumbs-up-outline" size={16} color={colors.green} />
+                  <Text style={styles.cardStock}>Estoque: {formatQuantity(sQty)}</Text>
+                </View>
               )}
             </Pressable>
           );
@@ -432,10 +438,10 @@ const styles = StyleSheet.create({
   badgeText: { color: colors.onGold, fontSize: 12, fontWeight: '700' },
   cardName: { color: colors.textPrimary, fontSize: 15, fontWeight: '600' },
   cardPrice: { color: colors.gold, fontSize: 15, fontWeight: '700', marginTop: spacing.sm },
-  cardStock: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
+  cardStock: { color: colors.green, fontSize: 14 },
   cardStockOut: { color: colors.danger, fontWeight: '600' },
-  cardStockRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  cardStockLow: { color: colors.yellow, marginTop: 0 },
+  cardStockRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  cardStockLow: { color: colors.yellow, fontWeight: '700' },
   actionsBar: {
     position: 'absolute',
     left: spacing.lg,
