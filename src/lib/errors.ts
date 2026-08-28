@@ -30,10 +30,14 @@ const JWT = /\beyJ[A-Za-z0-9._-]{10,}/g;
 export function redact(text: string): string {
   if (!text) return text;
   try {
+    // ORDEM IMPORTA: em `{"authorization":"Bearer <token>"}` o SENSITIVE_KEYS casa
+    // primeiro e substitui apenas o valor logo após os dois-pontos — a palavra
+    // "Bearer" —, deixando o TOKEN no texto e destruindo o gancho que a regra
+    // BEARER usaria depois. Mascarando Bearer/JWT antes, o segredo some primeiro.
     return text
-      .replace(SENSITIVE_KEYS, '$1"***"')
       .replace(BEARER, '$1 ***')
-      .replace(JWT, '***');
+      .replace(JWT, '***')
+      .replace(SENSITIVE_KEYS, '$1"***"');
   } catch {
     return text;
   }
@@ -105,10 +109,27 @@ function safeStringify(value: unknown): string {
   }
 }
 
-/** Texto único do erro para casar com as assinaturas conhecidas. */
+/**
+ * Texto único do erro para casar com as assinaturas conhecidas.
+ *
+ * NUNCA usar o `detail` aqui: ele inclui o STACK TRACE, e o stack traz nomes de
+ * arquivo e de função do próprio código. Um único quadro chamado `withTimeout`
+ * (existe em services/access.ts) fazia isNetworkError responder `true` e o
+ * usuário lia "Sem conexão no momento" diante de um erro de permissão. A
+ * classificação olha só o que DESCREVE o erro: código, nome, mensagem e os
+ * campos `details`/`hint` do PostgREST.
+ */
 function signature(error: unknown): string {
-  const { message, detail, code } = normalizeError(error);
-  return `${code ?? ''} ${message} ${detail}`;
+  const { message, code } = normalizeError(error);
+  const name = error instanceof Error ? error.name : '';
+  const rec = asRecord(error);
+  const extras = rec
+    ? (['details', 'hint'] as const)
+        .map((key) => str(rec[key]))
+        .filter((value): value is string => Boolean(value))
+        .join(' ')
+    : '';
+  return `${code ?? ''} ${name} ${message} ${extras}`;
 }
 
 /** Erro de permissão do Postgres/PostgREST: RLS (42501) ou "row-level security". */

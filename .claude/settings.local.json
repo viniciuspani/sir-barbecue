@@ -24,7 +24,16 @@
       "Bash(find \"c:/develop/WEB/sir-barbecue-admin/src\" -maxdepth 3 -type d)",
       "Bash(curl -sf http://localhost:5173)",
       "Bash(node screenshot.js)",
-      "Bash(node screenshot2.js)"
+      "Bash(node screenshot2.js)",
+      "Bash(npm -v)",
+      "Read(//c/develop/WEB/**)",
+      "Bash(cd \"c:/develop/WEB/sir-barbecue-admin\" && find src -type f | head -40 && echo \"=== index.html ===\" && cat index.html && echo \"=== netlify ===\" && cat netlify.toml)",
+      "Bash(cd \"c:/develop/WEB/sir-barbecue-admin\" && cat src/index.css | head -60 && echo \"=== supabase.ts ===\" && cat src/lib/supabase.ts && echo \"=== cn.ts ===\" && cat src/lib/cn.ts)",
+      "Bash(mkdir -p \"c:/develop/WEB/sir-barbecue-web/src/core/domain/entities\" \"c:/develop/WEB/sir-barbecue-web/src/core/rules\" \"c:/develop/WEB/sir-barbecue-web/src/core/services\" \"c:/develop/WEB/sir-barbecue-web/src/core/ports\" \"c:/develop/WEB/sir-barbecue-web/src/core/content/help\" \"c:/develop/WEB/sir-barbecue-web/src/data/services\" \"c:/develop/WEB/sir-barbecue-web/src/lib\" \"c:/develop/WEB/sir-barbecue-web/src/test\" \"c:/develop/WEB/sir-barbecue-web/public\")",
+      "Bash(npm install *)",
+      "Bash(npm test *)",
+      "Bash(npx vitest *)",
+      "Bash(git init *)"
     ]
   }
 }
