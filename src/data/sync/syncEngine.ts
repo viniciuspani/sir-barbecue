@@ -43,7 +43,11 @@ type RemoteSupplier = {
   phone: string | null;
   address: string | null;
 };
-type RemoteStockItem = { product_client_id: string; quantity: number };
+type RemoteStockItem = {
+  product_client_id: string;
+  quantity: number;
+  alert_threshold: number;
+};
 type RemoteProductSupplier = {
   client_id: string;
   product_client_id: string;
@@ -520,10 +524,25 @@ async function pullProductSupplierPriceHistory(): Promise<void> {
 }
 
 // Estoque: server-wins na QUANTIDADE; preserva o alert_threshold local (config do cliente).
+/**
+ * Puxa saldo E limite de alerta.
+ *
+ * O `alert_threshold` faltava aqui: o app ENVIA o limite (pushStockThresholds)
+ * mas nunca o trazia de volta, então um limite configurado em OUTRO cliente (o
+ * app web) jamais chegava ao aparelho — o alerta de estoque baixo divergia entre
+ * as plataformas.
+ *
+ * Cuidado com a linha que tem alteração local pendente (`needs_sync`): o push
+ * roda antes do pull, mas pode ter falhado (sem rede, permissão). Nesse caso o
+ * saldo do servidor é aplicado — ele é a fonte da verdade, calculado por trigger
+ * —, mas o limite local é PRESERVADO e a linha continua marcada, para o próximo
+ * ciclo enviá-la. Sem isso, o pull apagaria a marca e a alteração do usuário
+ * sumiria em silêncio.
+ */
 async function pullStockItems(tenantId: string): Promise<void> {
   const { data, error } = await supabase
     .from('stock_items')
-    .select('product_client_id, quantity')
+    .select('product_client_id, quantity, alert_threshold')
     .eq('tenant_id', tenantId)
     .returns<RemoteStockItem[]>();
   if (error) throw new Error(`[sync:pull stock_items] ${error.message}`);
@@ -535,16 +554,23 @@ async function pullStockItems(tenantId: string): Promise<void> {
       .from(stockItems)
       .where(eq(stockItems.productId, r.product_client_id));
     if (existing.length) {
+      const pending = existing[0].needsSync;
       await db
         .update(stockItems)
-        .set({ quantity: r.quantity, tenantId, needsSync: false, syncedAt: now })
+        .set({
+          quantity: r.quantity,
+          alertThreshold: pending ? existing[0].alertThreshold : r.alert_threshold,
+          tenantId,
+          needsSync: pending,
+          syncedAt: now,
+        })
         .where(eq(stockItems.productId, r.product_client_id));
     } else {
       await db.insert(stockItems).values({
         id: Crypto.randomUUID(),
         productId: r.product_client_id,
         quantity: r.quantity,
-        alertThreshold: 0,
+        alertThreshold: r.alert_threshold,
         tenantId,
         needsSync: false,
         syncedAt: now,
