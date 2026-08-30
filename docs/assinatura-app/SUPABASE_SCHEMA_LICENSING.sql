@@ -44,6 +44,9 @@ create table if not exists public.subscriptions (
   payment_method     varchar(20)
                        check (payment_method in ('pix','cash','credit_card','debit_card','boleto')),
   notes              text,
+  -- Para qual current_period_end o lembrete de vencimento (5 dias antes) já foi
+  -- disparado — evita reenviar todo dia dentro da janela de aviso.
+  due_reminder_sent_for timestamptz,
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now()
 );
@@ -258,7 +261,9 @@ begin
     end if;
   elsif v_sub.status = 'active' then
     v_ends := v_sub.current_period_end;
-    if v_ends is not null and now() >= v_ends then
+    -- Carência de 48h: só bloqueia 2 dias depois do vencimento real (endsAt
+    -- continua reportando o vencimento real, sem a carência).
+    if v_ends is not null and now() >= v_ends + interval '48 hours' then
       v_allowed := false; v_reason := 'payment_overdue';
     else
       v_allowed := true; v_reason := 'active';
@@ -331,6 +336,108 @@ begin
   if not found then
     raise exception 'assinatura não encontrada para a empresa %', p_tenant_id;
   end if;
+end; $$;
+
+-- Prorroga o trial vigente em N dias (padrão 7). Só atua em assinaturas em trial.
+create or replace function public.admin_extend_tenant_trial(p_tenant_id uuid, p_days int default 7)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_platform_admin() then
+    raise exception 'forbidden: acesso restrito ao dono da aplicação';
+  end if;
+  update public.subscriptions
+     set trial_ends_at = trial_ends_at + make_interval(days => p_days),
+         updated_at = now()
+   where tenant_id = p_tenant_id
+     and status = 'trial';
+  if not found then
+    raise exception 'assinatura em trial não encontrada para a empresa %', p_tenant_id;
+  end if;
+end; $$;
+
+-- Define manualmente a data final do trial. Só atua em assinaturas em trial.
+create or replace function public.admin_set_tenant_trial_ends_at(p_tenant_id uuid, p_trial_ends_at timestamptz)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_platform_admin() then
+    raise exception 'forbidden: acesso restrito ao dono da aplicação';
+  end if;
+  update public.subscriptions
+     set trial_ends_at = p_trial_ends_at,
+         updated_at = now()
+   where tenant_id = p_tenant_id
+     and status = 'trial';
+  if not found then
+    raise exception 'assinatura em trial não encontrada para a empresa %', p_tenant_id;
+  end if;
+end; $$;
+
+-- Ativa a assinatura (trial/past_due/canceled → active), vencimento = hoje + 1 mês.
+create or replace function public.admin_activate_tenant_subscription(p_tenant_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_platform_admin() then
+    raise exception 'forbidden: acesso restrito ao dono da aplicação';
+  end if;
+  update public.subscriptions
+     set status = 'active',
+         current_period_end = now() + interval '1 month',
+         updated_at = now()
+   where tenant_id = p_tenant_id;
+  if not found then
+    raise exception 'assinatura não encontrada para a empresa %', p_tenant_id;
+  end if;
+end; $$;
+
+-- Lembrete automático de vencimento (5 dias antes, janela 0-5 pra tolerar uma
+-- falha do cron; due_reminder_sent_for garante só um e-mail por vencimento).
+-- Chamada por pg_cron (ver checklist no fim do arquivo) via net.http_post na
+-- Edge Function send-subscription-reminder, autenticada por um token guardado
+-- no Supabase Vault (vault.create_secret, nome 'subscription_reminder_token').
+create or replace function public.send_subscription_due_reminders()
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  r record;
+  v_token text;
+begin
+  select decrypted_secret into v_token
+    from vault.decrypted_secrets where name = 'subscription_reminder_token';
+  if v_token is null then
+    raise notice 'subscription_reminder_token não configurado no Vault — abortando envio.';
+    return;
+  end if;
+
+  for r in
+    select s.tenant_id, t.name as tenant_name, s.current_period_end, u.email
+    from public.subscriptions s
+    join public.tenants t on t.id = s.tenant_id
+    join auth.users u on u.id = t.owner_user_id
+    where s.status = 'active'
+      and s.current_period_end is not null
+      and u.email is not null
+      and s.due_reminder_sent_for is distinct from s.current_period_end
+      and (s.current_period_end at time zone 'America/Sao_Paulo')::date
+          - (now() at time zone 'America/Sao_Paulo')::date between 0 and 5
+  loop
+    perform net.http_post(
+      url     := 'https://ltwaotffsxbxkeydwoxm.supabase.co/functions/v1/send-subscription-reminder?token=' || v_token,
+      headers := jsonb_build_object('Content-Type', 'application/json'),
+      body    := jsonb_build_object('email', r.email, 'tenantName', r.tenant_name, 'dueDate', r.current_period_end)
+    );
+    update public.subscriptions set due_reminder_sent_for = r.current_period_end
+     where tenant_id = r.tenant_id;
+  end loop;
+end; $$;
+revoke execute on function public.send_subscription_due_reminders() from public, authenticated, anon;
+
+-- Pra testar sem esperar o cron (chamável pelo dono via SQL Editor/painel).
+create or replace function public.admin_run_subscription_due_reminders_now()
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_platform_admin() then
+    raise exception 'forbidden: acesso restrito ao dono da aplicação';
+  end if;
+  perform public.send_subscription_due_reminders();
 end; $$;
 
 -- Lista de clientes (visão geral).
@@ -480,6 +587,10 @@ begin
 end; $$;
 
 grant execute on function public.admin_set_tenant_access(uuid, boolean) to authenticated;
+grant execute on function public.admin_extend_tenant_trial(uuid, int) to authenticated;
+grant execute on function public.admin_set_tenant_trial_ends_at(uuid, timestamptz) to authenticated;
+grant execute on function public.admin_activate_tenant_subscription(uuid) to authenticated;
+grant execute on function public.admin_run_subscription_due_reminders_now() to authenticated;
 grant execute on function public.admin_list_tenants_overview() to authenticated;
 grant execute on function public.admin_tenant_detail(uuid) to authenticated;
 grant execute on function public.admin_finance_summary() to authenticated;

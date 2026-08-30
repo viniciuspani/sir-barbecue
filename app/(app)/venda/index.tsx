@@ -25,6 +25,7 @@ import type { StockItem } from '@/domain/entities/StockItem';
 import type { Tab } from '@/domain/entities/Tab';
 import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL, formatQuantity } from '@/lib/currency';
+import { committedQuantities, reservedByTabs, stockDisplay } from '@/lib/saleStock';
 import { roleLabel, usePermissions } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
 import { useAuthStore } from '@/store/authStore';
@@ -37,11 +38,6 @@ import { TextField } from '@/ui/TextField';
 // RF-05: produto aparece na venda se ativo e visível no dia da semana atual.
 function isVisibleToday(p: Product, weekday: number): boolean {
   return !p.visibleDays || p.visibleDays.length === 0 || p.visibleDays.includes(weekday);
-}
-
-// Mesmo critério de estoque baixo usado na Home e na aba Estoque.
-function isLow(item: StockItem): boolean {
-  return item.alertThreshold > 0 && item.quantity <= item.alertThreshold;
 }
 
 // Nome de exibição do operador: prioriza nome do perfil, cai para o e-mail.
@@ -101,14 +97,9 @@ export default function NovaVenda() {
   const stockQty = (id: string) => stock.find((s) => s.productId === id)?.quantity ?? 0;
 
   // Estoque comprometido = carrinho da venda rápida + soma de todas as comandas abertas.
-  const committedQty = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const i of cartItems) map.set(i.productId, (map.get(i.productId) ?? 0) + i.quantity);
-    for (const t of tabs) {
-      for (const it of t.items) map.set(it.productId, (map.get(it.productId) ?? 0) + it.quantity);
-    }
-    return map;
-  }, [cartItems, tabs]);
+  const committedQty = useMemo(() => committedQuantities(cartItems, tabs), [cartItems, tabs]);
+  // Só as comandas — o carrinho já aparece no contador do card.
+  const reservedQty = useMemo(() => reservedByTabs(tabs), [tabs]);
 
   const availableQty = (id: string) => stockQty(id) - (committedQty.get(id) ?? 0);
 
@@ -240,11 +231,13 @@ export default function NovaVenda() {
         ListEmptyComponent={<Text style={styles.empty}>Nenhum produto disponível hoje.</Text>}
         renderItem={({ item }) => {
           const inTarget = qtyInTarget(item.id);
-          const sQty = stockQty(item.id);
-          const stockItem = stock.find((s) => s.productId === item.id);
-          const noStock = sQty <= 0;
-          const low = !noStock && !!stockItem && isLow(stockItem);
-          const out = availableQty(item.id) <= 0;
+          const display = stockDisplay(
+            item.id,
+            stock.find((s) => s.productId === item.id),
+            committedQty,
+            reservedQty,
+          );
+          const out = display.available <= 0;
           return (
             <Pressable
               style={[styles.card, out && styles.cardOut]}
@@ -261,23 +254,42 @@ export default function NovaVenda() {
                 {item.name}
               </Text>
               <Text style={styles.cardPrice}>{formatBRL(item.price)}</Text>
-              {noStock ? (
+              {/* O número em destaque é o DISPONÍVEL, não o saldo do inventário:
+                  mostrar 10 com 4 prometidos a uma comanda leva o operador a
+                  prometer o que não pode entregar. Ver src/lib/saleStock.ts. */}
+              {display.status === 'out' && (
                 <View style={styles.cardStockRow}>
                   <Ionicons name="close-circle-outline" size={16} color={colors.danger} />
                   <Text style={[styles.cardStock, styles.cardStockOut]}>Sem estoque</Text>
                 </View>
-              ) : low ? (
+              )}
+              {display.status === 'reserved' && (
+                <View style={styles.cardStockRow}>
+                  <Ionicons name="close-circle-outline" size={16} color={colors.danger} />
+                  <Text style={[styles.cardStock, styles.cardStockOut]}>Tudo em comanda</Text>
+                </View>
+              )}
+              {display.status === 'low' && (
                 <View style={styles.cardStockRow}>
                   <Ionicons name="alert-circle-outline" size={16} color={colors.yellow} />
                   <Text style={[styles.cardStock, styles.cardStockLow]}>
-                    Baixo: {formatQuantity(sQty)}
+                    Baixo: {formatQuantity(display.available)}
                   </Text>
                 </View>
-              ) : (
+              )}
+              {display.status === 'ok' && (
                 <View style={styles.cardStockRow}>
                   <Ionicons name="thumbs-up-outline" size={16} color={colors.green} />
-                  <Text style={styles.cardStock}>Estoque: {formatQuantity(sQty)}</Text>
+                  <Text style={styles.cardStock}>
+                    Disponível: {formatQuantity(display.available)}
+                  </Text>
                 </View>
+              )}
+              {display.reserved > 0 && (
+                <Text style={styles.cardReserved}>
+                  {formatQuantity(display.reserved)} em comanda · {formatQuantity(display.onHand)} no
+                  estoque
+                </Text>
               )}
             </Pressable>
           );
@@ -442,6 +454,7 @@ const styles = StyleSheet.create({
   cardStockOut: { color: colors.danger, fontWeight: '600' },
   cardStockRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   cardStockLow: { color: colors.yellow, fontWeight: '700' },
+  cardReserved: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
   actionsBar: {
     position: 'absolute',
     left: spacing.lg,

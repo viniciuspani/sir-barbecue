@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { refreshPendingCount, runSync } from '@/data/sync/syncEngine';
+import { startTabsLive } from '@/data/sync/tabsLive';
 import { colors } from '@/design/tokens';
 import { bindDevice } from '@/services/access';
 import { trackScreen } from '@/services/breadcrumbs';
@@ -60,6 +61,13 @@ export default function RootLayout() {
   useEffect(() => {
     if (isOnline && currentTenantId) runSync();
   }, [isOnline, currentTenantId]);
+
+  // Comandas em tempo real: a lista é a fila de produção da churrasqueira, então
+  // não pode esperar o ciclo de 5 minutos (ver src/data/sync/tabsLive.ts).
+  useEffect(() => {
+    if (!currentTenantId) return;
+    return startTabsLive(currentTenantId);
+  }, [currentTenantId]);
 
   // Fallback: sincroniza a cada 5 min caso nenhum gatilho (reconexão, pull-to-refresh,
   // fechamento de venda, mutação de fornecedor) tenha disparado nesse intervalo.

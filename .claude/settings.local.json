@@ -33,7 +33,8 @@
       "Bash(npm install *)",
       "Bash(npm test *)",
       "Bash(npx vitest *)",
-      "Bash(git init *)"
+      "Bash(git init *)",
+      "Bash(node -e ' *)"
     ]
   }
 }

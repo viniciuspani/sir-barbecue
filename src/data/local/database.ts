@@ -104,7 +104,12 @@ sqlite.execSync(`
   CREATE TABLE IF NOT EXISTS tabs (
     id TEXT PRIMARY KEY NOT NULL,
     customer_name TEXT NOT NULL,
-    opened_at INTEGER NOT NULL
+    opened_at INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',
+    closed_at INTEGER,
+    tenant_id TEXT,
+    needs_sync INTEGER NOT NULL DEFAULT 1,
+    synced_at INTEGER
   );
   CREATE TABLE IF NOT EXISTS tab_items (
     id TEXT PRIMARY KEY NOT NULL,
@@ -112,7 +117,10 @@ sqlite.execSync(`
     product_id TEXT NOT NULL,
     name TEXT NOT NULL,
     unit_price REAL NOT NULL,
-    quantity INTEGER NOT NULL
+    quantity INTEGER NOT NULL,
+    pending_delete INTEGER NOT NULL DEFAULT 0,
+    needs_sync INTEGER NOT NULL DEFAULT 1,
+    synced_at INTEGER
   );
   CREATE TABLE IF NOT EXISTS error_logs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -171,6 +179,38 @@ if (!productSupplierCols.some((c) => c.name === 'is_active')) {
 }
 if (!productSupplierCols.some((c) => c.name === 'pending_delete')) {
   sqlite.execSync('ALTER TABLE product_suppliers ADD COLUMN pending_delete INTEGER NOT NULL DEFAULT 0');
+}
+
+// Migração incremental: comandas passaram a SINCRONIZAR (plano web, F5).
+// As comandas já abertas no aparelho nascem com needs_sync = 1 (default da
+// coluna), então o primeiro sync as SOBE em vez de descartá-las — nenhum
+// atendimento em andamento se perde na atualização do app.
+const tabCols = sqlite.getAllSync<{ name: string }>('PRAGMA table_info(tabs)');
+if (!tabCols.some((c) => c.name === 'status')) {
+  sqlite.execSync("ALTER TABLE tabs ADD COLUMN status TEXT NOT NULL DEFAULT 'open'");
+}
+if (!tabCols.some((c) => c.name === 'closed_at')) {
+  sqlite.execSync('ALTER TABLE tabs ADD COLUMN closed_at INTEGER');
+}
+if (!tabCols.some((c) => c.name === 'tenant_id')) {
+  sqlite.execSync('ALTER TABLE tabs ADD COLUMN tenant_id TEXT');
+}
+if (!tabCols.some((c) => c.name === 'needs_sync')) {
+  sqlite.execSync('ALTER TABLE tabs ADD COLUMN needs_sync INTEGER NOT NULL DEFAULT 1');
+}
+if (!tabCols.some((c) => c.name === 'synced_at')) {
+  sqlite.execSync('ALTER TABLE tabs ADD COLUMN synced_at INTEGER');
+}
+
+const tabItemCols = sqlite.getAllSync<{ name: string }>('PRAGMA table_info(tab_items)');
+if (!tabItemCols.some((c) => c.name === 'pending_delete')) {
+  sqlite.execSync('ALTER TABLE tab_items ADD COLUMN pending_delete INTEGER NOT NULL DEFAULT 0');
+}
+if (!tabItemCols.some((c) => c.name === 'needs_sync')) {
+  sqlite.execSync('ALTER TABLE tab_items ADD COLUMN needs_sync INTEGER NOT NULL DEFAULT 1');
+}
+if (!tabItemCols.some((c) => c.name === 'synced_at')) {
+  sqlite.execSync('ALTER TABLE tab_items ADD COLUMN synced_at INTEGER');
 }
 
 // Migração incremental: isolamento por empresa. Carimba tenant_id nas tabelas

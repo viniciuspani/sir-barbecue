@@ -13,8 +13,12 @@ import {
   stockEntries,
   stockItems,
   suppliers,
+  syncCheckpoints,
+  tabItems,
+  tabs,
 } from '@/data/local/schema';
 import { supabase } from '@/data/remote/supabaseClient';
+import type { ConsumptionMode, PaymentMethod } from '@/domain/entities/Sale';
 import { isPermissionError } from '@/lib/errors';
 import { logSilently } from '@/lib/feedback';
 import { canWriteCatalog, canWriteSuppliers } from '@/lib/permissions';
@@ -42,6 +46,39 @@ type RemoteSupplier = {
   contact_name: string | null;
   phone: string | null;
   address: string | null;
+};
+type RemoteProductDay = {
+  product_client_id: string;
+  day_of_week: number;
+  is_visible: boolean;
+};
+type RemoteSale = {
+  client_id: string;
+  sale_date: string;
+  total_amount: number;
+  payment_method: PaymentMethod;
+  consumption_mode: ConsumptionMode;
+  updated_at: string;
+};
+type RemoteSaleItem = {
+  client_id: string;
+  sale_client_id: string;
+  product_client_id: string;
+  quantity: number;
+  unit_price: number;
+};
+type RemoteTab = {
+  client_id: string;
+  customer_name: string;
+  opened_at: string;
+};
+type RemoteTabItem = {
+  client_id: string;
+  tab_client_id: string;
+  product_client_id: string;
+  name: string;
+  unit_price: number;
+  quantity: number;
 };
 type RemoteStockItem = {
   product_client_id: string;
@@ -120,7 +157,58 @@ async function pushProducts(tenantId: string): Promise<void> {
       })),
     ),
   );
+  // Dias de visibilidade: filhos do produto, então só DEPOIS do upsert do pai.
+  for (const r of rows) {
+    await pushProductDays(r.id, r.visibleDays);
+  }
   await db.update(products).set({ needsSync: false, syncedAt: Date.now() }).where(scope);
+}
+
+// visible_days é guardado local como JSON de números (0..6); no servidor é a
+// tabela normalizada product_day_visibility (uma linha por dia visível).
+function parseDays(raw: string | null): number[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((n): n is number => typeof n === 'number') : [];
+  } catch {
+    return []; // valor corrompido → trata como "todos os dias"
+  }
+}
+
+/**
+ * Dias de visibilidade (RF-05) do produto → servidor.
+ *
+ * Este dado NUNCA subia: ficava só no SQLite do aparelho, e a tabela
+ * product_day_visibility permanecia vazia. Com dois clientes lendo o mesmo
+ * banco, um produto de sexta-feira aparecia todos os dias no outro aparelho.
+ *
+ * Regrava por produto (apaga e insere): "nenhum dia" significa visível sempre,
+ * então a ausência de linhas é um estado válido — não dá para representar isso
+ * só com upsert. Roda por produto para uma falha não travar os demais.
+ */
+async function pushProductDays(productId: string, visibleDays: string | null): Promise<void> {
+  await withRetry(async () => {
+    const { error } = await supabase
+      .from('product_day_visibility')
+      .delete()
+      .eq('product_client_id', productId);
+    if (error) throw new Error(`[sync:product_day_visibility delete] ${error.message}`);
+  });
+  const days = parseDays(visibleDays);
+  if (days.length === 0) return;
+  await withRetry(() =>
+    upsertRemote(
+      'product_day_visibility',
+      days.map((day) => ({
+        client_id: Crypto.randomUUID(),
+        product_client_id: productId,
+        day_of_week: day,
+        is_visible: true,
+      })),
+      'product_client_id,day_of_week',
+    ),
+  );
 }
 
 async function pushSuppliers(tenantId: string): Promise<void> {
@@ -363,6 +451,100 @@ function safeParseJson(raw: string): unknown {
   }
 }
 
+/**
+ * Comandas: sobe comandas e itens; propaga fechamentos e remoções de item.
+ *
+ * A comanda é atendimento EM ANDAMENTO, então a ordem aqui importa:
+ *  1. comandas (o item tem FK para a comanda no servidor — subir item antes
+ *     de a comanda existir falharia);
+ *  2. itens removidos (delete), antes dos upserts, para não reviver linha;
+ *  3. itens vivos (upsert pela chave natural comanda+produto, igual ao app,
+ *     que mantém UMA linha por produto).
+ *
+ * Depois de propagada, a comanda fechada é APAGADA do banco local: ela já virou
+ * venda (ou foi descartada) e só ocuparia espaço no aparelho do PDV.
+ */
+async function pushTabs(tenantId: string): Promise<void> {
+  const tabScope = and(eq(tabs.needsSync, true), eq(tabs.tenantId, tenantId));
+  const tabRows = await db.select().from(tabs).where(tabScope);
+
+  if (tabRows.length > 0) {
+    await withRetry(() =>
+      upsertRemote(
+        'tabs',
+        tabRows.map((t) => ({
+          client_id: t.id,
+          tenant_id: tenantId,
+          customer_name: t.customerName,
+          status: t.status,
+          opened_at: new Date(t.openedAt).toISOString(),
+          closed_at: t.closedAt ? new Date(t.closedAt).toISOString() : null,
+        })),
+      ),
+    );
+    await db.update(tabs).set({ needsSync: false, syncedAt: Date.now() }).where(tabScope);
+  }
+
+  // ISOLAMENTO: tab_items não tem tenant_id (o dono é a comanda). Restringir aos
+  // itens das comandas DESTA empresa evita que uma linha órfã ou de outra conta
+  // no mesmo aparelho suba sob a sessão atual — mesma regra dos demais pushes.
+  const tenantTabIds = (
+    await db.select({ id: tabs.id }).from(tabs).where(eq(tabs.tenantId, tenantId))
+  ).map((t) => t.id);
+  if (tenantTabIds.length === 0) return;
+
+  // Itens removidos da comanda: apaga no servidor e só então some daqui.
+  const toDelete = await db
+    .select()
+    .from(tabItems)
+    .where(and(eq(tabItems.pendingDelete, true), inArray(tabItems.tabId, tenantTabIds)));
+  for (const item of toDelete) {
+    await withRetry(async () => {
+      const { error } = await supabase
+        .from('tab_items')
+        .delete()
+        .eq('tab_client_id', item.tabId)
+        .eq('product_client_id', item.productId);
+      if (error) throw new Error(`[sync:tab_items delete] ${error.message}`);
+    });
+    await db.delete(tabItems).where(eq(tabItems.id, item.id));
+  }
+
+  const itemScope = and(
+    eq(tabItems.needsSync, true),
+    eq(tabItems.pendingDelete, false),
+    inArray(tabItems.tabId, tenantTabIds),
+  );
+  const itemRows = await db.select().from(tabItems).where(itemScope);
+  if (itemRows.length > 0) {
+    await withRetry(() =>
+      upsertRemote(
+        'tab_items',
+        itemRows.map((i) => ({
+          client_id: i.id,
+          tab_client_id: i.tabId,
+          product_client_id: i.productId,
+          name: i.name,
+          unit_price: i.unitPrice,
+          quantity: i.quantity,
+        })),
+        'tab_client_id,product_client_id',
+      ),
+    );
+    await db.update(tabItems).set({ needsSync: false, syncedAt: Date.now() }).where(itemScope);
+  }
+
+  // Faxina: comanda fechada e já sincronizada não precisa mais existir local.
+  const closed = await db
+    .select()
+    .from(tabs)
+    .where(and(eq(tabs.status, 'closed'), eq(tabs.needsSync, false), eq(tabs.tenantId, tenantId)));
+  for (const t of closed) {
+    await db.delete(tabItems).where(eq(tabItems.tabId, t.id));
+    await db.delete(tabs).where(eq(tabs.id, t.id));
+  }
+}
+
 // ---- PULL (servidor → local, server-wins) ------------------------------------
 
 // Categorias: server-wins (servidor é dono do catálogo — Opção A). Filtra pela empresa ativa.
@@ -387,6 +569,13 @@ async function pullCategories(tenantId: string): Promise<void> {
 }
 
 // Catálogo: server-wins (doc 01c §10.3). Filtra pela empresa ativa.
+/**
+ * Produtos + dias de visibilidade do servidor.
+ *
+ * Linha com alteração local pendente é PULADA: o push roda antes, mas pode ter
+ * falhado (offline, permissão). Sobrescrevê-la aqui — e ainda limpar
+ * `needs_sync` — descartaria em silêncio a edição que o usuário fez no aparelho.
+ */
 async function pullProducts(tenantId: string): Promise<void> {
   const { data, error } = await supabase
     .from('products')
@@ -395,32 +584,59 @@ async function pullProducts(tenantId: string): Promise<void> {
     .returns<RemoteProduct[]>();
   if (error) throw new Error(`[sync:pull products] ${error.message}`);
   if (!data) return;
+
+  // Dias visíveis de todos os produtos desta empresa, em uma consulta só.
+  const ids = data.map((r) => r.client_id);
+  const daysByProduct = new Map<string, number[]>();
+  if (ids.length > 0) {
+    const { data: dayData, error: dayError } = await supabase
+      .from('product_day_visibility')
+      .select('product_client_id, day_of_week, is_visible')
+      .in('product_client_id', ids)
+      .returns<RemoteProductDay[]>();
+    if (dayError) throw new Error(`[sync:pull product_day_visibility] ${dayError.message}`);
+    for (const d of dayData ?? []) {
+      if (!d.is_visible) continue;
+      const list = daysByProduct.get(d.product_client_id) ?? [];
+      list.push(d.day_of_week);
+      daysByProduct.set(d.product_client_id, list);
+    }
+  }
+
   const now = Date.now();
   for (const r of data) {
-    await db
-      .insert(products)
-      .values({
+    const days = daysByProduct.get(r.client_id) ?? [];
+    // Vazio = todos os dias; guardamos NULL para manter o formato local.
+    const visibleDays = days.length > 0 ? JSON.stringify(days.sort((a, b) => a - b)) : null;
+    const existing = await db.select().from(products).where(eq(products.id, r.client_id));
+    if (existing.length) {
+      if (existing[0].needsSync) continue; // edição local ainda não enviada
+      await db
+        .update(products)
+        .set({
+          name: r.name,
+          price: r.price,
+          isActive: r.is_active,
+          categoryId: r.category_client_id ?? null,
+          visibleDays,
+          tenantId,
+          needsSync: false,
+          syncedAt: now,
+        })
+        .where(eq(products.id, r.client_id));
+    } else {
+      await db.insert(products).values({
         id: r.client_id,
         name: r.name,
         price: r.price,
         isActive: r.is_active,
         categoryId: r.category_client_id ?? null,
+        visibleDays,
         tenantId,
         needsSync: false,
         syncedAt: now,
-      })
-      .onConflictDoUpdate({
-        target: products.id,
-        set: {
-          name: r.name,
-          price: r.price,
-          isActive: r.is_active,
-          categoryId: r.category_client_id ?? null,
-          tenantId,
-          needsSync: false,
-          syncedAt: now,
-        },
       });
+    }
   }
 }
 
@@ -579,7 +795,230 @@ async function pullStockItems(tenantId: string): Promise<void> {
   }
 }
 
+/**
+ * Comandas ABERTAS do servidor → local (server-wins).
+ *
+ * Linha com alteração local pendente é PULADA: o push roda antes, mas pode ter
+ * falhado (offline) — sobrescrevê-la aqui apagaria o pedido que o atendente
+ * acabou de lançar. Comanda que sumiu da lista de abertas (fechada em outro
+ * aparelho) é removida daqui, junto com os itens.
+ */
+async function pullTabs(tenantId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('tabs')
+    .select('client_id, customer_name, opened_at')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'open')
+    .returns<RemoteTab[]>();
+  if (error) throw new Error(`[sync:pull tabs] ${error.message}`);
+  if (!data) return;
+  const now = Date.now();
+  const openIds = data.map((t) => t.client_id);
+
+  for (const r of data) {
+    const existing = await db.select().from(tabs).where(eq(tabs.id, r.client_id));
+    if (existing.length) {
+      if (existing[0].needsSync) continue; // alteração local ainda não enviada
+      await db
+        .update(tabs)
+        .set({
+          customerName: r.customer_name,
+          status: 'open',
+          tenantId,
+          needsSync: false,
+          syncedAt: now,
+        })
+        .where(eq(tabs.id, r.client_id));
+    } else {
+      await db.insert(tabs).values({
+        id: r.client_id,
+        customerName: r.customer_name,
+        openedAt: new Date(r.opened_at).getTime(),
+        status: 'open',
+        tenantId,
+        needsSync: false,
+        syncedAt: now,
+      });
+    }
+  }
+
+  // Itens das comandas abertas.
+  if (openIds.length > 0) {
+    const { data: itemData, error: itemError } = await supabase
+      .from('tab_items')
+      .select('client_id, tab_client_id, product_client_id, name, unit_price, quantity')
+      .in('tab_client_id', openIds)
+      .returns<RemoteTabItem[]>();
+    if (itemError) throw new Error(`[sync:pull tab_items] ${itemError.message}`);
+
+    for (const r of itemData ?? []) {
+      const existing = await db.select().from(tabItems).where(eq(tabItems.id, r.client_id));
+      if (existing.length) {
+        if (existing[0].needsSync || existing[0].pendingDelete) continue;
+        await db
+          .update(tabItems)
+          .set({ quantity: r.quantity, needsSync: false, syncedAt: now })
+          .where(eq(tabItems.id, r.client_id));
+      } else {
+        await db.insert(tabItems).values({
+          id: r.client_id,
+          tabId: r.tab_client_id,
+          productId: r.product_client_id,
+          name: r.name,
+          unitPrice: r.unit_price,
+          quantity: r.quantity,
+          needsSync: false,
+          syncedAt: now,
+        });
+      }
+    }
+  }
+
+  // Comandas que deixaram de estar abertas no servidor saem do aparelho —
+  // exceto as que têm alteração local pendente (ainda não subiram).
+  const localOpen = await db
+    .select()
+    .from(tabs)
+    .where(and(eq(tabs.status, 'open'), eq(tabs.tenantId, tenantId), eq(tabs.needsSync, false)));
+  for (const t of localOpen) {
+    if (openIds.includes(t.id)) continue;
+    await db.delete(tabItems).where(eq(tabItems.tabId, t.id));
+    await db.delete(tabs).where(eq(tabs.id, t.id));
+  }
+}
+
+// Janela do primeiro pull de vendas: um aparelho novo (ou recém-atualizado) não
+// pode baixar o histórico inteiro da empresa de uma vez. 90 dias cobrem com folga
+// a Home (hoje) e os Relatórios (até o mês).
+const SALES_FIRST_PULL_DAYS = 90;
+// Teto por ciclo — o restante vem no próximo, avançando o checkpoint.
+const SALES_PULL_LIMIT = 500;
+
+async function readCheckpoint(table: string): Promise<number> {
+  const rows = await db
+    .select()
+    .from(syncCheckpoints)
+    .where(eq(syncCheckpoints.tableName, table));
+  return rows.length ? rows[0].lastSyncedAt : 0;
+}
+
+async function writeCheckpoint(table: string, value: number): Promise<void> {
+  await db
+    .insert(syncCheckpoints)
+    .values({ tableName: table, lastSyncedAt: value })
+    .onConflictDoUpdate({ target: syncCheckpoints.tableName, set: { lastSyncedAt: value } });
+}
+
+/**
+ * Vendas do servidor → local (INCREMENTAL).
+ *
+ * Vendas eram push-only: subiam do aparelho e nunca voltavam. Com o PWA
+ * registrando vendas direto no servidor, a Home e os Relatórios do app ficavam
+ * sem enxergá-las — o dono via faturamento diferente em cada aparelho.
+ *
+ * O pull é incremental por `updated_at` (checkpoint em sync_checkpoints, tabela
+ * que já existia no schema e não era usada). Sem isso, um PDV com meses de
+ * operação baixaria o histórico inteiro a cada 5 minutos.
+ */
+async function pullSales(tenantId: string): Promise<void> {
+  const checkpoint = await readCheckpoint('sales');
+  const since =
+    checkpoint > 0
+      ? new Date(checkpoint)
+      : new Date(Date.now() - SALES_FIRST_PULL_DAYS * 24 * 60 * 60 * 1000);
+
+  const { data, error } = await supabase
+    .from('sales')
+    .select('client_id, sale_date, total_amount, payment_method, consumption_mode, updated_at')
+    .eq('tenant_id', tenantId)
+    .gt('updated_at', since.toISOString())
+    .order('updated_at', { ascending: true })
+    .limit(SALES_PULL_LIMIT)
+    .returns<RemoteSale[]>();
+  if (error) throw new Error(`[sync:pull sales] ${error.message}`);
+  if (!data || data.length === 0) return;
+
+  const now = Date.now();
+  const pulledIds: string[] = [];
+  for (const r of data) {
+    const existing = await db.select().from(sales).where(eq(sales.id, r.client_id));
+    if (existing.length) {
+      // Venda com push pendente é do próprio aparelho e ainda não subiu: não mexer.
+      if (existing[0].needsSync) continue;
+      pulledIds.push(r.client_id);
+      continue; // venda é imutável depois de registrada — nada a atualizar
+    }
+    await db.insert(sales).values({
+      id: r.client_id,
+      saleDate: new Date(r.sale_date).getTime(),
+      totalAmount: r.total_amount,
+      paymentMethod: r.payment_method,
+      consumptionMode: r.consumption_mode,
+      tenantId,
+      needsSync: false,
+      syncedAt: now,
+    });
+    pulledIds.push(r.client_id);
+  }
+
+  // Itens das vendas que chegaram agora (sem eles o relatório por produto fica vazio).
+  if (pulledIds.length > 0) {
+    const { data: itemData, error: itemError } = await supabase
+      .from('sale_items')
+      .select('client_id, sale_client_id, product_client_id, quantity, unit_price')
+      .in('sale_client_id', pulledIds)
+      .returns<RemoteSaleItem[]>();
+    if (itemError) throw new Error(`[sync:pull sale_items] ${itemError.message}`);
+    for (const r of itemData ?? []) {
+      await db
+        .insert(saleItems)
+        .values({
+          id: r.client_id,
+          saleId: r.sale_client_id,
+          productId: r.product_client_id,
+          quantity: r.quantity,
+          unitPrice: r.unit_price,
+          needsSync: false,
+          syncedAt: now,
+        })
+        .onConflictDoNothing();
+    }
+  }
+
+  // Avança o checkpoint até a venda mais recente que chegou. Se o lote bateu no
+  // teto, o próximo ciclo continua daqui.
+  const lastUpdatedAt = new Date(data[data.length - 1].updated_at).getTime();
+  await writeCheckpoint('sales', lastUpdatedAt);
+}
+
 // ---- Orquestração ------------------------------------------------------------
+
+// Evita que uma atualização de comandas em tempo real e o ciclo completo mexam
+// nas mesmas tabelas ao mesmo tempo.
+let tabsSyncing = false;
+
+/**
+ * Sincroniza SÓ as comandas, na hora. Chamado pelo tempo real (tabsLive).
+ *
+ * Sobe o que estiver pendente antes de puxar: se o atendente lançou um item e a
+ * notificação de outro aparelho chegou em seguida, o pull não pode passar por
+ * cima do que ainda não subiu.
+ */
+export async function syncTabsNow(): Promise<void> {
+  if (tabsSyncing || running) return;
+  const tenantId = useAuthStore.getState().currentTenantId;
+  if (!tenantId) return;
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) return;
+
+  tabsSyncing = true;
+  try {
+    await pushTabs(tenantId);
+    await pullTabs(tenantId);
+  } finally {
+    tabsSyncing = false;
+  }
+}
 
 async function countPending(): Promise<number> {
   const [p, sup, ps, s, si, se, st] = await Promise.all([
@@ -660,6 +1099,8 @@ export async function runSync(): Promise<void> {
     if (canWriteSuppliers(role)) ok = (await runStep('product_suppliers', () => pushProductSuppliers(tenantId))) && ok;
     if (canWriteCatalog(role)) ok = (await runStep('stock_entries', () => pushStockEntries(tenantId))) && ok;
     ok = (await runStep('sales', () => pushSalesWithItems(tenantId))) && ok;
+    // Comandas: atendimento em andamento — todo membro opera, como as vendas.
+    ok = (await runStep('tabs', () => pushTabs(tenantId))) && ok;
     if (canWriteCatalog(role)) ok = (await runStep('stock_thresholds', () => pushStockThresholds(tenantId))) && ok;
     // Pulls server-wins (depois dos pushes, para a quantidade já refletir as vendas/entradas).
     ok = (await runStep('pull categories', () => pullCategories(tenantId))) && ok;
@@ -671,6 +1112,10 @@ export async function runSync(): Promise<void> {
         pullProductSupplierPriceHistory(),
       )) && ok;
     ok = (await runStep('pull stock_items', () => pullStockItems(tenantId))) && ok;
+    ok = (await runStep('pull tabs', () => pullTabs(tenantId))) && ok;
+    // Vendas: traz também as registradas pelo app web, senão a Home e os
+    // Relatórios do celular mostram um faturamento menor do que o real.
+    ok = (await runStep('pull sales', () => pullSales(tenantId))) && ok;
 
     // Log de erros por ÚLTIMO e FORA do `ok`: é diagnóstico, não dado de negócio.
     // Se o envio do log falhar, o sync não pode ser marcado como erro (senão um

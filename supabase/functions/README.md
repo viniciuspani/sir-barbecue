@@ -17,6 +17,7 @@ hook JWT e o bucket `reports` **já estão no banco**.
 | `send-push` | Envia push (Expo) para uma lista de tokens | usuário logado / cron |
 | `health` | **Health check público**: runtime + round-trip no Postgres (`saude_db()`). 200 = ok, 503 = banco fora | monitor externo + painel admin (sem auth) |
 | `health-webhook` | Recebe as notificações de queda/retorno do monitor externo e grava em `health_events` (histórico do painel) | HetrixTools (token na URL) |
+| `send-subscription-reminder` | Envia e-mail (Resend) avisando vencimento próximo da assinatura | `pg_cron`/`pg_net` (token na URL) |
 
 ## Pré-requisitos
 ```bash
@@ -35,6 +36,7 @@ supabase functions deploy delete-account
 supabase functions deploy send-push
 supabase functions deploy health --no-verify-jwt          # ATENÇÃO: sem JWT (ver abaixo)
 supabase functions deploy health-webhook --no-verify-jwt  # idem, protegida por token na URL
+supabase functions deploy send-subscription-reminder --no-verify-jwt  # chamada pelo Postgres (pg_net), protegida por token na URL
 ```
 > `verify_jwt` fica **ligado** por padrão (exige usuário autenticado) — correto para as 4
 > primeiras. Quando a `send-push` passar a ser chamada por cron/trigger (infra de push, abaixo),
@@ -52,6 +54,12 @@ supabase functions deploy health-webhook --no-verify-jwt  # idem, protegida por 
 supabase secrets set ALLOWED_ORIGIN="https://sir-barbecue-admin.netlify.app,http://localhost:5173"
 # segredo do webhook do monitor externo (obrigatório para a health-webhook funcionar)
 supabase secrets set SAUDE_WEBHOOK_TOKEN="<segredo longo e aleatório>"
+# lembrete de vencimento de assinatura (send-subscription-reminder) — o MESMO valor
+# também precisa estar no Supabase Vault (vault.create_secret, nome
+# 'subscription_reminder_token'), é quem o Postgres usa pra chamar esta function
+supabase secrets set SUBSCRIPTION_REMINDER_TOKEN="<segredo longo e aleatório>"
+supabase secrets set RESEND_API_KEY="re_xxx..."
+supabase secrets set EMAIL_FROM="Sir Barbecue <assinatura@seu-dominio>"
 ```
 > Nomenclatura: as funções se chamam `health`/`health-webhook`, mas o secret
 > `SAUDE_WEBHOOK_TOKEN` e a RPC `saude_db()` mantêm o nome antigo **de propósito** — já estão
@@ -105,6 +113,13 @@ await supabase.functions.invoke('send-push', { body: { tokens, title, body, data
   `service_role` (a tabela não tem policy de INSERT: ninguém logado forja uma queda) e ignora
   reentregas pelo índice de deduplicação. Configuração no HetrixTools em
   `docs/monitoramento/MONITOR_SAUDE.md` §4.2.
+- **send-subscription-reminder** — `POST` do Postgres (`net.http_post`, disparado por
+  `send_subscription_due_reminders()` via `pg_cron`). Recebe `{ email, tenantName, dueDate }` e
+  envia via **Resend** (`RESEND_API_KEY`/`EMAIL_FROM`). **Pré-requisito:**
+  `docs/assinatura-app/MIGRATION_03_activation_and_reminders.sql` (RPCs + coluna
+  `due_reminder_sent_for`) + `select vault.create_secret(...)` no Postgres com o MESMO valor de
+  `SUBSCRIPTION_REMINDER_TOKEN`. Sem conta Resend com domínio verificado, a chamada falha (502) —
+  configuração da Resend documentada no plano da sessão que criou esta função.
 
 ## Infra de push (RF-11) — IMPLEMENTADA
 - **Tabela `push_tokens`** + RLS + **trigger `notify_low_stock`**: aplicar

@@ -113,12 +113,20 @@ export const syncCheckpoints = sqliteTable('sync_checkpoints', {
   lastSyncedAt: integer('last_synced_at').notNull().default(0),
 });
 
-// Comandas (tabs) — estado de trabalho LOCAL, identificado pelo nome do cliente.
-// Não é sincronizado: uma comanda só vira `sales`/`sale_items` no momento do pagamento.
+// Comandas (tabs), identificadas pelo nome do cliente.
+// SINCRONIZADAS desde a F5 do plano web: o balcão pode ser atendido por dois
+// aparelhos (Android e o PWA no iPhone) e ambos precisam ver a mesma comanda.
+// A comanda vira `sales`/`sale_items` no pagamento e é marcada como fechada.
 export const tabs = sqliteTable('tabs', {
   id: text('id').primaryKey(),
   customerName: text('customer_name').notNull(),
   openedAt: integer('opened_at').notNull(), // epoch ms
+  // 'open' | 'closed'. Fechada continua aqui até o sync levar o fechamento adiante.
+  status: text('status').notNull().default('open'),
+  closedAt: integer('closed_at'),
+  tenantId: text('tenant_id'),
+  needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
+  syncedAt: integer('synced_at'),
 });
 
 // Itens vinculados à comanda. Denormaliza name/unit_price (como o carrinho) para render sem join.
@@ -129,6 +137,11 @@ export const tabItems = sqliteTable('tab_items', {
   name: text('name').notNull(),
   unitPrice: real('unit_price').notNull(),
   quantity: integer('quantity').notNull(),
+  // Item removido da comanda (quantidade zerada): a linha some da tela mas fica
+  // aqui até o sync apagá-la no servidor — senão o outro aparelho a ressuscita.
+  pendingDelete: integer('pending_delete', { mode: 'boolean' }).notNull().default(false),
+  needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
+  syncedAt: integer('synced_at'),
 });
 
 // Log de erros — grava LOCAL primeiro (o erro mais importante é o que acontece

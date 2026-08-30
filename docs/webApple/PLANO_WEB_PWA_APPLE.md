@@ -86,6 +86,51 @@ Como os repositórios são separados, o `src/core/` do web é um **porte manual*
 
 ---
 
+## Andamento (28/08/2026)
+
+| Fase | Situação |
+|---|---|
+| F0 — repo web e porte do core | ✅ entregue |
+| F1 — shell mobile-first + autenticação | ✅ entregue e testada no aparelho |
+| F2 — catálogo (produtos + fornecedores) | ✅ entregue e testada no aparelho |
+| F3 — estoque | ✅ entregue e testada no aparelho |
+| F4 — venda (PDV) | ✅ entregue; RPC `create_sale` aplicada no Supabase, vendas registrando |
+| F5 — comandas no servidor | ✅ código pronto; falta aplicar MIGRATION_09 e gerar APK |
+| F6 — Início, relatórios, empresa, conta, ajuda | ✅ entregue |
+| F7 — PWA, iOS e publicação | ▶️ próxima |
+
+Estado do repo web: 154 testes, `typecheck` e `build` verdes. 27 telas, 28 rotas.
+
+### Correções no app mobile já aplicadas (exigem APK novo)
+
+1. `src/lib/errors.ts` — `redact()` deixava o token vazar para `error_logs`
+   (ordem dos padrões) e a classificação de erro olhava o *stack trace*, fazendo
+   erro de permissão virar "Sem conexão" para o usuário.
+2. `src/data/sync/syncEngine.ts` — **os três buracos de sync**, todos fechados:
+   - `pullStockItems` não trazia `alert_threshold` (limite configurado no web
+     nunca chegava ao celular) e **limpava `needs_sync` de toda linha**,
+     apagando em silêncio uma alteração local cujo push falhara;
+   - dias de visibilidade (RF-05) nunca saíam do SQLite: agora há
+     `pushProductDays` + leitura de `product_day_visibility` no `pullProducts`;
+   - vendas eram push-only: agora há `pullSales` incremental por `updated_at`
+     (primeira carga de 90 dias, teto de 500 por ciclo, checkpoint em
+     `sync_checkpoints` — tabela que existia no schema e nunca fora usada).
+3. Comandas passaram a sincronizar (F5b) — ver a fase F5 abaixo.
+
+**Regra que passou a valer em todo o pull:** linha com `needs_sync` pendente é
+**pulada**. O push roda antes, mas pode falhar (offline); sobrescrever no pull
+descartaria em silêncio o que o usuário acabou de fazer no aparelho.
+
+### Armadilhas do ambiente descobertas no caminho
+
+- **URLs de retorno do Supabase Auth:** quando o `redirect_to` não está na lista,
+  o GoTrue cai **em silêncio** na Site URL — o sintoma é "conexão recusada" numa
+  URL que não é a do app. A Site URL é sempre aceita, mesmo fora da lista.
+- **Contexto seguro:** `crypto.randomUUID()` só existe em HTTPS ou `localhost`.
+  Testando pelo IP da rede em HTTP toda escrita quebrava; por isso existe
+  `src/lib/uuid.ts` com fallback. **O service worker tem a mesma restrição** — a
+  F7 vai precisar de HTTPS (deploy ou túnel) para testar o PWA instalado.
+
 ## Fases
 
 ### F0 — Repo web e porte do core *(não toca no mobile)*

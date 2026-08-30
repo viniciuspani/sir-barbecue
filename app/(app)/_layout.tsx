@@ -104,6 +104,15 @@ export default function AppLayout() {
           }}
         />
         <Tabs.Screen
+          name="comandas"
+          options={{
+            title: 'Comandas',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="receipt-outline" color={color} size={size} />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="produtos"
           options={{
             title: 'Produtos',
