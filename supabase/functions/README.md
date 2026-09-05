@@ -14,7 +14,7 @@ hook JWT e o bucket `reports` **já estão no banco**.
 | `generate-report` | Agrega vendas da empresa → gera **HTML** → sobe em `reports/<tenant_id>/` → registra linha em `reports` (RF-21/24/25/26) | usuário logado |
 | `invite-member` | Owner adiciona membro **existente** ou **convida um novo por e-mail** (`tenant_members`) | owner |
 | `delete-account` | Exclui a conta + empresas que o usuário possui (RNF-08) — **destrutivo** | usuário logado |
-| `send-push` | Envia push (Expo) para uma lista de tokens | usuário logado / cron |
+| ~~`send-push`~~ | **Removida** — infra de push desativada (ver seção no fim) | — |
 | `health` | **Health check público**: runtime + round-trip no Postgres (`saude_db()`). 200 = ok, 503 = banco fora | monitor externo + painel admin (sem auth) |
 | `health-webhook` | Recebe as notificações de queda/retorno do monitor externo e grava em `health_events` (histórico do painel) | HetrixTools (token na URL) |
 | `send-subscription-reminder` | Envia e-mail (Resend) avisando vencimento próximo da assinatura | `pg_cron`/`pg_net` (token na URL) |
@@ -33,14 +33,12 @@ As funções recebem automaticamente `SUPABASE_URL`, `SUPABASE_ANON_KEY` e
 supabase functions deploy generate-report
 supabase functions deploy invite-member
 supabase functions deploy delete-account
-supabase functions deploy send-push
 supabase functions deploy health --no-verify-jwt          # ATENÇÃO: sem JWT (ver abaixo)
 supabase functions deploy health-webhook --no-verify-jwt  # idem, protegida por token na URL
 supabase functions deploy send-subscription-reminder --no-verify-jwt  # chamada pelo Postgres (pg_net), protegida por token na URL
 ```
-> `verify_jwt` fica **ligado** por padrão (exige usuário autenticado) — correto para as 4
-> primeiras. Quando a `send-push` passar a ser chamada por cron/trigger (infra de push, abaixo),
-> use `supabase functions deploy send-push --no-verify-jwt` (ou chame com o `service_role`).
+> `verify_jwt` fica **ligado** por padrão (exige usuário autenticado) — correto para as 3
+> primeiras.
 >
 > As duas funções de saúde saem **sem JWT** — quem as chama é um serviço externo, sem
 > credencial do Supabase. Pelo dashboard: criar a função e desligar **Verify JWT** em Function
@@ -81,9 +79,6 @@ await supabase.functions.invoke('invite-member', { body: { email, role: 'employe
 
 // Excluir conta (após confirmação):
 await supabase.functions.invoke('delete-account');
-
-// Enviar push (tokens explícitos):
-await supabase.functions.invoke('send-push', { body: { tokens, title, body, data } });
 ```
 
 ## Notas por função
@@ -97,8 +92,6 @@ await supabase.functions.invoke('send-push', { body: { tokens, title, body, data
   `handle_new_user_invite`).
 - **delete-account** — irreversível. Apaga as empresas onde é owner (cascade) + memberships + o
   usuário no Auth.
-- **send-push** — sender puro. O lookup de tokens por usuário e os disparos automáticos exigem a
-  infra abaixo.
 - **health** — `GET`/`HEAD` público, sem corpo de requisição. **Pré-requisito:** aplicar
   `docs/banco-multi-cliente/MIGRATION_06_saude.sql` (RPC `saude_db()`). Usa só a **anon key**
   (nunca a `service_role`) e devolve apenas `ok`/latência — a mensagem crua do Postgres vai
@@ -121,18 +114,22 @@ await supabase.functions.invoke('send-push', { body: { tokens, title, body, data
   `SUBSCRIPTION_REMINDER_TOKEN`. Sem conta Resend com domínio verificado, a chamada falha (502) —
   configuração da Resend documentada no plano da sessão que criou esta função.
 
-## Infra de push (RF-11) — IMPLEMENTADA
-- **Tabela `push_tokens`** + RLS + **trigger `notify_low_stock`**: aplicar
-  `docs/banco-multi-cliente/MIGRATION_02_push_tokens.sql` (habilita `pg_net` e dispara o push direto
-  na **Expo Push API** quando o estoque fica baixo — endpoint público, sem segredo no banco).
-- **App** salva o token em `push_tokens` (`src/services/push.ts`): no botão "Ativar notificações" e,
-  silenciosamente, no boot após login (se a permissão já foi concedida). Exige **development build**
-  (não funciona no Expo Go).
-- **`send-push` v2** aceita `tokens` explícitos **ou** `tenant_id` (resolve os tokens da empresa) —
-  redeploy: `supabase functions deploy send-push`.
+## Infra de push (RF-11) — REMOVIDA
+Desativada por decisão de produto (20/08/2026, reafirmada em 02/09/2026): num PDV o app fica aberto
+o expediente inteiro e o alerta de estoque baixo já é entregue na Home, o que torna o push
+redundante — e ele custava tabela com RLS, egress via `pg_net` a cada baixa de estoque, uma função
+com `service_role` e credenciais FCM no EAS.
 
-> **RF-22 (relatório pronto):** como a geração é síncrona (o usuário já vê o resultado), esse push é
-> opcional — dá para a `generate-report` chamar `send-push` com `tenant_id` ao final, se quiser.
+- **App (etapa 1, feita):** tela de notificações, registro de token no boot e `src/services/push.ts`
+  removidos no commit `d0f5b57`.
+- **Servidor (etapa 2):** `docs/banco-multi-cliente/MIGRATION_16_drop_push_infra.sql` derruba
+  `push_tokens`, o trigger `notify_low_stock` e a função. A extensão `pg_net` **fica** — quem a usa
+  agora é o lembrete de vencimento de assinatura.
+- **`send-push`:** sem propósito depois disso (a única fonte de tokens era `push_tokens`). Remover
+  com `supabase functions delete send-push`.
+
+> `MIGRATION_02_push_tokens.sql` é idempotente e **recriaria** tudo se rodada de novo. Ela ficou no
+> repositório só como registro histórico, com aviso no cabeçalho.
 
 ## Teste local
 ```bash

@@ -26,6 +26,28 @@ function record(error: unknown, action: string): void {
   if (error) logSilently(error, { action, screen: 'auth' });
 }
 
+/** Forma mínima do `User` do Supabase que a regra abaixo precisa enxergar. */
+export type AccountIdentities = { identities?: { provider?: string }[] | null } | null;
+
+/**
+ * A conta tem senha própria no Supabase Auth?
+ *
+ * O app entra de duas formas: e-mail + senha (identity `email`) e Google
+ * (identity `google`). Quem entrou só pelo Google NÃO tem senha no GoTrue — a
+ * senha dele é do Google e nunca chega aqui. Por isso a confirmação de exclusão
+ * de conta pergunta a senha em um caso e o e-mail no outro: pedir senha a um
+ * usuário do Google o trancaria fora da própria exclusão.
+ *
+ * Lista vazia (ou ausente) devolve `true` de propósito: sem informação, pede-se
+ * a prova mais forte. A Edge Function delete-account aplica a MESMA regra do
+ * lado do servidor — esta aqui só decide qual campo a tela mostra.
+ */
+export function usesPasswordLogin(user: AccountIdentities): boolean {
+  const identities = user?.identities ?? [];
+  if (identities.length === 0) return true;
+  return identities.some((i) => i.provider === 'email');
+}
+
 export async function signInWithEmail(email: string, password: string): Promise<AuthResult> {
   const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
   record(error, 'Entrar com e-mail e senha');

@@ -1,7 +1,10 @@
 // Edge Function: generate-report (RF-21/24/25/26). SELF-CONTAINED (deployável pelo dashboard).
 // Agrega as vendas da empresa no período, gera HTML, sobe no bucket `reports/<tenant_id>/`
 // e registra a linha em `reports` (status ready). Chamada por usuário autenticado.
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// Versão EXATA (não `@2`): sem lockfile, `@2` resolveria para a última 2.x no
+// momento de cada deploy — e este código roda com a SERVICE_ROLE_KEY no ambiente.
+// Ver A03-01 na auditoria (docs/auditoria-seguranca-web).
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';
 
 // CORS restrito. Desde o app WEB (PWA), estas funções passaram a ser chamadas de
 // dentro do NAVEGADOR — e o app roda em mais de uma origem ao mesmo tempo:
@@ -126,6 +129,25 @@ Deno.serve(async (req: Request) => {
     const caller = await getCallerTenant(req, body.tenant_id ?? null);
     if (!caller) return json({ error: 'Não autenticado ou sem acesso à empresa.' }, 401);
 
+    const u = userClient(req); // RLS restringe à empresa do usuário
+
+    // Relatório é dado financeiro (receita, custo de fornecedor, margem): só
+    // owner|manager. Antes desta checagem, a autorização acontecia por efeito
+    // colateral — a função agregava tudo e subia o HTML no Storage com a
+    // service_role, e só o INSERT em `reports` no fim é que batia na policy.
+    // Um funcionário conseguia fazer o servidor trabalhar e deixar arquivo
+    // órfão no bucket a cada chamada. Ver A01-02 na auditoria.
+    const { data: me } = await u
+      .from('tenant_members')
+      .select('role')
+      .eq('tenant_id', caller.tenantId)
+      .eq('user_id', caller.userId)
+      .maybeSingle();
+    const role = (me as { role?: string } | null)?.role ?? '';
+    if (role !== 'owner' && role !== 'manager') {
+      return json({ error: 'Apenas dono ou gerente podem gerar relatórios.' }, 403);
+    }
+
     const type = body.type ?? 'monthly_sales';
     const now = new Date();
     const start = body.from ? new Date(body.from) : new Date(now.getFullYear(), now.getMonth(), 1);
@@ -143,7 +165,6 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'Intervalo máximo do relatório é de 1 ano.' }, 400);
     }
 
-    const u = userClient(req); // RLS restringe à empresa do usuário
     const { data: salesData, error } = await u
       .from('sales')
       .select('total_amount, payment_method, sale_date, sale_items(product_client_id, quantity, unit_price)')
@@ -219,17 +240,12 @@ Deno.serve(async (req: Request) => {
     const admin = adminClient();
     const reportId = crypto.randomUUID();
     const path = `${caller.tenantId}/${reportId}.html`;
-    // Uint8Array + contentType explícito: em Deno o campo `type` do Blob não é repassado
-    // corretamente pelo SDK do Storage, fazendo o objeto ser salvo como application/octet-stream.
-    // Passar o body como Uint8Array garante que apenas o `contentType` da opção seja aplicado.
-    const upload = await admin.storage
-      .from('reports')
-      .upload(path, new TextEncoder().encode(html), {
-        contentType: 'text/html; charset=utf-8',
-        upsert: true,
-      });
-    if (upload.error) throw upload.error;
 
+    // ORDEM: grava a linha em `reports` ANTES de subir o arquivo. O INSERT passa
+    // pelo cliente do usuário e portanto pela policy reports_access — é a última
+    // barreira de autorização. Subindo antes (como era), uma recusa de RLS já
+    // teria deixado um HTML com dados financeiros no bucket, sem dono e sem
+    // rotina de limpeza. Ver A01-02 na auditoria.
     const { error: insErr } = await u.from('reports').insert({
       tenant_id: caller.tenantId,
       client_id: reportId,
@@ -240,9 +256,32 @@ Deno.serve(async (req: Request) => {
     });
     if (insErr) throw insErr;
 
+    // Uint8Array + contentType explícito: em Deno o campo `type` do Blob não é repassado
+    // corretamente pelo SDK do Storage, fazendo o objeto ser salvo como application/octet-stream.
+    // Passar o body como Uint8Array garante que apenas o `contentType` da opção seja aplicado.
+    const upload = await admin.storage
+      .from('reports')
+      .upload(path, new TextEncoder().encode(html), {
+        contentType: 'text/html; charset=utf-8',
+        upsert: true,
+      });
+    if (upload.error) {
+      // Sem o arquivo, a linha aponta para o vazio: desfaz para o usuário não
+      // ver um relatório que abre em branco.
+      await u.from('reports').delete().eq('client_id', reportId);
+      throw upload.error;
+    }
+
     return json({ reportId, path, total, count: sales.length });
   } catch (e) {
-    return json({ error: String((e as Error)?.message ?? e) }, 400);
+    // Não devolver a mensagem crua: os erros que passam por aqui vêm do
+    // PostgREST/GoTrue e carregam nome de tabela, coluna, constraint e policy —
+    // o mapa interno do banco, exibido num toast para qualquer usuário. O
+    // detalhe fica no log da função, e o usuário leva um código para citar no
+    // suporte. Ver A10-01 na auditoria.
+    const ref = crypto.randomUUID().slice(0, 8);
+    console.error(`[generate-report ${ref}]`, e);
+    return json({ error: 'Não foi possível gerar o relatório.', ref }, 400);
   }
 });
 

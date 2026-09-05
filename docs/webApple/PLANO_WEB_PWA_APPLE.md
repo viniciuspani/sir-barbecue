@@ -97,9 +97,9 @@ Como os repositórios são separados, o `src/core/` do web é um **porte manual*
 | F4 — venda (PDV) | ✅ entregue; RPC `create_sale` aplicada no Supabase, vendas registrando |
 | F5 — comandas no servidor | ✅ código pronto; falta aplicar MIGRATION_09 e gerar APK |
 | F6 — Início, relatórios, empresa, conta, ajuda | ✅ entregue |
-| F7 — PWA, iOS e publicação | ▶️ próxima |
+| F7 — PWA, iOS e publicação | ✅ código pronto; falta o deploy (ver DEPLOY.md no repo web) |
 
-Estado do repo web: 154 testes, `typecheck` e `build` verdes. 27 telas, 28 rotas.
+Estado do repo web: 166 testes, `typecheck` e `build` verdes. 27 telas, 28 rotas, PWA gerando manifest + service worker.
 
 ### Correções no app mobile já aplicadas (exigem APK novo)
 

@@ -38,7 +38,24 @@ function formatDueDate(iso: string): string {
   }).format(d);
 }
 
-function buildEmailHtml(tenantName: string, dueDateFormatted: string): string {
+// O nome da empresa é editável pelo dono (tela Minha Empresa) e chega aqui via
+// send_subscription_due_reminders() -> net.http_post. Sem escape, ele era
+// interpolado cru no HTML do e-mail: conteúdo arbitrário saindo sob o remetente
+// e o domínio verificados do Sir Barbecue. Quem injeta é quem recebe (o
+// destinatário é o próprio owner), então o risco é de reputação do domínio e de
+// phishing reencaminhado — não de atingir outra empresa. Ver A05-01 na auditoria.
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildEmailHtml(rawTenantName: string, dueDateFormatted: string): string {
+  // O corte em 120 evita que um nome absurdamente longo desmonte o e-mail.
+  const tenantName = escapeHtml(rawTenantName).slice(0, 120);
   return `
     <p>Olá, ${tenantName}!</p>
     <p>Passando para avisar que a assinatura do Sir Barbecue da sua empresa vence em

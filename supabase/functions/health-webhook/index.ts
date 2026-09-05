@@ -18,7 +18,9 @@
 // env SAUDE_WEBHOOK_TOKEN não estiver configurada, ela recusa tudo em vez de
 // aceitar tudo. O token vai na querystring porque é o que o HetrixTools permite
 // configurar (a URL do webhook) — trafega dentro do TLS.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// Versão EXATA (não `@2`): sem lockfile, `@2` resolveria para a última 2.x a
+// cada deploy, sem integrity. Ver A03-01 na auditoria (docs/auditoria-seguranca-web).
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';
 
 const WEBHOOK_TOKEN = Deno.env.get('SAUDE_WEBHOOK_TOKEN') ?? '';
 

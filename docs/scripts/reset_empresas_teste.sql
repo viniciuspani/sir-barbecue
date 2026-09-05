@@ -30,8 +30,9 @@ end $$;
 -- 1) Apaga todas as empresas — cascateia automaticamente para:
 --    tenant_members, categories, products, product_day_visibility,
 --    suppliers, product_suppliers, stock_items, stock_entries,
---    sales, sale_items, reports, sync_checkpoints, push_tokens,
+--    sales, sale_items, reports, sync_checkpoints, tabs, tab_items,
 --    subscriptions, tenant_devices, payments.
+--    (push_tokens saiu da lista: tabela removida pela MIGRATION_16.)
 --    (TRUNCATE ... CASCADE ignora RESTRICT nas FKs filhas, então funciona
 --    mesmo com as tabelas normalizadas que referenciam products/suppliers/sales
 --    com ON DELETE RESTRICT.)

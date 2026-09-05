@@ -493,6 +493,7 @@ begin
     'lastPaymentAt', (select max(p.paid_at) from public.payments p where p.tenant_id = t.id),
     'cnpj',          t.cnpj,
     'phone',         t.phone,
+    'email',         u.email,
     'devices', coalesce((
       select jsonb_agg(jsonb_build_object(
         'deviceId',    d.device_id,
@@ -518,6 +519,7 @@ begin
   ) into v_result
   from public.tenants t
   join public.subscriptions s on s.tenant_id = t.id
+  left join auth.users u on u.id = t.owner_user_id
   where t.id = p_tenant_id;
 
   return v_result; -- null se a empresa não existir

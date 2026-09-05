@@ -1,4 +1,15 @@
 -- =====================================================================
+-- ⚠️  OBSOLETA — NÃO EXECUTE. Revertida por MIGRATION_16_drop_push_infra.sql.
+--
+--   A funcionalidade de push foi desativada (decisão de 20/08/2026, reafirmada
+--   em 02/09/2026): num PDV o app fica aberto o expediente inteiro e o alerta de
+--   estoque já é entregue na Home, o que torna o push redundante.
+--
+--   Este arquivo é IDEMPOTENTE: rodá-lo de novo RECRIA tabela, policy e trigger,
+--   desfazendo a remoção em silêncio. Mantido apenas como registro histórico.
+-- =====================================================================
+
+-- =====================================================================
 -- MIGRATION 02 — Infra de push (RF-11 estoque baixo)
 -- Aplica SOBRE o schema multi-tenant já implantado. Idempotente. Rode no SQL Editor.
 --

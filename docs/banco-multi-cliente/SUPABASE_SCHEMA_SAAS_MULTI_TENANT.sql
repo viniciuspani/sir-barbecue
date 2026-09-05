@@ -1,4 +1,34 @@
 -- =====================================================================
+-- ⚠️  NÃO REEXECUTE ESTE ARQUIVO NO BANCO DE PRODUÇÃO.
+--
+--   Ele é idempotente e por isso PARECE seguro de rodar de novo. Não é. Ele
+--   contém as versões ANTIGAS de duas funções que migrações posteriores
+--   endureceram, e `create or replace` as sobrescreve sem erro, sem aviso e sem
+--   deixar rastro — o banco fica vulnerável e nada na tela indica isso:
+--
+--     • handle_new_user (seção SEED + BOOTSTRAP, mais abaixo) — versão sem a
+--       checagem de convite pendente. Reexecutar REABRE O ESCALONAMENTO DE
+--       PRIVILÉGIO cross-tenant no cadastro (um usuário podia se registrar como
+--       membro de empresa alheia via metadado do signup), corrigido em
+--       MIGRATION_02_invites_table.sql.
+--     • deduct_stock_on_sale (seção TRIGGERS de negócio) — versão sem validar a
+--       empresa do produto. Reexecutar REABRE O ACESSO CROSS-TENANT AO ESTOQUE,
+--       corrigido em MIGRATION_03_stock_triggers_tenant_scope.sql.
+--
+--   Também recria as POLICIES base — desfazendo as das MIGRATION_13 e 15
+--   (fornecedor/custo restritos a owner|manager; DELETE de venda só do owner)
+--   caso já tenham sido aplicadas.
+--
+--   USO CORRETO: este arquivo é o schema de PARTIDA de um banco NOVO. Num banco
+--   já implantado, mude o schema pelas migrações de docs/banco-multi-cliente/.
+--
+--   SE PRECISAR MESMO REEXECUTAR: rode em seguida, NESTA ORDEM,
+--   MIGRATION_02_invites_table.sql, MIGRATION_03_stock_triggers_tenant_scope.sql
+--   e todas as posteriores já aplicadas; depois refaça a conferência descrita em
+--   docs/auditoria-seguranca-web/CONFERENCIA_POLICIES_PRODUCAO.md.
+-- =====================================================================
+
+-- =====================================================================
 -- Sir Barbecue — SCHEMA SUPABASE (PostgreSQL) — VERSÃO SAAS MULTI-TENANT
 -- Cobre as Sugestões 1 + 3 da avaliação multi-cliente.
 --   (1) Empresa como entidade própria (tenants) + equipe/papéis (tenant_members).
@@ -501,13 +531,29 @@ create policy reports_access on public.reports for all to authenticated
 
 -- =====================================================================
 -- Sugestão 3: CUSTOM ACCESS TOKEN HOOK — injeta tenant_ids no JWT
--- Habilitar em: Supabase Dashboard → Authentication → Hooks →
+--
+-- STATUS: DESLIGADO EM PRODUÇÃO desde 03/09/2026, por decisão. Nada no
+--   sistema depende deste claim, e um hook no caminho da emissão de token é
+--   peça crítica: se ele lançar exceção, NINGUÉM consegue logar. A função fica
+--   aqui para quem um dia quiser a variante rápida de RLS (ver o fim da seção).
+--
+-- HISTÓRICO — o bug que motivou o desligamento:
+--   O hook ficou ligado por meses devolvendo SEMPRE `"tenant_ids": []`, para
+--   todo usuário, inclusive donos com empresa. Causa: esta função estava sem
+--   `security definer`. O hook roda como `supabase_auth_admin`, e o
+--   `grant select on tenant_members` abaixo resolve a permissão de TABELA, mas
+--   não a RLS — as policies de tenant_members são `to authenticated`, papel que
+--   `supabase_auth_admin` não tem (`rolbypassrls = false`, verificado). Nenhuma
+--   policy se aplicava a ele, a RLS negava tudo e o `jsonb_agg` agregava zero
+--   linhas. Falha 100% silenciosa: o claim existia, só vinha vazio.
+--   O `security definer` abaixo corrige isso — mas leia o aviso da variante
+--   rápida antes de religar o hook.
+--
+-- Para habilitar: Supabase Dashboard → Authentication → Hooks →
 --   "Custom Access Token" → selecionar public.add_tenant_claims.
--- Depois de habilitado, as policies podem usar o caminho rápido (comentado)
--- que lê app_metadata.tenant_ids do JWT, sem tocar em tenant_members.
 -- =====================================================================
 create or replace function public.add_tenant_claims(event jsonb)
-returns jsonb language plpgsql stable as $$
+returns jsonb language plpgsql stable security definer set search_path = public as $$
 declare
   claims    jsonb;
   tenant_ids jsonb;
@@ -532,10 +578,34 @@ grant execute on function public.add_tenant_claims(jsonb) to supabase_auth_admin
 revoke execute on function public.add_tenant_claims(jsonb) from authenticated, anon, public;
 grant select on public.tenant_members to supabase_auth_admin;
 
--- VARIANTE RÁPIDA (opcional) — após habilitar o hook, dá pra trocar as policies por:
+-- ---------------------------------------------------------------------
+-- ⚠️  VARIANTE RÁPIDA — NÃO ADOTE SEM LER ISTO POR INTEIRO.
+--
+-- A ideia é trocar o `using (tenant_id in (select public.user_tenant_ids()))`
+-- das policies por leitura direta do claim:
 --   using (tenant_id = any (
 --     select (jsonb_array_elements_text(auth.jwt() -> 'app_metadata' -> 'tenant_ids'))::uuid))
--- Evita o SELECT em tenant_members a cada query (mais barato no free tier).
+-- Economiza um SELECT em tenant_members por query (relevante no free tier).
+--
+-- POR QUE É PERIGOSA:
+--   1) Ela só funciona se o hook estiver LIGADO **e** preenchendo o claim. Hoje
+--      o hook está desligado: `auth.jwt() -> 'app_metadata' -> 'tenant_ids'` não
+--      existe, a expressão não casa com nada e TODA consulta de TODA tabela
+--      volta vazia. O app não dá erro — simplesmente não mostra dado nenhum.
+--      Falha fechada, mas total, e difícil de diagnosticar.
+--   2) Mesmo com o hook ligado, o claim é uma FOTO do momento em que o token foi
+--      emitido. Ele só muda na renovação (~1h) ou em novo login. Um funcionário
+--      recém-convidado ficaria até uma hora sem enxergar a empresa nova; um
+--      membro removido continuaria com acesso até o token expirar — que é o
+--      oposto do que se espera de uma revogação de acesso.
+--
+-- O caminho atual (`user_tenant_ids()`, SECURITY DEFINER) lê tenant_members a
+-- cada query: custa um SELECT indexado e é sempre AO VIVO. Enquanto o volume
+-- não provar que isso é gargalo, a troca piora a segurança para economizar
+-- pouco. Se um dia for adotada: ligar o hook primeiro, confirmar num JWT real
+-- que `tenant_ids` vem PREENCHIDO (não `[]`), e só então trocar as policies —
+-- uma tabela por vez, verificando a leitura no app entre cada uma.
+-- ---------------------------------------------------------------------
 
 -- =====================================================================
 -- MANUTENÇÃO — limpeza do histórico de preço de compra

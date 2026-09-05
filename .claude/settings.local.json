@@ -34,7 +34,14 @@
       "Bash(npm test *)",
       "Bash(npx vitest *)",
       "Bash(git init *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "WebFetch(domain:owasp.org)",
+      "Read(//c/develop/WEB/sir-barbecue-web/**)",
+      "Bash(sed 's/=.*/=<REDACTED>/' .env)",
+      "Bash(cd /c/develop/WEB/sir-barbecue-web && echo \"=== vite.config.ts ===\" && cat -n vite.config.ts && echo \"=== scripts ===\" && ls scripts public && echo \"=== dist presente? ===\" && ls dist | head)",
+      "Bash(cd \"c:/develop/WEB/sir-barbecue-web\" && echo \"=== .env.example \\(o que o cliente espera\\) ===\" && cat .env.example)",
+      "Bash(cd \"c:/develop/WEB/sir-barbecue-web\" && echo \"=== guard do VITE_ACCESS_BYPASS no PWA \\(a espelhar\\) ===\" && grep -n -B6 -A20 \"ACCESS_BYPASS\" vite.config.ts)",
+      "Bash(echo \"TYPECHECK_EXIT=$?\")"
     ]
   }
 }

@@ -5,7 +5,10 @@
 //    usuário nem magic link). A pessoa se cadastra no app com esse e-mail e o trigger
 //    handle_new_user_invite resolve o vínculo PELA TABELA (não por metadado).
 // Pré-requisitos: MIGRATION_01_invite_trigger.sql + MIGRATION_02_invites_table.sql.
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// Versão EXATA (não `@2`): sem lockfile, `@2` resolveria para a última 2.x no
+// momento de cada deploy — e este código roda com a SERVICE_ROLE_KEY no ambiente.
+// Ver A03-01 na auditoria (docs/auditoria-seguranca-web).
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';
 
 // CORS restrito. Desde o app WEB (PWA), estas funções passaram a ser chamadas de
 // dentro do NAVEGADOR — e o app roda em mais de uma origem ao mesmo tempo:
@@ -161,6 +164,14 @@ Deno.serve(async (req: Request) => {
 
     return json({ ok: true, userId: existing.id, role });
   } catch (e) {
-    return json({ error: String((e as Error)?.message ?? e) }, 400);
+    // Mensagem genérica + código de referência. A string crua do PostgREST/GoTrue
+    // ("duplicate key value violates unique constraint uq_tenant_invites_pending")
+    // era exibida direto num toast, entregando nome de tabela, coluna, constraint
+    // e policy a qualquer usuário. O detalhe fica no log da função. Ver A10-01.
+    // As mensagens de negócio tratadas acima (e-mail faltando, papel inválido,
+    // "apenas o dono pode convidar") continuam específicas — são seguras e úteis.
+    const ref = crypto.randomUUID().slice(0, 8);
+    console.error(`[invite-member ${ref}]`, e);
+    return json({ error: 'Não foi possível concluir o convite.', ref }, 400);
   }
 });

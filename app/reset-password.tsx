@@ -72,8 +72,9 @@ export default function ResetPassword() {
 
   const onSubmit = async () => {
     setError(null);
-    if (password.length < 6) {
-      setError('A senha deve ter ao menos 6 caracteres.');
+    // Mesmo mínimo do cadastro (ver A07-01 na auditoria de segurança).
+    if (password.length < 10) {
+      setError('A senha deve ter ao menos 10 caracteres.');
       return;
     }
     if (password !== confirm) {
@@ -120,7 +121,7 @@ export default function ResetPassword() {
                 label="Nova senha"
                 value={password}
                 onChangeText={setPassword}
-                placeholder="mínimo 6 caracteres"
+                placeholder="mínimo 10 caracteres"
                 secureTextEntry
                 autoCapitalize="none"
                 textContentType="newPassword"

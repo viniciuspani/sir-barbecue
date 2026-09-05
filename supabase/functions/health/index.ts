@@ -16,7 +16,9 @@
 // Por ser pública, ela nunca devolve dado de cliente nem a mensagem crua do
 // Postgres (que vazaria o schema) — só booleanos, latência e um código genérico.
 // O erro completo vai para o log da função (Dashboard → Edge Functions → Logs).
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// Versão EXATA (não `@2`): sem lockfile, `@2` resolveria para a última 2.x a
+// cada deploy, sem integrity. Ver A03-01 na auditoria (docs/auditoria-seguranca-web).
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';
 
 const VERSION = '2.1.0'; // manter em sincronia com o "version" do app.json
 const DB_TIMEOUT_MS = 5_000; // acima disso consideramos o banco fora

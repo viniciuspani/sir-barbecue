@@ -54,8 +54,11 @@ export default function SignUp() {
       setError('Informe o nome da empresa.');
       return;
     }
-    if (password.length < 6) {
-      setError('A senha deve ter ao menos 6 caracteres.');
+    // 10 caracteres: uma conta `owner` comprometida dá acesso a todo o
+    // faturamento da empresa e pode excluí-la. Alinhado ao mínimo configurado
+    // no painel do Supabase — ver A07-01 na auditoria de segurança.
+    if (password.length < 10) {
+      setError('A senha deve ter ao menos 10 caracteres.');
       return;
     }
     if (password !== confirm) {
@@ -121,7 +124,7 @@ export default function SignUp() {
             label="Senha"
             value={password}
             onChangeText={setPassword}
-            placeholder="mínimo 6 caracteres"
+            placeholder="mínimo 10 caracteres"
             secureTextEntry
             autoCapitalize="none"
             textContentType="newPassword"
