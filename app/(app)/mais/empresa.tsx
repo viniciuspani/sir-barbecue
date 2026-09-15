@@ -9,9 +9,10 @@ import { usePermissions } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
 import { inviteMember } from '@/services/functions';
 import {
+  deactivateMember,
   fetchMembers,
   fetchTenant,
-  removeMember,
+  reactivateMember,
   updateTenant,
   type TenantMember,
 } from '@/services/tenant';
@@ -22,7 +23,7 @@ import { Chip } from '@/ui/Chip';
 import { TextField } from '@/ui/TextField';
 
 export default function Empresa() {
-  const { canAccessCompany } = usePermissions();
+  const { canAccessCompany, readOnlyReason } = usePermissions();
   const tenantId = useAuthStore((s) => s.currentTenantId);
   const session = useAuthStore((s) => s.session);
   const userId = useAuthStore((s) => s.user?.id);
@@ -97,26 +98,48 @@ export default function Empresa() {
     showToast(error ?? 'Empresa atualizada! ✅');
   };
 
-  const onRemove = (member: TenantMember) => {
+  // INATIVAR, não excluir: o dono é titular do vínculo, não dos dados pessoais
+  // da pessoa. Ele revoga o acesso dela à empresa; excluir a conta é ação que só
+  // o próprio usuário faz, em Conta → Excluir conta.
+  const onDeactivate = (member: TenantMember) => {
     if (!tenantId) return;
-    Alert.alert('Remover membro', 'Remover este membro da empresa?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Remover',
-        style: 'destructive',
-        onPress: () => {
-          removeMember(tenantId, member.userId)
-            .then(({ error }) => {
-              if (error) showToast(error);
-              else {
-                showToast('Membro removido.');
-                loadMembers();
-              }
-            })
-            .catch((e) => void reportError(e, { action: 'Remover membro da equipe' }));
+    Alert.alert(
+      'Inativar membro',
+      'Esta pessoa perde o acesso aos dados da empresa imediatamente. A conta dela não é excluída, e o histórico de vendas e lançamentos continua registrado. Você pode reativar depois.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Inativar',
+          style: 'destructive',
+          onPress: () => {
+            deactivateMember(tenantId, member.userId)
+              .then(({ error }) => {
+                if (error) showToast(error);
+                else {
+                  showToast('Membro inativado.');
+                  loadMembers();
+                }
+              })
+              .catch((e) => void reportError(e, { action: 'Inativar membro da equipe' }));
+          },
         },
-      },
-    ]);
+      ],
+    );
+  };
+
+  // Também é o caminho para destravar vendas retidas no aparelho de quem foi
+  // inativado: reativar → o app sincroniza → inativar de novo.
+  const onReactivate = (member: TenantMember) => {
+    if (!tenantId) return;
+    reactivateMember(tenantId, member.userId)
+      .then(({ error }) => {
+        if (error) showToast(error);
+        else {
+          showToast('Membro reativado.');
+          loadMembers();
+        }
+      })
+      .catch((e) => void reportError(e, { action: 'Reativar membro da equipe' }));
   };
 
   const onInvite = async () => {
@@ -214,25 +237,64 @@ export default function Empresa() {
         keyboardType="phone-pad"
       />
       {isOwner ? (
-        <Button title="Salvar dados" onPress={onSave} loading={saving} />
+        <Button
+          title="Salvar dados"
+          onPress={onSave}
+          loading={saving}
+          disabledReason={readOnlyReason ?? undefined}
+        />
       ) : (
         <Text style={styles.hint}>Apenas o dono (owner) pode editar os dados da empresa.</Text>
       )}
 
-      <Text style={styles.section}>Equipe ({members.length})</Text>
-      {members.map((member) => (
-        <View key={member.userId} style={styles.memberRow}>
-          <View style={styles.memberMain}>
-            <Text style={styles.memberId}>{member.userId.slice(0, 8)}…</Text>
-            <Text style={styles.memberRole}>{member.role}</Text>
+      <Text style={styles.section}>Equipe ({members.filter((m) => m.active).length})</Text>
+      {members
+        .filter((m) => m.active)
+        .map((member) => (
+          <View key={member.userId} style={styles.memberRow}>
+            <View style={styles.memberMain}>
+              <Text style={styles.memberId}>{member.userId.slice(0, 8)}…</Text>
+              <Text style={styles.memberRole}>{member.role}</Text>
+            </View>
+            {isOwner && member.userId !== userId && (
+              <Pressable
+                onPress={() => onDeactivate(member)}
+                hitSlop={8}
+                accessibilityLabel="Inativar membro"
+              >
+                <Text style={styles.remove}>Inativar</Text>
+              </Pressable>
+            )}
           </View>
-          {isOwner && member.userId !== userId && (
-            <Pressable onPress={() => onRemove(member)} hitSlop={8} accessibilityLabel="Remover membro">
-              <Text style={styles.remove}>Remover</Text>
-            </Pressable>
-          )}
-        </View>
-      ))}
+        ))}
+
+      {/* Inativos ficam VISÍVEIS de propósito: sem isso, um clique errado seria
+          irreversível pela interface — e é por aqui que o dono reativa alguém
+          para destravar vendas presas no aparelho. */}
+      {isOwner && members.some((m) => !m.active) && (
+        <>
+          <Text style={styles.section}>Inativos ({members.filter((m) => !m.active).length})</Text>
+          {members
+            .filter((m) => !m.active)
+            .map((member) => (
+              <View key={member.userId} style={styles.memberRow}>
+                <View style={styles.memberMain}>
+                  <Text style={[styles.memberId, styles.memberInactive]}>
+                    {member.userId.slice(0, 8)}…
+                  </Text>
+                  <Text style={styles.memberRole}>{member.role} · sem acesso</Text>
+                </View>
+                <Pressable
+                  onPress={() => onReactivate(member)}
+                  hitSlop={8}
+                  accessibilityLabel="Reativar membro"
+                >
+                  <Text style={styles.reactivate}>Reativar</Text>
+                </Pressable>
+              </View>
+            ))}
+        </>
+      )}
 
       {isOwner && (
         <>
@@ -257,7 +319,12 @@ export default function Empresa() {
               onPress={() => setInviteRole('manager')}
             />
           </View>
-          <Button title="Convidar" onPress={onInvite} loading={inviting} />
+          <Button
+            title="Convidar"
+            onPress={onInvite}
+            loading={inviting}
+            disabledReason={readOnlyReason ?? undefined}
+          />
         </>
       )}
     </ScrollView>
@@ -284,4 +351,6 @@ const styles = StyleSheet.create({
   memberId: { color: colors.textPrimary, fontSize: 15, fontWeight: '600' },
   memberRole: { color: colors.gold, fontSize: 13, fontWeight: '600', textTransform: 'capitalize' },
   remove: { color: colors.danger, fontSize: 13, fontWeight: '600' },
+  reactivate: { color: colors.gold, fontSize: 13, fontWeight: '600' },
+  memberInactive: { opacity: 0.6 },
 });

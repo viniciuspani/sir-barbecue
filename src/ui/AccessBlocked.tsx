@@ -5,6 +5,7 @@ import { colors, radii, spacing } from '@/design/tokens';
 import type { AccessReason } from '@/services/access';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/ui/Button';
+import { DeletionNoticeCard } from '@/ui/DeletionNoticeCard';
 
 type Copy = { icon: keyof typeof Ionicons.glyphMap; title: string; body: string };
 
@@ -59,6 +60,13 @@ export function AccessBlocked({ reason }: { reason: AccessReason | null }) {
       <Text style={styles.title}>{copy.title}</Text>
       <Text style={styles.body}>{copy.body}</Text>
 
+      {/* Se a assinatura vencer DURANTE a janela de exclusão, esta tela cheia
+          engoliria o card da Home — e com ele o botão de cancelar. A janela de
+          retenção morreria em silêncio, sem o cliente sequer ver a saída. */}
+      <View style={styles.deletionSlot}>
+        <DeletionNoticeCard compact />
+      </View>
+
       {contact ? (
         <Button title="Falar com o suporte" onPress={openContact} style={styles.button} />
       ) : null}
@@ -98,6 +106,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   body: { color: colors.textSecondary, fontSize: 16, lineHeight: 24, textAlign: 'center' },
+  deletionSlot: { alignSelf: 'stretch', marginTop: spacing.lg },
   button: { marginTop: spacing.xl, alignSelf: 'stretch' },
   buttonSecondary: { marginTop: spacing.md, alignSelf: 'stretch' },
 });

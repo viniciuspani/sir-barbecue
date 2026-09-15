@@ -8,6 +8,7 @@ import type { Product } from '@/domain/entities/Product';
 import { colors, spacing } from '@/design/tokens';
 import { parseBRL } from '@/lib/currency';
 import { reportError } from '@/lib/feedback';
+import { usePermissions } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
 import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
@@ -15,6 +16,7 @@ import { Chip } from '@/ui/Chip';
 import { TextField } from '@/ui/TextField';
 
 export default function RegistrarEntrada() {
+  const { readOnlyReason } = usePermissions();
   const [products, setProducts] = useState<Product[]>([]);
   const [productId, setProductId] = useState<string | undefined>();
   const [quantity, setQuantity] = useState('');
@@ -93,7 +95,12 @@ export default function RegistrarEntrada() {
 
         {!!error && <Text style={styles.error}>{error}</Text>}
 
-        <Button title="Registrar entrada" onPress={onSave} loading={saving} />
+        <Button
+          title="Registrar entrada"
+          onPress={onSave}
+          loading={saving}
+          disabledReason={readOnlyReason ?? undefined}
+        />
         <Button title="Cancelar" variant="text" onPress={() => router.back()} />
       </ScrollView>
     </SafeAreaView>

@@ -48,7 +48,7 @@ function operatorName(user: { email?: string; user_metadata?: Record<string, unk
 }
 
 export default function NovaVenda() {
-  const { role } = usePermissions();
+  const { role, readOnly, readOnlyReason } = usePermissions();
   const user = useAuthStore((s) => s.user);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -111,6 +111,12 @@ export default function NovaVenda() {
 
   // RF-10: não permite vender sem saldo (considera carrinho + todas as comandas abertas).
   const onAdd = (p: Product) => {
+    // Somente-leitura (exclusão agendada): barra já na entrada do item, para a
+    // pessoa não montar o pedido inteiro e só descobrir no fechamento.
+    if (readOnly && readOnlyReason) {
+      showToast(readOnlyReason);
+      return;
+    }
     if (availableQty(p.id) <= 0) {
       showToast('Estoque insuficiente. Registre uma entrada de estoque antes de vender.');
       return;
@@ -143,6 +149,10 @@ export default function NovaVenda() {
   };
 
   const onCreateTab = async () => {
+    if (readOnly && readOnlyReason) {
+      showToast(readOnlyReason);
+      return;
+    }
     const name = nameInput.trim();
     if (!name) {
       showToast('Informe o nome do cliente.');

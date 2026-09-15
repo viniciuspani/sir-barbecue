@@ -29,11 +29,30 @@ export type AccessReason =
   | 'unknown'
   | 'unverified';
 
+/**
+ * Solicitação de exclusão de conta pendente (MIGRATION_24). Enquanto existe, a
+ * empresa fica em SOMENTE-LEITURA — mas `allowed` continua true de propósito:
+ * bloquear a tela inteira tiraria do cliente o botão de cancelar, que é o ponto
+ * da janela de arrependimento. Ver as DECISÕES no topo da MIGRATION_24.
+ */
+export type DeletionInfo = {
+  requestId: string;
+  requestedAt: string | null;
+  scheduledFor: string | null;
+  exportRequested: boolean;
+  exportStatus: string | null;
+  contactEmail: string | null;
+  canCancel: boolean;
+};
+
 export type AccessVerdict = {
   allowed: boolean;
   reason: AccessReason | null;
   endsAt: string | null;
   daysRemaining: number;
+  /** true = pode consultar, não pode agir (exclusão de conta agendada). */
+  readOnly: boolean;
+  deletion: DeletionInfo | null;
 };
 
 const CACHE_PREFIX = 'access.cache.v1.';
@@ -78,13 +97,33 @@ function withTimeout<T>(p: PromiseLike<T>, ms: number): Promise<T> {
   });
 }
 
+function normalizeDeletion(raw: unknown): DeletionInfo | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const d = raw as Record<string, unknown>;
+  if (typeof d.requestId !== 'string') return null;
+  return {
+    requestId: d.requestId,
+    requestedAt: (d.requestedAt as string | null) ?? null,
+    scheduledFor: (d.scheduledFor as string | null) ?? null,
+    exportRequested: d.exportRequested === true,
+    exportStatus: (d.exportStatus as string | null) ?? null,
+    contactEmail: (d.contactEmail as string | null) ?? null,
+    canCancel: d.canCancel === true,
+  };
+}
+
 function normalize(data: unknown): AccessVerdict {
   const d = (data ?? {}) as Record<string, unknown>;
+  const deletion = normalizeDeletion(d.deletion);
   return {
     allowed: d.allowed === true,
     reason: (d.reason as AccessReason | null) ?? null,
     endsAt: (d.endsAt as string | null) ?? null,
     daysRemaining: typeof d.daysRemaining === 'number' ? d.daysRemaining : 0,
+    // Deriva do bloco `deletion` em vez de confiar só na flag: um servidor ainda
+    // sem a MIGRATION_24 não manda nenhum dos dois, e aí é false nos dois lados.
+    readOnly: d.readOnly === true || deletion !== null,
+    deletion,
   };
 }
 
@@ -105,10 +144,29 @@ export async function evaluateAccess(tenantId: string): Promise<AccessVerdict> {
     logSilently(e, { action: 'Verificar o acesso da assinatura', screen: 'access' });
     const cached = await readCache(tenantId);
     if (!cached) {
-      return { allowed: true, reason: 'unverified', endsAt: null, daysRemaining: 0 };
+      return {
+        allowed: true,
+        reason: 'unverified',
+        endsAt: null,
+        daysRemaining: 0,
+        readOnly: false,
+        deletion: null,
+      };
     }
+    // O SOMENTE-LEITURA acompanha o veredito negativo, não o positivo: uma vez
+    // cacheado, PERMANECE offline e não expira com a janela de graça. Sem isto,
+    // bastaria ligar o modo avião para voltar a vender com a exclusão agendada.
+    const readOnly = cached.readOnly === true;
+    const deletion = cached.deletion ?? null;
     if (!cached.allowed) {
-      return { allowed: false, reason: cached.reason, endsAt: cached.endsAt, daysRemaining: 0 };
+      return {
+        allowed: false,
+        reason: cached.reason,
+        endsAt: cached.endsAt,
+        daysRemaining: 0,
+        readOnly,
+        deletion,
+      };
     }
     const withinGrace = Date.now() - cached.cachedAt < GRACE_MS;
     return withinGrace
@@ -117,8 +175,17 @@ export async function evaluateAccess(tenantId: string): Promise<AccessVerdict> {
           reason: cached.reason,
           endsAt: cached.endsAt,
           daysRemaining: cached.daysRemaining,
+          readOnly,
+          deletion,
         }
-      : { allowed: false, reason: 'unverified', endsAt: cached.endsAt, daysRemaining: 0 };
+      : {
+          allowed: false,
+          reason: 'unverified',
+          endsAt: cached.endsAt,
+          daysRemaining: 0,
+          readOnly,
+          deletion,
+        };
   }
 }
 

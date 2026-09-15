@@ -1154,13 +1154,27 @@ Confira cada item no painel — o repositório contém os scripts, não o estado
   | **Secure password change** | **OFF** | 🔴 ver abaixo |
   | **Require current password when updating** | **OFF** | 🔴 ver abaixo |
 
-  🔴 **As duas últimas, combinadas, permitem tomada de conta a partir de uma sessão aberta.** Quem estiver com o aparelho desbloqueado e logado troca a senha **sem informar a senha atual** e **sem reautenticar** — e o dono legítimo fica trancado para fora do próprio PDV.
+  ⚠️ **REAVALIADO em 07/09/2026 — NÃO ligar por enquanto.** A recomendação inicial era ativar as duas; a inspeção do código mostrou que ela não se sustenta.
 
-  O cenário não é hipotético neste produto: o aparelho fica no balcão, ligado e logado, o expediente inteiro, ao alcance de funcionários e de quem passa. É a diferença entre "alguém mexeu no meu app" e "perdi o acesso à minha empresa".
+  **O produto não tem tela de "alterar senha" para usuário logado.** Nos dois clientes, `updateUser({password})` é chamado em **um único lugar**: a tela de recuperação (`app/reset-password.tsx:85` no mobile, `ResetPassword.tsx:84` no PWA). Nas telas de conta, "senha" só aparece na confirmação de exclusão (A06-03).
 
-  **Correção (dois cliques, sem mudança de código):** ligar **Require current password when updating** — resolve o essencial exigindo a senha atual. **Secure password change** é o reforço complementar (exige sessão criada nas últimas 24h).
+  Como o toggle age justamente sobre `updateUser({password})`, o resultado é:
 
-  ⚠️ **Antes de ligar, verifique o fluxo de recuperação de senha**: quem chega por link de e-mail não sabe a senha atual. O Supabase trata o fluxo de recovery como reautenticado, então não deve quebrar — mas teste o "esqueci minha senha" ponta a ponta logo depois de ativar, porque quebrar a recuperação seria trocar um problema por outro pior.
+  | Se o GoTrue… | Efeito |
+  |---|---|
+  | dispensa a sessão de *recovery* (comportamento esperado) | **nenhum** — não há outro fluxo que use essa API |
+  | **não** dispensa | **quebra a recuperação de senha**, o único caminho existente para trocar senha no produto |
+
+  Na melhor hipótese não protege nada; na pior derruba o mecanismo. O único ganho residual seria bloquear a chamada **direta à API** com token extraído do aparelho (devtools no PWA, adb no app) — cenário real, mas bem mais estreito do que a versão anterior deste item sugeria. **A afirmação anterior de que "quem pega o aparelho troca a senha" estava errada: não existe botão para isso.**
+
+  **Encaminhamento correto, nesta ordem:**
+  1. **Criar a tela "Alterar senha" para o usuário logado** — hoje quem desconfia de vazamento precisa deslogar e depender de e-mail. É lacuna de UX e de segurança.
+  2. **Só então ligar `Require current password when updating`**, que passa a proteger esse formulário novo sem tocar na recuperação. Os dois fazem sentido juntos; o toggle sozinho não tem o que proteger.
+  3. Se quiser ligar antes disso, **testar numa conta descartável** e estar pronto para desligar.
+
+  📌 **Consequência para o item do SMTP:** sendo o e-mail o **único** caminho de troca de senha em todo o produto, o limite de 2 e-mails/hora do SMTP embutido deixa de ser incômodo de onboarding e vira gargalo do único mecanismo de recuperação existente. Sobe de prioridade.
+
+  📌 **Sobre o cenário do aparelho no balcão:** se ele está desbloqueado e logado, a senha não é o elo fraco — o funcionário já opera **como** o dono (vende, convida membro, mexe no que o papel permitir). A resposta é trava de aparelho ou PIN no app, decisão de produto, não política de senha.
 
   🚫 **Captcha — DECISÃO DO DONO (05/09/2026): não ativar por enquanto.** Ligá-lo agora acrescentaria atrito no acesso num momento em que a prioridade é a adoção do produto. Não é pendência: é escolha consciente, com o risco aceito.
 
@@ -1184,7 +1198,23 @@ Confira cada item no painel — o repositório contém os scripts, não o estado
   - **Falha aborta tudo:** se a limpeza der erro, o `throw` sobe para o `catch` e a conta **não** é apagada. O usuário repete a exclusão — a operação é idempotente, a empresa ainda existe. É o oposto do defeito que se está corrigindo: melhor a exclusão falhar e ser refeita do que concluir deixando os relatórios para trás.
   - Teto de 100 rodadas (10.000 arquivos por empresa) para não girar infinito caso o `remove` pare de surtir efeito.
 
-  ⚠️ **Sem verificação automatizada possível neste ambiente:** Edge Functions rodam em Deno, o `deno` não está instalado na máquina e `supabase/` está no `exclude` do `tsconfig.json`. O código foi revisado manualmente. **O teste real é excluir uma conta de teste que tenha relatórios gerados** e confirmar que a pasta sumiu do bucket. Exige `supabase functions deploy delete-account`.
+  ✅ **VERIFICADO PONTA A PONTA em 07/09/2026**, pelo PWA, com a empresa de teste "Espetinho Sofia" (`9ff3d3b7-…`):
+  - relatório gerado antes → arquivo presente no bucket;
+  - exclusão feita **pela tela**, com senha;
+  - resultado: `tenants`, `products`, `sales` e `sale_items` zerados; usuário removido de `auth.users`; e **a pasta `9ff3d3b7-…` deixou de existir no bucket**.
+
+  É a primeira vez que a exclusão de conta funciona de ponta a ponta — e a primeira em que o Storage acompanha o banco.
+
+  *(Sem verificação automatizada possível neste ambiente: Edge Functions rodam em Deno, o `deno` não está instalado na máquina e `supabase/` está no `exclude` do `tsconfig.json`. A prova é o teste manual acima.)*
+
+  🔧 **REVISADA em 07/09/2026, depois do primeiro teste real — a versão inicial tinha um defeito de ordem.** A limpeza rodava **antes** do delete no banco, com o argumento de que depois não se saberia quais pastas eram da empresa. O argumento era falso (os ids já estão em mãos) e o custo apareceu no primeiro teste: a exclusão falhou na etapa do banco (FK RESTRICT — ver o item abaixo), a transação voltou atrás, **mas os arquivos já tinham sido apagados**. O Storage não faz rollback. Resultado: empresa intacta, relatórios perdidos — pior que o órfão que se queria evitar.
+
+  **Correção:** a limpeza foi movida para **depois** do delete no banco e do `deleteUser`, dentro de `try/catch` que **não** derruba a exclusão. A consequência aceita é a inversa e muito menos grave: se a limpeza falhar após o banco, sobram órfãos — registrados no log com o id do tenant, para limpeza manual.
+
+  🔎 **Achado colateral, mais grave que o item original: a exclusão de empresa NUNCA funcionou.** O primeiro teste real revelou `23503 ... sale_items_product_client_id_fkey` — o `delete from tenants` era barrado por FKs `RESTRICT` para qualquer empresa que já tivesse feito uma venda, ou seja, toda empresa real. O RNF-08 estava quebrado desde sempre, e ninguém sabia porque nunca fora testado com dados de venda.
+  - `MIGRATION_18` trocou 6 FKs para `NO ACTION` — **não bastou**: NO ACTION só adia a checagem quando a constraint é `DEFERRABLE`; sem isso, a ordem de processamento dos cascades não é determinística e o erro se repetiu idêntico.
+  - **`MIGRATION_19` resolveu**, com a função `delete_tenant_cascade(uuid)` apagando as filhas em **ordem explícita**. ✅ **Verificada em 07/09/2026** com dados reais: empresa com 1 produto, 2 vendas e 1 item de estoque → todas as contagens zeradas, sem erro.
+  - As duas migrações são **pré-requisito** desta correção de Storage: sem elas, a `delete-account` nunca chegava à etapa de limpeza.
 
   ⏳ *(opcional, não feito)* Varredura periódica de órfãos para os casos (1) e (3), comparando arquivos do bucket com os `html_url` da tabela. Volume pequeno perto do caso da conta excluída.
 

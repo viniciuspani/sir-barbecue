@@ -23,6 +23,7 @@ import { isPermissionError } from '@/lib/errors';
 import { logSilently } from '@/lib/feedback';
 import { canWriteCatalog, canWriteSuppliers } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
+import { useAccessStore } from '@/store/accessStore';
 import { useAuthStore } from '@/store/authStore';
 import { useSyncStore } from '@/store/syncStore';
 
@@ -1020,7 +1021,13 @@ export async function syncTabsNow(): Promise<void> {
   }
 }
 
-async function countPending(): Promise<number> {
+/**
+ * Quantas linhas locais ainda não subiram. Exportada porque a solicitação de
+ * exclusão de conta precisa saber disso ANTES de agendar: uma venda registrada
+ * offline que ainda não subiu seria destruída junto com a empresa, sem nunca ter
+ * existido no servidor.
+ */
+export async function countPending(): Promise<number> {
   const [p, sup, ps, s, si, se, st] = await Promise.all([
     db.select().from(products).where(eq(products.needsSync, true)),
     db.select().from(suppliers).where(eq(suppliers.needsSync, true)),
@@ -1093,15 +1100,24 @@ export async function runSync(): Promise<void> {
     // funcionário (caixa) empurra apenas vendas/itens. Evita tentar pushes que a
     // RLS barraria — o que gerava warnings e o toast em pendências órfãs de catálogo.
     const role = useAuthStore.getState().currentRole;
+    // SOMENTE-LEITURA (exclusão de conta agendada, MIGRATION_24): no servidor, as
+    // únicas escritas que continuam passando são os INSERTs de venda/comanda — as
+    // policies *_drain_insert existem para o que já estava no aparelho conseguir
+    // subir antes de a empresa ser apagada. Tentar empurrar catálogo/estoque aqui
+    // só renderia 403 e o toast de "sem permissão", que é falso: não é o papel do
+    // usuário que está negando, é a exclusão agendada.
+    const readOnly = useAccessStore.getState().readOnly;
+    const canPushCatalog = canWriteCatalog(role) && !readOnly;
+    const canPushSuppliers = canWriteSuppliers(role) && !readOnly;
     let ok = true;
-    if (canWriteCatalog(role)) ok = (await runStep('products', () => pushProducts(tenantId))) && ok;
-    if (canWriteSuppliers(role)) ok = (await runStep('suppliers', () => pushSuppliers(tenantId))) && ok;
-    if (canWriteSuppliers(role)) ok = (await runStep('product_suppliers', () => pushProductSuppliers(tenantId))) && ok;
-    if (canWriteCatalog(role)) ok = (await runStep('stock_entries', () => pushStockEntries(tenantId))) && ok;
+    if (canPushCatalog) ok = (await runStep('products', () => pushProducts(tenantId))) && ok;
+    if (canPushSuppliers) ok = (await runStep('suppliers', () => pushSuppliers(tenantId))) && ok;
+    if (canPushSuppliers) ok = (await runStep('product_suppliers', () => pushProductSuppliers(tenantId))) && ok;
+    if (canPushCatalog) ok = (await runStep('stock_entries', () => pushStockEntries(tenantId))) && ok;
     ok = (await runStep('sales', () => pushSalesWithItems(tenantId))) && ok;
     // Comandas: atendimento em andamento — todo membro opera, como as vendas.
     ok = (await runStep('tabs', () => pushTabs(tenantId))) && ok;
-    if (canWriteCatalog(role)) ok = (await runStep('stock_thresholds', () => pushStockThresholds(tenantId))) && ok;
+    if (canPushCatalog) ok = (await runStep('stock_thresholds', () => pushStockThresholds(tenantId))) && ok;
     // Pulls server-wins (depois dos pushes, para a quantidade já refletir as vendas/entradas).
     ok = (await runStep('pull categories', () => pullCategories(tenantId))) && ok;
     ok = (await runStep('pull products', () => pullProducts(tenantId))) && ok;

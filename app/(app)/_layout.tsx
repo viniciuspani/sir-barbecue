@@ -12,6 +12,7 @@ import { DEFAULT_TENANT_NAME, fetchTenant } from '@/services/tenant';
 import { useAuthStore } from '@/store/authStore';
 import { MembershipRequired } from '@/ui/MembershipRequired';
 import { OfflineBanner } from '@/ui/OfflineBanner';
+import { ReadOnlyBanner } from '@/ui/ReadOnlyBanner';
 import { Splash } from '@/ui/Splash';
 
 // Rota do passo de boas-vindas (cast até o typegen do expo-router reconhecê-la).
@@ -78,6 +79,9 @@ export default function AppLayout() {
   return (
     <View style={styles.root}>
       <OfflineBanner />
+      {/* Abaixo do offline de propósito: "não tem rede agora" é transitório e
+          urgente; "a conta será excluída" é o estado permanente por baixo. */}
+      <ReadOnlyBanner />
       <Tabs
         screenOptions={{
           headerShown: false,

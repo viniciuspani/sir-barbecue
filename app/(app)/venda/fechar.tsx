@@ -11,6 +11,7 @@ import type { Tab } from '@/domain/entities/Tab';
 import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL } from '@/lib/currency';
 import { logSilently, reportError } from '@/lib/feedback';
+import { usePermissions } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
 import { useCartStore, type CartItem } from '@/store/cartStore';
 import { BrandLogo } from '@/ui/BrandLogo';
@@ -35,6 +36,7 @@ export default function FecharVenda() {
   const tabId = params.tabId;
   const clearCart = useCartStore((s) => s.clear);
   const cartItems = useCartStore((s) => s.items);
+  const { readOnlyReason } = usePermissions();
 
   // Lista editável desta finalização, semeada do carrinho ou da comanda.
   // Editar aqui é a revisão final: não altera o carrinho/comanda até confirmar.
@@ -240,7 +242,12 @@ export default function FecharVenda() {
           <Text style={styles.totalValue}>{formatBRL(total)}</Text>
         </View>
 
-        <Button title="Confirmar venda" onPress={onConfirm} loading={saving} />
+        <Button
+          title="Confirmar venda"
+          onPress={onConfirm}
+          loading={saving}
+          disabledReason={readOnlyReason ?? undefined}
+        />
         <Button title="Cancelar" variant="text" onPress={() => router.back()} />
       </ScrollView>
     </SafeAreaView>

@@ -19,7 +19,7 @@ import { TextField } from '@/ui/TextField';
 export default function ProdutoForm() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEdit = !!id;
-  const { canWriteCatalog } = usePermissions();
+  const { canWriteCatalog, readOnlyReason } = usePermissions();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [name, setName] = useState('');
@@ -135,6 +135,7 @@ export default function ProdutoForm() {
           title={isEdit ? 'Salvar alterações' : 'Cadastrar produto'}
           onPress={onSave}
           loading={saving}
+          disabledReason={readOnlyReason ?? undefined}
         />
         <Button title="Cancelar" variant="text" onPress={() => router.back()} />
       </ScrollView>

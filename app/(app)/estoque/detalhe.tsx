@@ -11,6 +11,7 @@ import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL, formatQuantity, parseBRL } from '@/lib/currency';
 import { formatDatePtBR } from '@/lib/dates';
 import { logSilently, reportError } from '@/lib/feedback';
+import { usePermissions } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
 import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
@@ -26,6 +27,7 @@ function pickCurrentCost(links: ProductSupplier[]): ProductSupplier | null {
 }
 
 export default function EstoqueDetalhe() {
+  const { readOnlyReason } = usePermissions();
   const { productId } = useLocalSearchParams<{ productId?: string }>();
   const [productName, setProductName] = useState('—');
   const [quantity, setQuantity] = useState(0);
@@ -103,7 +105,12 @@ export default function EstoqueDetalhe() {
           placeholder="ex.: 10"
           keyboardType="decimal-pad"
         />
-        <Button title="Salvar alerta" onPress={onSaveAlert} loading={saving} />
+        <Button
+          title="Salvar alerta"
+          onPress={onSaveAlert}
+          loading={saving}
+          disabledReason={readOnlyReason ?? undefined}
+        />
 
         <Text style={styles.section}>Histórico de entradas</Text>
         {currentCost && (

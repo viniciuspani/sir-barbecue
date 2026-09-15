@@ -17,7 +17,8 @@ export type Tenant = {
 };
 
 export type TenantRole = 'owner' | 'manager' | 'employee';
-export type TenantMember = { userId: string; role: TenantRole };
+/** `active: false` = vínculo INATIVADO (tenant_members.removed_at preenchido). */
+export type TenantMember = { userId: string; role: TenantRole; active: boolean };
 
 function msg(e: unknown): string {
   if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message);
@@ -28,6 +29,40 @@ function msg(e: unknown): string {
 // permissão indistinguível de "não há dados". O log preserva a causa real.
 function record(error: unknown, action: string): void {
   if (error) logSilently(error, { action, screen: 'empresa' });
+}
+
+/** Por que o usuário está sem empresa — ver `my_membership_status` (MIGRATION_26). */
+export type MembershipReason = 'never' | 'removed' | 'tenant_deleted';
+
+export type MembershipDetail = {
+  status: 'member' | 'none';
+  reason: MembershipReason | null;
+  /** Quando perdeu o vínculo (inativação ou exclusão da empresa). */
+  occurredAt: string | null;
+  /** Data em que a conta órfã será encerrada, quando aplicável. */
+  purgeAfter: string | null;
+  email: string | null;
+};
+
+/**
+ * Descobre POR QUE o usuário está sem empresa. Sem isto o app não distingue
+ * "nunca foi adicionado" de "a empresa encerrou" — os dois chegam como zero
+ * linhas em `tenant_members` (no segundo caso o cascade apaga a linha inteira).
+ */
+export async function fetchMembershipDetail(): Promise<MembershipDetail | null> {
+  const { data, error } = await supabase.rpc('my_membership_status');
+  if (error) {
+    logSilently(error, { action: 'Descobrir a situação do vínculo', screen: 'membership' });
+    return null;
+  }
+  const d = (data ?? {}) as Record<string, unknown>;
+  return {
+    status: d.status === 'member' ? 'member' : 'none',
+    reason: (d.reason as MembershipReason | null) ?? null,
+    occurredAt: (d.occurredAt as string | null) ?? null,
+    purgeAfter: (d.purgeAfter as string | null) ?? null,
+    email: (d.email as string | null) ?? null,
+  };
 }
 
 export async function fetchTenant(tenantId: string): Promise<Tenant | null> {
@@ -69,25 +104,60 @@ export async function updateTenant(
 export async function fetchMembers(tenantId: string): Promise<TenantMember[]> {
   const { data, error } = await supabase
     .from('tenant_members')
-    .select('user_id, role')
+    .select('user_id, role, removed_at')
     .eq('tenant_id', tenantId);
   record(error, 'Buscar a equipe da empresa');
   if (error || !data) return [];
-  return (data as { user_id: string; role: string }[]).map((r) => ({
+  return (data as { user_id: string; role: string; removed_at: string | null }[]).map((r) => ({
     userId: r.user_id,
     role: r.role as TenantRole,
+    active: r.removed_at === null,
   }));
 }
 
-export async function removeMember(
+/**
+ * INATIVA o vínculo — não apaga o usuário.
+ *
+ * O dono da empresa é titular do VÍNCULO, não dos dados pessoais da pessoa:
+ * ele pode revogar a capacidade dela de atuar aqui, não excluir a conta dela.
+ * Só o próprio usuário exclui a própria conta (delete-account / RNF-08).
+ *
+ * Tecnicamente também não daria mais para apagar: desde a MIGRATION_21 as vendas,
+ * entradas de estoque e relatórios apontam para esta linha por FK composta
+ * (`*_actor_fkey`) — ela é o ATOR do histórico da empresa. Um DELETE seria
+ * barrado pelo banco assim que a pessoa tivesse registrado qualquer coisa.
+ *
+ * `removed_at` preenchido faz `user_tenant_ids()` parar de devolver esta empresa:
+ * o acesso cai na hora, e o histórico fica.
+ */
+export async function deactivateMember(
   tenantId: string,
   userId: string,
 ): Promise<{ error: string | null }> {
   const { error } = await supabase
     .from('tenant_members')
-    .delete()
+    .update({ removed_at: new Date().toISOString() })
     .eq('tenant_id', tenantId)
     .eq('user_id', userId);
-  record(error, 'Remover membro da equipe');
+  record(error, 'Inativar membro da equipe');
+  return { error: error ? msg(error) : null };
+}
+
+/**
+ * Reativa o vínculo. Desfaz um clique errado — e é o caminho para o funcionário
+ * inativado conseguir enviar vendas que ficaram retidas no aparelho dele: o dono
+ * reativa, o app sincroniza, o dono inativa de novo. A escrita entra na empresa
+ * com autorização explícita de quem responde por ela.
+ */
+export async function reactivateMember(
+  tenantId: string,
+  userId: string,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('tenant_members')
+    .update({ removed_at: null })
+    .eq('tenant_id', tenantId)
+    .eq('user_id', userId);
+  record(error, 'Reativar membro da equipe');
   return { error: error ? msg(error) : null };
 }

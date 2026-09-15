@@ -12,7 +12,7 @@ import { TextField } from '@/ui/TextField';
 export default function FornecedorForm() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEdit = !!id;
-  const { canWriteSuppliers } = usePermissions();
+  const { canWriteSuppliers, readOnlyReason } = usePermissions();
 
   const [name, setName] = useState('');
   const [contactName, setContactName] = useState('');
@@ -97,7 +97,12 @@ export default function FornecedorForm() {
 
       {!!error && <Text style={styles.error}>{error}</Text>}
 
-      <Button title={isEdit ? 'Salvar alterações' : 'Cadastrar fornecedor'} onPress={onSave} loading={saving} />
+      <Button
+        title={isEdit ? 'Salvar alterações' : 'Cadastrar fornecedor'}
+        onPress={onSave}
+        loading={saving}
+        disabledReason={readOnlyReason ?? undefined}
+      />
       <Button title="Cancelar" variant="text" onPress={() => router.back()} />
     </ScrollView>
   );

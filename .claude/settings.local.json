@@ -41,7 +41,14 @@
       "Bash(cd /c/develop/WEB/sir-barbecue-web && echo \"=== vite.config.ts ===\" && cat -n vite.config.ts && echo \"=== scripts ===\" && ls scripts public && echo \"=== dist presente? ===\" && ls dist | head)",
       "Bash(cd \"c:/develop/WEB/sir-barbecue-web\" && echo \"=== .env.example \\(o que o cliente espera\\) ===\" && cat .env.example)",
       "Bash(cd \"c:/develop/WEB/sir-barbecue-web\" && echo \"=== guard do VITE_ACCESS_BYPASS no PWA \\(a espelhar\\) ===\" && grep -n -B6 -A20 \"ACCESS_BYPASS\" vite.config.ts)",
-      "Bash(echo \"TYPECHECK_EXIT=$?\")"
+      "Bash(echo \"TYPECHECK_EXIT=$?\")",
+      "Read(//tmp/**)",
+      "Bash(curl -s __TRACKED_VAR__/rest/v1/tenants?select=id,name -H 'apikey: __TRACKED_VAR__' -H 'Authorization: Bearer __TRACKED_VAR__')",
+      "Bash(cd \"C:/develop/WEB/sir-barbecue-web\" && sed -n '1,40p' src/ui/Screen.tsx)",
+      "PowerShell($psql = Get-Command psql -ErrorAction SilentlyContinue; if \\($psql\\) { \"psql: $\\($psql.Source\\)\" } else { \"psql: nao encontrado\" }; $sb = Get-Command supabase -ErrorAction SilentlyContinue; if \\($sb\\) { \"supabase: $\\($sb.Source\\)\" } else { \"supabase: nao encontrado\" }; $dk = Get-Command docker -ErrorAction SilentlyContinue; if \\($dk\\) { \"docker: $\\($dk.Source\\)\" } else { \"docker: nao encontrado\" })",
+      "PowerShell($ok = $false; foreach \\($i in 1..24\\) { try { $v = docker version --format '{{.Server.Version}}' 2>$null; if \\($LASTEXITCODE -eq 0 -and $v\\) { \"Docker pronto: $v\"; $ok = $true; break } } catch {}; Start-Sleep -Seconds 5 }; if \\(-not $ok\\) { \"Docker ainda nao respondeu apos ~2 min\" })",
+      "PowerShell(docker run --rm -v \"C:\\\\develop\\\\MOBILE\\\\sir-barbecue\\\\supabase\\\\functions:/app\" -w /app denoland/deno:latest deno check process-deletion-requests/index.ts resend-webhook/index.ts 2>&1)",
+      "Bash(cd \"C:/develop/WEB/sir-barbecue-web\" && head -20 src/screens/conta/Conta.tsx)"
     ]
   }
 }

@@ -15,8 +15,10 @@ import { formatBRL, formatQuantity } from '@/lib/currency';
 import { logSilently } from '@/lib/feedback';
 import { DEFAULT_TENANT_NAME, fetchTenant } from '@/services/tenant';
 import { setCachedTenantName } from '@/services/tenantBranding';
+import { useAccessStore } from '@/store/accessStore';
 import { useAuthStore } from '@/store/authStore';
 import { BrandLogo } from '@/ui/BrandLogo';
+import { DeletionNoticeCard } from '@/ui/DeletionNoticeCard';
 
 // Nome de exibição do operador: prioriza nome do perfil, cai para o e-mail.
 // Espelha a mesma função da tela de Venda (app/(app)/venda/index.tsx).
@@ -46,6 +48,7 @@ export default function Inicio() {
   const { canAccessHome, role } = usePermissions();
   const currentTenantId = useAuthStore((s) => s.currentTenantId);
   const user = useAuthStore((s) => s.user);
+  const hasDeletionRequest = useAccessStore((s) => s.deletion != null);
   const [sales, setSales] = useState<Sale[]>([]);
   const [stock, setStock] = useState<StockItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -137,7 +140,14 @@ export default function Inicio() {
           </View>
         </View>
 
-        {tenantName === DEFAULT_TENANT_NAME && role === 'owner' ? (
+        {/* Primeiro bloco do scroll: é a informação com PRAZO da tela. O alerta
+            de estoque fica onde sempre esteve, no fim — estoque baixo é a
+            operação do dia, exclusão de conta é o prazo da empresa. */}
+        <DeletionNoticeCard />
+
+        {/* O nudge some enquanto há solicitação: não se pede a alguém que está
+            saindo para batizar o negócio. */}
+        {tenantName === DEFAULT_TENANT_NAME && role === 'owner' && !hasDeletionRequest ? (
           <Pressable style={styles.nudge} onPress={() => router.push(WELCOME_ROUTE)}>
             <Ionicons name="storefront-outline" size={22} color={colors.gold} />
             <View style={styles.nudgeText}>

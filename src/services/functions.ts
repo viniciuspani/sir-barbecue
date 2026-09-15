@@ -87,6 +87,68 @@ export async function getReportSignedUrl(path: string): Promise<string | null> {
   return data?.signedUrl ?? null;
 }
 
+export type DataExportRequest = {
+  id: string;
+  status: 'pending' | 'ready' | 'sent' | 'delivered' | 'failed';
+  contactEmail: string | null;
+  createdAt: string;
+  sentAt: string | null;
+  deliveredAt: string | null;
+};
+
+/**
+ * SOLICITA uma cópia dos dados da empresa (MIGRATION_25). Só owner.
+ *
+ * Deixou de ser download síncrono: montar o zip, subir no Storage e baixar tudo
+ * pelo 4G travava o aparelho e a janela da Edge Function. Agora entra na fila do
+ * worker horário — o mesmo que executa as exclusões — e o arquivo chega por
+ * e-mail. Idempotente: com uma solicitação na fila, devolve a existente
+ * (`alreadyQueued: true`) em vez de gerar um segundo zip.
+ */
+export async function requestDataExport(): Promise<{
+  data: { id: string; alreadyQueued: boolean; contactEmail: string | null } | null;
+  error: string | null;
+}> {
+  const { data, error } = await supabase.rpc('request_data_export');
+  if (error) {
+    logSilently(error, { action: 'Solicitar a exportação de dados', screen: 'exportar-dados' });
+    return { data: null, error: 'Não foi possível registrar a solicitação. Tente de novo.' };
+  }
+  const d = (data ?? {}) as { id?: string; alreadyQueued?: boolean; contactEmail?: string };
+  return {
+    data: {
+      id: d.id ?? '',
+      alreadyQueued: d.alreadyQueued === true,
+      contactEmail: d.contactEmail ?? null,
+    },
+    error: null,
+  };
+}
+
+/** Últimas solicitações de exportação da empresa, para a tela mostrar o status. */
+export async function listDataExportRequests(): Promise<DataExportRequest[]> {
+  const tenantId = activeTenantId();
+  if (!tenantId) return [];
+  const { data, error } = await supabase
+    .from('data_exports')
+    .select('id, status, contact_email, created_at, sent_at, delivered_at')
+    .eq('tenant_id', tenantId)
+    .order('created_at', { ascending: false })
+    .limit(5);
+  if (error) {
+    logSilently(error, { action: 'Carregar as solicitações de exportação', screen: 'exportar-dados' });
+    return [];
+  }
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string,
+    status: r.status as DataExportRequest['status'],
+    contactEmail: (r.contact_email as string | null) ?? null,
+    createdAt: r.created_at as string,
+    sentAt: (r.sent_at as string | null) ?? null,
+    deliveredAt: (r.delivered_at as string | null) ?? null,
+  }));
+}
+
 export async function inviteMember(
   email: string,
   role: 'manager' | 'employee',
@@ -98,19 +160,59 @@ export async function inviteMember(
   return { error, invited: data?.invited ?? false };
 }
 
+export type DeletionScheduled = {
+  scheduled: boolean;
+  deleted: boolean;
+  scheduledFor: string | null;
+  exportRequested: boolean;
+};
+
 /**
- * Exclusão definitiva da conta e da empresa. Ter a sessão do aparelho não basta:
- * a função exige uma prova antes de apagar qualquer coisa — ver A06-03 na
- * auditoria de segurança (docs/auditoria-seguranca-web).
+ * SOLICITA a exclusão da conta. Desde a MIGRATION_24 ela não apaga nada na hora
+ * quando quem chama é DONO: grava uma solicitação com data marcada (48h sem
+ * exportação, 10 dias úteis com) e a empresa entra em somente-leitura. Quem é
+ * apenas membro continua sendo excluído imediatamente (`deleted: true`).
  *
- * Qual prova depende de como a conta foi criada (ver `usesPasswordLogin`):
- * conta com senha manda `password`, conta do Google manda `confirmText` com o
- * próprio e-mail — quem entrou pelo Google não tem senha no GoTrue para validar.
+ * Ter a sessão do aparelho não basta: a função exige uma prova antes de gravar
+ * qualquer coisa — ver A06-03 na auditoria (docs/auditoria-seguranca-web). Qual
+ * prova depende de como a conta foi criada (ver `usesPasswordLogin`): conta com
+ * senha manda `password`, conta do Google manda `confirmText` com o próprio
+ * e-mail — quem entrou pelo Google não tem senha no GoTrue para validar.
+ *
+ * `localPending` é a contagem de linhas ainda não sincronizadas NESTE aparelho: a
+ * função recusa (409) se vier > 0, porque agendar com venda presa no SQLite
+ * destruiria essa venda sem ela nunca ter subido.
  */
-export async function deleteAccount(proof: {
+export async function requestAccountDeletion(input: {
   password?: string;
   confirmText?: string;
-}): Promise<{ error: string | null }> {
-  const { error } = await callFunction('delete-account', proof);
-  return { error };
+  exportRequested: boolean;
+  // Opcionais porque o servidor só os exige no caminho do DONO. Gerente,
+  // funcionário e usuário órfão caem no caminho imediato, que não agenda nada e
+  // portanto não tem para quem ligar.
+  contactName?: string;
+  contactPhone?: string;
+  localPending: number;
+}): Promise<{ data: DeletionScheduled | null; error: string | null }> {
+  const { data, error } = await callFunction<DeletionScheduled>('delete-account', input);
+  return { data, error };
+}
+
+/** Datas previstas das duas opções, calculadas no SERVIDOR (dias úteis + feriados). */
+export async function getDeletionPreview(): Promise<{
+  dateNoExport: string | null;
+  dateWithExport: string | null;
+  error: string | null;
+}> {
+  const { data, error } = await supabase.rpc('deletion_request_preview');
+  if (error) {
+    logSilently(error, { action: 'Calcular as datas da exclusão', screen: 'perfil' });
+    return { dateNoExport: null, dateWithExport: null, error: 'Não foi possível calcular as datas.' };
+  }
+  const d = (data ?? {}) as { dateNoExport?: string; dateWithExport?: string };
+  return {
+    dateNoExport: d.dateNoExport ?? null,
+    dateWithExport: d.dateWithExport ?? null,
+    error: null,
+  };
 }

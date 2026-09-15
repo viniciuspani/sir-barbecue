@@ -13,11 +13,14 @@ hook JWT e o bucket `reports` **já estão no banco**.
 |---|---|---|
 | `generate-report` | Agrega vendas da empresa → gera **HTML** → sobe em `reports/<tenant_id>/` → registra linha em `reports` (RF-21/24/25/26) | usuário logado |
 | `invite-member` | Owner adiciona membro **existente** ou **convida um novo por e-mail** (`tenant_members`) | owner |
-| `delete-account` | Exclui a conta + empresas que o usuário possui (RNF-08) — **destrutivo** | usuário logado |
+| `delete-account` | **AGENDA** a exclusão da conta + empresas do dono (RNF-08). Não apaga mais na hora — ver abaixo | usuário logado |
+| `process-deletion-requests` | Worker horário com **três filas**: (1) exclusões vencidas — exporta → envia → **confirma a entrega** → apaga; (2) exportação avulsa (`data_exports`); (3) contas órfãs (`former_members`) — avisa o ex-membro, alerta 15 dias antes e encerra após 6 meses. O nome ficou estreito: hoje ele é o worker de **ciclo de vida de conta** | `pg_cron`/`pg_net` (token na URL) + painel do dono |
+| `resend-webhook` | Recebe os eventos de entrega do Resend e confirma que a exportação chegou (é o que destrava a exclusão) | Resend (assinatura Svix) |
 | ~~`send-push`~~ | **Removida** — infra de push desativada (ver seção no fim) | — |
 | `health` | **Health check público**: runtime + round-trip no Postgres (`saude_db()`). 200 = ok, 503 = banco fora | monitor externo + painel admin (sem auth) |
 | `health-webhook` | Recebe as notificações de queda/retorno do monitor externo e grava em `health_events` (histórico do painel) | HetrixTools (token na URL) |
 | `send-subscription-reminder` | Envia e-mail (Resend) avisando vencimento próximo da assinatura | `pg_cron`/`pg_net` (token na URL) |
+| ~~`export-company-data`~~ | **Sem uso pelos apps** desde a MIGRATION_25 — a exportação virou solicitação assíncrona, processada pelo worker abaixo. Mantida publicada por ora | — |
 
 ## Pré-requisitos
 ```bash
@@ -36,6 +39,9 @@ supabase functions deploy delete-account
 supabase functions deploy health --no-verify-jwt          # ATENÇÃO: sem JWT (ver abaixo)
 supabase functions deploy health-webhook --no-verify-jwt  # idem, protegida por token na URL
 supabase functions deploy send-subscription-reminder --no-verify-jwt  # chamada pelo Postgres (pg_net), protegida por token na URL
+supabase functions deploy export-company-data
+supabase functions deploy process-deletion-requests --no-verify-jwt  # chamada pelo Postgres (pg_net), protegida por token na URL
+supabase functions deploy resend-webhook --no-verify-jwt             # chamada pelo Resend, protegida por assinatura Svix
 ```
 > `verify_jwt` fica **ligado** por padrão (exige usuário autenticado) — correto para as 3
 > primeiras.
@@ -58,6 +64,11 @@ supabase secrets set SAUDE_WEBHOOK_TOKEN="<segredo longo e aleatório>"
 supabase secrets set SUBSCRIPTION_REMINDER_TOKEN="<segredo longo e aleatório>"
 supabase secrets set RESEND_API_KEY="re_xxx..."
 supabase secrets set EMAIL_FROM="Sir Barbecue <assinatura@seu-dominio>"
+# exclusão de conta agendada (process-deletion-requests) — o MESMO valor também
+# precisa estar no Vault (vault.create_secret, nome 'deletion_worker_token')
+supabase secrets set DELETION_WORKER_TOKEN="<segredo longo e aleatório>"
+# segredo do webhook do Resend (o whsec_... que o painel do Resend mostra ao criar o webhook)
+supabase secrets set RESEND_WEBHOOK_SECRET="whsec_..."
 ```
 > Nomenclatura: as funções se chamam `health`/`health-webhook`, mas o secret
 > `SAUDE_WEBHOOK_TOKEN` e a RPC `saude_db()` mantêm o nome antigo **de propósito** — já estão
@@ -77,8 +88,14 @@ const { data: signed } = await supabase.storage
 // Convidar membro (owner):
 await supabase.functions.invoke('invite-member', { body: { email, role: 'employee' } });
 
-// Excluir conta (após confirmação):
-await supabase.functions.invoke('delete-account');
+// Solicitar exclusão da conta (após confirmação + push do sync):
+// devolve { scheduled, scheduledFor, exportRequested } — NÃO apaga nada agora.
+await supabase.functions.invoke('delete-account', {
+  body: { password, exportRequested: true, contactName, contactPhone, localPending: 0 },
+});
+
+// Cancelar a solicitação (janela de arrependimento — é RPC, não Edge Function):
+await supabase.rpc('cancel_account_deletion', { p_tenant_id: tenantId });
 ```
 
 ## Notas por função
@@ -90,8 +107,33 @@ await supabase.functions.invoke('delete-account');
   pelo trigger `handle_new_user_invite`. **Pré-requisito:** aplicar
   `docs/banco-multi-cliente/MIGRATION_01_invite_trigger.sql` (guarda no `handle_new_user` + novo
   `handle_new_user_invite`).
-- **delete-account** — irreversível. Apaga as empresas onde é owner (cascade) + memberships + o
-  usuário no Auth.
+- **delete-account** — **mudou com a MIGRATION_24: não apaga mais na hora quando quem chama é DONO.**
+  Grava uma solicitação em `account_deletion_requests` com data marcada (**48h** sem exportação,
+  **10 dias úteis** com) e devolve a data; a empresa entra em **somente-leitura** imediatamente
+  (`tenant_has_access` passa a ser false → todas as policies de escrita negam). Quem é apenas
+  **membro** segue no caminho antigo e imediato (`removed_at` no vínculo + exclusão no Auth).
+  Recusa com **409** se o app informar venda ainda não sincronizada (`localPending > 0`) — o push é
+  do app, esta função roda no servidor e não alcança o SQLite do aparelho.
+  Corpo: `{ password? | confirmText?, exportRequested, contactName, contactPhone, localPending }`.
+- **process-deletion-requests** — o par da anterior; é quem **executa**. Duas etapas, e a ordem é a
+  regra da funcionalidade: (A) monta o `.zip`, sobe em `exports/<tenant_id>/deletions/<id>.zip`,
+  gera link assinado de 30 dias (arquivo retido por 45 — a retenção tem de sobreviver ao link)
+  e envia pelo Resend; (B) apaga — **só** com
+  `export_status = 'delivered'` (confirmado pelo `resend-webhook`) ou sem exportação pedida. Falha
+  no envio não apaga nada; 5 dias sem confirmação viram `failed` para contato manual. Chamada pelo
+  `pg_cron` **de hora em hora** (a promessa de 48h é em horas) e pelo painel com
+  `{ requestId }` + JWT de `platform_admin` (botão "Excluir agora"), que também respeita a trava de
+  entrega. **Pré-requisito:** `docs/banco-multi-cliente/MIGRATION_24_account_deletion_requests.sql`
+  + `select vault.create_secret(...)` com o MESMO valor de `DELETION_WORKER_TOKEN` + `cron.schedule`.
+  ⚠️ A montagem do zip é **cópia** da de `export-company-data` (convenção self-contained deste repo):
+  mudou numa, mude na outra.
+- **resend-webhook** — `POST` do Resend com os eventos `email.sent/delivered/bounced/complained/opened`.
+  Casa pelo `export_email_id` e carimba a trilha de entrega. É o **único endpoint público novo** e
+  roda com `service_role`: sem a validação de assinatura, um POST anônimo marcaria um e-mail como
+  entregue e liberaria o apagamento dos dados de uma empresa. Valida a assinatura **Svix**
+  (`svix-id`/`svix-timestamp`/`svix-signature` + `RESEND_WEBHOOK_SECRET`) sobre o corpo **cru**,
+  antes de qualquer escrita, com janela anti-replay de 5 min e comparação de tempo constante. Sem o
+  secret configurado, recusa tudo (503). Cadastrar a URL no painel do Resend assinando os 5 eventos.
 - **health** — `GET`/`HEAD` público, sem corpo de requisição. **Pré-requisito:** aplicar
   `docs/banco-multi-cliente/MIGRATION_06_saude.sql` (RPC `saude_db()`). Usa só a **anon key**
   (nunca a `service_role`) e devolve apenas `ok`/latência — a mensagem crua do Postgres vai
@@ -113,6 +155,14 @@ await supabase.functions.invoke('delete-account');
   `due_reminder_sent_for`) + `select vault.create_secret(...)` no Postgres com o MESMO valor de
   `SUBSCRIPTION_REMINDER_TOKEN`. Sem conta Resend com domínio verificado, a chamada falha (502) —
   configuração da Resend documentada no plano da sessão que criou esta função.
+- **export-company-data** — `POST` do owner logado. Monta um `.csv` por entidade (vendas, itens de
+  venda, comandas, estoque, fornecedores/custo, produtos, categorias, pagamentos da assinatura,
+  relatórios já gerados) e empacota num `.zip` (`npm:jszip`) no bucket `exports/<tenant_id>/`.
+  Só owner (mais estrito que `generate-report`, que aceita manager) — o zip carrega custo de
+  fornecedor e cobrança de assinatura. **Pré-requisito:**
+  `docs/banco-multi-cliente/MIGRATION_22_export_infra.sql` (tabela `data_exports`, bucket
+  `exports`, policy nova em `payments`). Plano completo:
+  `docs/exportacao-dados/PLANO_EXPORTACAO_DADOS.md`.
 
 ## Infra de push (RF-11) — REMOVIDA
 Desativada por decisão de produto (20/08/2026, reafirmada em 02/09/2026): num PDV o app fica aberto

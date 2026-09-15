@@ -8,7 +8,7 @@ import { useAuthStore } from '@/store/authStore';
 
 // `requires` (opcional): esconde o item quando o papel não tem a permissão. Sem
 // `requires` = visível a todos os membros.
-type Perm = 'company' | 'reports' | 'suppliers';
+type Perm = 'company' | 'reports' | 'suppliers' | 'export';
 type Item = {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
@@ -21,17 +21,19 @@ const ITEMS: Item[] = [
   { icon: 'business-outline', label: 'Minha Empresa', route: '/mais/empresa', hint: 'Dados e equipe', requires: 'company' },
   { icon: 'people-outline', label: 'Fornecedores', route: '/mais/fornecedores', hint: 'Cadastro e preços de compra', requires: 'suppliers' },
   { icon: 'bar-chart-outline', label: 'Relatórios', route: '/mais/relatorios', hint: 'Vendas e produtos', requires: 'reports' },
+  { icon: 'download-outline', label: 'Exportar dados', route: '/mais/exportar-dados', hint: 'Baixar tudo em .zip', requires: 'export' },
   { icon: 'help-circle-outline', label: 'Ajuda', route: '/mais/ajuda', hint: 'Como usar o aplicativo' },
   { icon: 'person-outline', label: 'Conta', route: '/mais/perfil', hint: 'Perfil e sair' },
 ];
 
 export default function MaisHub() {
   const signOut = useAuthStore((s) => s.signOut);
-  const { canAccessCompany, canAccessReports, canAccessSuppliers } = usePermissions();
+  const { canAccessCompany, canAccessReports, canAccessSuppliers, canAccessExport } = usePermissions();
   const items = ITEMS.filter((item) => {
     if (item.requires === 'company') return canAccessCompany;
     if (item.requires === 'reports') return canAccessReports;
     if (item.requires === 'suppliers') return canAccessSuppliers;
+    if (item.requires === 'export') return canAccessExport;
     return true;
   });
 

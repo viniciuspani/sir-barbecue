@@ -563,4 +563,85 @@ export const HELP_TOPICS: HelpTopic[] = [
       'Para o relatório mostrar lucro e margem certos, vincule cada produto ao fornecedor com o preço de compra (veja “Como vincular produto a fornecedor”) — produtos sem custo cadastrado aparecem com margem “—”.',
     ],
   },
+  {
+    id: 'excluir-conta',
+    icon: 'trash-outline',
+    title: 'O que acontece quando eu excluo minha conta',
+    subtitle: 'Prazo, cópia dos dados e como cancelar',
+    intro:
+      'A conta NÃO é apagada na hora. Você registra uma solicitação com data marcada e, até essa data, o app fica só para consulta — e dá para cancelar quando quiser.',
+    flow: [
+      { kind: 'start', label: 'Abra Mais → Conta → “Excluir conta”' },
+      {
+        kind: 'decision',
+        label: 'Quer receber uma cópia dos seus dados por e-mail?',
+        yes: 'Exclusão em 10 dias úteis, com o arquivo enviado nessa data',
+        no: 'Exclusão em 48 horas, sem envio de arquivo',
+      },
+      {
+        kind: 'step',
+        label: 'Informe quem podemos procurar',
+        detail: 'Nome e telefone de contato — é por onde falamos com você se precisar.',
+        icon: 'call-outline',
+      },
+      {
+        kind: 'step',
+        label: 'Confirme com sua senha',
+        detail: 'A senha é conferida no servidor antes de qualquer coisa ser registrada.',
+        icon: 'lock-closed-outline',
+      },
+      {
+        kind: 'step',
+        label: 'O app entra em modo consulta',
+        detail: 'Você vê tudo, mas não registra vendas nem edita cadastros até a data.',
+        icon: 'eye-outline',
+      },
+      {
+        kind: 'decision',
+        label: 'Mudou de ideia antes da data?',
+        yes: 'Toque em “Cancelar solicitação” na tela Início — tudo volta ao normal',
+        no: 'Na data marcada, a conta e os dados são apagados',
+      },
+      { kind: 'end', label: 'Nada é apagado antes da data marcada.' },
+    ],
+    steps: [
+      {
+        title: '1. Abra Mais → Conta → “Excluir conta”',
+        detail:
+          'A tela explica o que será apagado: produtos, estoque, vendas, comandas e o acesso de toda a equipe.',
+      },
+      {
+        title: '2. Escolha se quer uma cópia dos dados',
+        detail:
+          'Com cópia: enviamos para o seu e-mail um link com todo o histórico da empresa em planilhas, e a exclusão acontece em 10 dias úteis. Sem cópia: a exclusão acontece em 48 horas. A data prevista aparece na tela e no próprio botão antes de você confirmar.',
+      },
+      {
+        title: '3. Informe nome e telefone de contato',
+        detail:
+          'Servem para falarmos com você sobre a solicitação. Esses dados são apagados junto com o resto quando a exclusão acontece.',
+      },
+      {
+        title: '4. Confirme com a senha',
+        detail:
+          'Se você entrou pelo Google, em vez da senha digite o seu e-mail. Sem essa confirmação nada é registrado.',
+      },
+      {
+        title: '5. Até a data, o app fica só para consulta',
+        detail:
+          'Uma faixa amarela no topo mostra a data prevista, e a tela Início traz o aviso completo com o botão de cancelar.',
+      },
+      {
+        title: '6. Para desistir, toque em “Cancelar solicitação”',
+        detail:
+          'Na tela Início ou em Mais → Conta. A conta volta a funcionar normalmente na hora e nada é perdido.',
+      },
+    ],
+    tips: [
+      'Quer uma cópia dos dados sem excluir a conta? Use Mais → “Exportar dados”: é o mesmo arquivo, e ele chega no seu e-mail em até 48 horas.',
+      'Antes de solicitar, conecte-se à internet: se houver venda registrada offline que ainda não subiu, o app avisa e não deixa agendar — assim essa venda não se perde.',
+      'Se você é gerente ou funcionário, a exclusão é diferente: acontece na hora, sem prazo e sem cópia por e-mail. Some só o seu acesso — os dados da empresa não são afetados.',
+      'Se a EMPRESA for excluída, a sua conta de gerente ou funcionário NÃO some junto: ela é sua. Avisamos por e-mail, e você volta a usar o app assim que for adicionado a outra empresa.',
+      'Avise sua equipe: na data marcada, todos perdem o acesso junto.',
+    ],
+  },
 ];

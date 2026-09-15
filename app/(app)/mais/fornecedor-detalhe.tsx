@@ -18,7 +18,7 @@ import { MoneyField } from '@/ui/MoneyField';
 
 export default function FornecedorDetalhe() {
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const { canAccessSuppliers, canWriteSuppliers } = usePermissions();
+  const { canAccessSuppliers, canWriteSuppliers, readOnlyReason } = usePermissions();
   const [supplier, setSupplier] = useState<Supplier | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [links, setLinks] = useState<ProductSupplier[]>([]);
@@ -164,7 +164,7 @@ export default function FornecedorDetalhe() {
             <Text style={styles.linkName}>{productName(l.productId)}</Text>
             <MoneyField label="Novo preço de compra (R$)" value={editPrice} onChangeText={setEditPrice} />
             <View style={styles.editActions}>
-              <Button title="Salvar" onPress={onSaveEdit} />
+              <Button title="Salvar" onPress={onSaveEdit} disabledReason={readOnlyReason ?? undefined} />
               <Button title="Cancelar" variant="text" onPress={() => setEditingId(null)} />
             </View>
           </View>
