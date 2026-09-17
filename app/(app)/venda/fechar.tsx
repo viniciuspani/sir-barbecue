@@ -117,7 +117,13 @@ export default function FecharVenda() {
     );
   };
 
-  const onConfirm = async () => {
+  /**
+   * @param queue Pedido PRÉ-PAGO: em vez de encerrar, a comanda vai para a fila
+   *   da churrasqueira. É o fluxo do pico de movimento — a atendente cobra antes
+   *   de o pedido ser produzido para não perder o pagamento, e quem está na
+   *   grelha precisa continuar vendo o que assar e de quem é.
+   */
+  const onConfirm = async (queue: boolean) => {
     if (lines.length === 0) return;
     // RF-10 / Opção B: trava final — não confirma venda acima do saldo disponível
     // (estoque menos reservas de outras comandas/carrinho). Evita o CHECK do servidor.
@@ -130,7 +136,7 @@ export default function FecharVenda() {
     }
     setSaving(true);
     try {
-      await saleRepository.create({
+      const sale = await saleRepository.create({
         paymentMethod: payment,
         consumptionMode: consumption,
         items: lines.map((i) => ({
@@ -144,13 +150,15 @@ export default function FecharVenda() {
       await stockRepository.deductForSale(
         lines.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       );
-      // Encerra a fonte: fecha a comanda paga OU limpa o carrinho da venda rápida.
+      // Encerra a fonte: a comanda paga vai para a fila ou fecha; a venda
+      // rápida limpa o carrinho.
       if (tabId) {
-        await tabRepository.close(tabId);
+        if (queue) await tabRepository.markPaid(tabId, sale.id);
+        else await tabRepository.markDelivered(tabId, sale.id);
       } else {
         clearCart();
       }
-      showToast('Venda registrada! ✅');
+      showToast(queue ? 'Pago! Pedido na churrasqueira 🔥' : 'Venda registrada! ✅');
       refreshPendingCount();
       runSync(); // tenta enviar agora (no-op offline / sem empresa ativa)
       router.back();
@@ -242,12 +250,35 @@ export default function FecharVenda() {
           <Text style={styles.totalValue}>{formatBRL(total)}</Text>
         </View>
 
-        <Button
-          title="Confirmar venda"
-          onPress={onConfirm}
-          loading={saving}
-          disabledReason={readOnlyReason ?? undefined}
-        />
+        {/* Numa comanda o pagamento tem dois desfechos, e o primário é o
+            pré-pago: esquecer de enfileirar SOME com o pedido e deixa o
+            churrasqueiro no escuro, enquanto enfileirar à toa custa um toque em
+            "Entregue". Venda rápida não tem fila — o pedido pré-pago precisa do
+            nome do cliente, que só a comanda tem. */}
+        {tabId ? (
+          <>
+            <Button
+              title="Receber e mandar p/ churrasqueira"
+              onPress={() => onConfirm(true)}
+              loading={saving}
+              disabledReason={readOnlyReason ?? undefined}
+            />
+            <Button
+              title="Receber e encerrar"
+              variant="outline"
+              onPress={() => onConfirm(false)}
+              disabled={saving}
+              disabledReason={readOnlyReason ?? undefined}
+            />
+          </>
+        ) : (
+          <Button
+            title="Confirmar venda"
+            onPress={() => onConfirm(false)}
+            loading={saving}
+            disabledReason={readOnlyReason ?? undefined}
+          />
+        )}
         <Button title="Cancelar" variant="text" onPress={() => router.back()} />
       </ScrollView>
     </SafeAreaView>

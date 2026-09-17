@@ -106,6 +106,9 @@ sqlite.execSync(`
     customer_name TEXT NOT NULL,
     opened_at INTEGER NOT NULL,
     status TEXT NOT NULL DEFAULT 'open',
+    paid_at INTEGER,
+    ready_at INTEGER,
+    sale_id TEXT,
     closed_at INTEGER,
     tenant_id TEXT,
     needs_sync INTEGER NOT NULL DEFAULT 1,
@@ -200,6 +203,19 @@ if (!tabCols.some((c) => c.name === 'needs_sync')) {
 }
 if (!tabCols.some((c) => c.name === 'synced_at')) {
   sqlite.execSync('ALTER TABLE tabs ADD COLUMN synced_at INTEGER');
+}
+// Migração incremental: pedido pré-pago. A comanda paga deixa de morrer no
+// pagamento e vira fila da churrasqueira ('paid' → 'ready' → 'closed'). As
+// comandas já existentes no aparelho continuam 'open', sem paid_at — o fluxo
+// antigo (consome, paga no fim) não muda.
+if (!tabCols.some((c) => c.name === 'paid_at')) {
+  sqlite.execSync('ALTER TABLE tabs ADD COLUMN paid_at INTEGER');
+}
+if (!tabCols.some((c) => c.name === 'ready_at')) {
+  sqlite.execSync('ALTER TABLE tabs ADD COLUMN ready_at INTEGER');
+}
+if (!tabCols.some((c) => c.name === 'sale_id')) {
+  sqlite.execSync('ALTER TABLE tabs ADD COLUMN sale_id TEXT');
 }
 
 const tabItemCols = sqlite.getAllSync<{ name: string }>('PRAGMA table_info(tab_items)');

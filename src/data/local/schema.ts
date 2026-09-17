@@ -121,8 +121,15 @@ export const tabs = sqliteTable('tabs', {
   id: text('id').primaryKey(),
   customerName: text('customer_name').notNull(),
   openedAt: integer('opened_at').notNull(), // epoch ms
-  // 'open' | 'closed'. Fechada continua aqui até o sync levar o fechamento adiante.
+  // 'open' | 'paid' | 'ready' | 'closed' | 'cancelled' (ver TabStatus).
+  // Encerrada ('closed'/'cancelled') continua aqui até o sync levar o fim adiante.
   status: text('status').notNull().default('open'),
+  // Pedido pré-pago: pago e na grelha. É por paid_at que a fila da churrasqueira
+  // se ordena — o que importa para quem assa é há quanto tempo o cliente pagou.
+  paidAt: integer('paid_at'),
+  readyAt: integer('ready_at'),
+  // Venda que cobrou esta comanda. Vira `tabs.sale_client_id` no servidor.
+  saleId: text('sale_id'),
   closedAt: integer('closed_at'),
   tenantId: text('tenant_id'),
   needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),

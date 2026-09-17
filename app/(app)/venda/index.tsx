@@ -143,7 +143,7 @@ export default function NovaVenda() {
       `Excluir a comanda de ${tab.customerName}? Os itens não serão vendidos.`,
       [
         { text: 'Voltar', style: 'cancel' },
-        { text: 'Excluir', style: 'destructive', onPress: () => tabRepository.close(tab.id) },
+        { text: 'Excluir', style: 'destructive', onPress: () => tabRepository.cancel(tab.id) },
       ],
     );
   };

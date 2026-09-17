@@ -19,6 +19,7 @@ import {
 } from '@/data/local/schema';
 import { supabase } from '@/data/remote/supabaseClient';
 import type { ConsumptionMode, PaymentMethod } from '@/domain/entities/Sale';
+import { LIVE_STATUSES, type TabStatus } from '@/domain/entities/Tab';
 import { isPermissionError } from '@/lib/errors';
 import { logSilently } from '@/lib/feedback';
 import { canWriteCatalog, canWriteSuppliers } from '@/lib/permissions';
@@ -72,6 +73,10 @@ type RemoteTab = {
   client_id: string;
   customer_name: string;
   opened_at: string;
+  status: TabStatus;
+  paid_at: string | null;
+  ready_at: string | null;
+  sale_client_id: string | null;
 };
 type RemoteTabItem = {
   client_id: string;
@@ -462,14 +467,29 @@ function safeParseJson(raw: string): unknown {
  *  3. itens vivos (upsert pela chave natural comanda+produto, igual ao app,
  *     que mantém UMA linha por produto).
  *
- * Depois de propagada, a comanda fechada é APAGADA do banco local: ela já virou
- * venda (ou foi descartada) e só ocuparia espaço no aparelho do PDV.
+ * Depois de propagada, a comanda ENCERRADA é apagada do banco local: já virou
+ * venda entregue (ou foi descartada) e só ocuparia espaço no aparelho do PDV.
+ * A comanda PAGA e ainda não entregue permanece — é o pedido na grelha.
  */
 async function pushTabs(tenantId: string): Promise<void> {
   const tabScope = and(eq(tabs.needsSync, true), eq(tabs.tenantId, tenantId));
   const tabRows = await db.select().from(tabs).where(tabScope);
 
   if (tabRows.length > 0) {
+    // `sale_client_id` é FK para sales.client_id: enviá-lo antes de a venda
+    // chegar ao servidor derrubaria o upsert da comanda inteira. E a comanda
+    // NÃO pode ficar refém do push da venda — é o status 'paid' que coloca o
+    // pedido na tela de quem está na churrasqueira. Então sobe sem o vínculo e
+    // continua pendente; o ciclo seguinte, com a venda já no servidor, amarra os dois.
+    const unsyncedSales = new Set(
+      (await db.select({ id: sales.id }).from(sales).where(eq(sales.needsSync, true))).map(
+        (s) => s.id,
+      ),
+    );
+    const linkable = (t: (typeof tabRows)[number]) =>
+      t.saleId && !unsyncedSales.has(t.saleId) ? t.saleId : null;
+    const settled = tabRows.filter((t) => !t.saleId || linkable(t) !== null).map((t) => t.id);
+
     await withRetry(() =>
       upsertRemote(
         'tabs',
@@ -479,11 +499,19 @@ async function pushTabs(tenantId: string): Promise<void> {
           customer_name: t.customerName,
           status: t.status,
           opened_at: new Date(t.openedAt).toISOString(),
+          paid_at: t.paidAt ? new Date(t.paidAt).toISOString() : null,
+          ready_at: t.readyAt ? new Date(t.readyAt).toISOString() : null,
+          sale_client_id: linkable(t),
           closed_at: t.closedAt ? new Date(t.closedAt).toISOString() : null,
         })),
       ),
     );
-    await db.update(tabs).set({ needsSync: false, syncedAt: Date.now() }).where(tabScope);
+    if (settled.length > 0) {
+      await db
+        .update(tabs)
+        .set({ needsSync: false, syncedAt: Date.now() })
+        .where(and(tabScope, inArray(tabs.id, settled)));
+    }
   }
 
   // ISOLAMENTO: tab_items não tem tenant_id (o dono é a comanda). Restringir aos
@@ -535,11 +563,18 @@ async function pushTabs(tenantId: string): Promise<void> {
     await db.update(tabItems).set({ needsSync: false, syncedAt: Date.now() }).where(itemScope);
   }
 
-  // Faxina: comanda fechada e já sincronizada não precisa mais existir local.
+  // Faxina: comanda encerrada e já sincronizada não precisa mais existir local.
+  // Comanda PAGA fica: ela é o pedido na grelha, e some daqui só quando entregue.
   const closed = await db
     .select()
     .from(tabs)
-    .where(and(eq(tabs.status, 'closed'), eq(tabs.needsSync, false), eq(tabs.tenantId, tenantId)));
+    .where(
+      and(
+        inArray(tabs.status, ['closed', 'cancelled']),
+        eq(tabs.needsSync, false),
+        eq(tabs.tenantId, tenantId),
+      ),
+    );
   for (const t of closed) {
     await db.delete(tabItems).where(eq(tabItems.tabId, t.id));
     await db.delete(tabs).where(eq(tabs.id, t.id));
@@ -797,53 +832,54 @@ async function pullStockItems(tenantId: string): Promise<void> {
 }
 
 /**
- * Comandas ABERTAS do servidor → local (server-wins).
+ * Comandas VIVAS do servidor → local (server-wins): abertas e as pagas que ainda
+ * estão na churrasqueira ('paid'/'ready').
  *
  * Linha com alteração local pendente é PULADA: o push roda antes, mas pode ter
  * falhado (offline) — sobrescrevê-la aqui apagaria o pedido que o atendente
- * acabou de lançar. Comanda que sumiu da lista de abertas (fechada em outro
- * aparelho) é removida daqui, junto com os itens.
+ * acabou de lançar. Comanda que sumiu da lista de vivas (entregue ou descartada
+ * em outro aparelho) é removida daqui, junto com os itens.
  */
 async function pullTabs(tenantId: string): Promise<void> {
   const { data, error } = await supabase
     .from('tabs')
-    .select('client_id, customer_name, opened_at')
+    .select('client_id, customer_name, opened_at, status, paid_at, ready_at, sale_client_id')
     .eq('tenant_id', tenantId)
-    .eq('status', 'open')
+    .in('status', LIVE_STATUSES)
     .returns<RemoteTab[]>();
   if (error) throw new Error(`[sync:pull tabs] ${error.message}`);
   if (!data) return;
   const now = Date.now();
   const openIds = data.map((t) => t.client_id);
+  const msOrNull = (iso: string | null) => (iso ? new Date(iso).getTime() : null);
 
   for (const r of data) {
+    // O status vem do servidor: é assim que o "Pronto"/"Entregue" tocado no
+    // aparelho da churrasqueira chega ao caixa, e vice-versa.
+    const state = {
+      customerName: r.customer_name,
+      status: r.status,
+      paidAt: msOrNull(r.paid_at),
+      readyAt: msOrNull(r.ready_at),
+      saleId: r.sale_client_id,
+      tenantId,
+      needsSync: false,
+      syncedAt: now,
+    };
     const existing = await db.select().from(tabs).where(eq(tabs.id, r.client_id));
     if (existing.length) {
       if (existing[0].needsSync) continue; // alteração local ainda não enviada
-      await db
-        .update(tabs)
-        .set({
-          customerName: r.customer_name,
-          status: 'open',
-          tenantId,
-          needsSync: false,
-          syncedAt: now,
-        })
-        .where(eq(tabs.id, r.client_id));
+      await db.update(tabs).set(state).where(eq(tabs.id, r.client_id));
     } else {
       await db.insert(tabs).values({
         id: r.client_id,
-        customerName: r.customer_name,
         openedAt: new Date(r.opened_at).getTime(),
-        status: 'open',
-        tenantId,
-        needsSync: false,
-        syncedAt: now,
+        ...state,
       });
     }
   }
 
-  // Itens das comandas abertas.
+  // Itens das comandas vivas.
   if (openIds.length > 0) {
     const { data: itemData, error: itemError } = await supabase
       .from('tab_items')
@@ -875,12 +911,18 @@ async function pullTabs(tenantId: string): Promise<void> {
     }
   }
 
-  // Comandas que deixaram de estar abertas no servidor saem do aparelho —
-  // exceto as que têm alteração local pendente (ainda não subiram).
+  // Comandas que deixaram de estar vivas no servidor (encerradas em outro
+  // aparelho) saem daqui — exceto as que têm alteração local pendente.
   const localOpen = await db
     .select()
     .from(tabs)
-    .where(and(eq(tabs.status, 'open'), eq(tabs.tenantId, tenantId), eq(tabs.needsSync, false)));
+    .where(
+      and(
+        inArray(tabs.status, LIVE_STATUSES),
+        eq(tabs.tenantId, tenantId),
+        eq(tabs.needsSync, false),
+      ),
+    );
   for (const t of localOpen) {
     if (openIds.includes(t.id)) continue;
     await db.delete(tabItems).where(eq(tabItems.tabId, t.id));
