@@ -6,6 +6,8 @@ import { supplierRepository } from '@/data/repositories';
 import { colors, spacing } from '@/design/tokens';
 import { logSilently, reportError } from '@/lib/feedback';
 import { usePermissions } from '@/lib/permissions';
+import { formatPhoneInput, phoneValidationMessage, unmaskPhone } from '@/lib/phone';
+import { showToast } from '@/lib/toast';
 import { Button } from '@/ui/Button';
 import { TextField } from '@/ui/TextField';
 
@@ -17,6 +19,7 @@ export default function FornecedorForm() {
   const [name, setName] = useState('');
   const [contactName, setContactName] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [address, setAddress] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -35,10 +38,23 @@ export default function FornecedorForm() {
       .catch((e) => logSilently(e, { action: 'Carregar o fornecedor para edição' }));
   }, [id]);
 
+  // Roda ao sair do campo (feedback imediato) e de novo ao salvar — mesmo
+  // padrão do CNPJ/Telefone em Minha Empresa.
+  const validatePhone = (): string | null => {
+    const message = phoneValidationMessage(unmaskPhone(phone));
+    setPhoneError(message);
+    return message;
+  };
+
   const onSave = async () => {
     setError(null);
     if (!name.trim()) {
       setError('Informe o nome do fornecedor.');
+      return;
+    }
+    const phoneMessage = validatePhone();
+    if (phoneMessage) {
+      showToast(phoneMessage);
       return;
     }
     setSaving(true);
@@ -84,9 +100,15 @@ export default function FornecedorForm() {
       <TextField
         label="Telefone — opcional"
         value={phone}
-        onChangeText={setPhone}
+        onChangeText={(t) => {
+          setPhone(formatPhoneInput(t));
+          if (phoneError) setPhoneError(null);
+        }}
+        onBlur={validatePhone}
         placeholder="(00) 00000-0000"
         keyboardType="phone-pad"
+        maxLength={15}
+        error={phoneError ?? undefined}
       />
       <TextField
         label="Endereço — opcional"

@@ -13,6 +13,7 @@ import { colors, fontSizes, radii, spacing } from '@/design/tokens';
 import { countPending, runSync } from '@/data/sync/syncEngine';
 import { formatIsoDate, formatIsoDateLong, formatIsoDateTime } from '@/lib/dates';
 import { logSilently } from '@/lib/feedback';
+import { formatPhoneInput, phoneValidationMessage, unmaskPhone } from '@/lib/phone';
 import { usePermissions } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
 import { usesPasswordLogin } from '@/services/auth';
@@ -40,6 +41,7 @@ export default function Perfil() {
   const [exportRequested, setExportRequested] = useState(true);
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [contactPhoneError, setContactPhoneError] = useState<string | null>(null);
   const [dates, setDates] = useState<{ noExport: string | null; withExport: string | null }>({
     noExport: null,
     withExport: null,
@@ -75,7 +77,7 @@ export default function Perfil() {
           logSilently(e, { action: 'Carregar o telefone da empresa', screen: 'perfil' });
           return null;
         });
-        if (tenant?.phone) setContactPhone((current) => current || tenant.phone || '');
+        if (tenant?.phone) setContactPhone((current) => current || formatPhoneInput(tenant.phone ?? ''));
       }
     })();
   }, [currentTenantId, isOwner]);
@@ -156,6 +158,17 @@ export default function Perfil() {
     }
   };
 
+  // Telefone é obrigatório aqui (diferente do opcional em Minha Empresa), então
+  // compõe a exigência com a validação de formato (11 dígitos + DV nem se aplica,
+  // é só tamanho — ver phoneValidationMessage).
+  const validateContactPhone = (): string | null => {
+    const message = contactPhone.trim()
+      ? phoneValidationMessage(unmaskPhone(contactPhone))
+      : 'Informe um telefone de contato.';
+    setContactPhoneError(message);
+    return message;
+  };
+
   const onSubmitPress = () => {
     if (!isOnline) {
       showToast('Precisa de internet para solicitar a exclusão.');
@@ -168,9 +181,12 @@ export default function Perfil() {
       showToast('Informe o nome de quem podemos procurar.');
       return;
     }
-    if (isOwner && !contactPhone.trim()) {
-      showToast('Informe um telefone de contato.');
-      return;
+    if (isOwner) {
+      const phoneMessage = validateContactPhone();
+      if (phoneMessage) {
+        showToast(phoneMessage);
+        return;
+      }
     }
     if (!proof.trim()) {
       showToast(byPassword ? 'Digite sua senha para confirmar.' : 'Digite seu e-mail para confirmar.');
@@ -395,8 +411,14 @@ export default function Perfil() {
               <TextField
                 label="Telefone (WhatsApp)"
                 value={contactPhone}
-                onChangeText={setContactPhone}
+                onChangeText={(t) => {
+                  setContactPhone(formatPhoneInput(t));
+                  if (contactPhoneError) setContactPhoneError(null);
+                }}
+                onBlur={validateContactPhone}
                 keyboardType="phone-pad"
+                maxLength={15}
+                error={contactPhoneError ?? undefined}
                 returnKeyType="done"
                 blurOnSubmit
               />
