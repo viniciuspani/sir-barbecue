@@ -61,6 +61,10 @@ export default function ProdutoForm() {
       setError('Informe um preço válido (maior que zero).');
       return;
     }
+    if (!categoryId) {
+      setError('Selecione uma categoria.');
+      return;
+    }
     setSaving(true);
     const payload = { name: name.trim(), price: parsedPrice, isActive, categoryId, visibleDays: days };
     try {
@@ -99,7 +103,9 @@ export default function ProdutoForm() {
 
         <Text style={styles.section}>Categoria</Text>
         <View style={styles.chips}>
-          {categories.length === 0 && <Text style={styles.hint}>Nenhuma categoria cadastrada.</Text>}
+          {categories.length === 0 && (
+            <Text style={styles.hint}>Cadastre uma categoria antes de criar produtos.</Text>
+          )}
           {categories.map((c) => (
             <Chip
               key={c.id}

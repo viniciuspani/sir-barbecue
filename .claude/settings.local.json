@@ -48,7 +48,18 @@
       "PowerShell($psql = Get-Command psql -ErrorAction SilentlyContinue; if \\($psql\\) { \"psql: $\\($psql.Source\\)\" } else { \"psql: nao encontrado\" }; $sb = Get-Command supabase -ErrorAction SilentlyContinue; if \\($sb\\) { \"supabase: $\\($sb.Source\\)\" } else { \"supabase: nao encontrado\" }; $dk = Get-Command docker -ErrorAction SilentlyContinue; if \\($dk\\) { \"docker: $\\($dk.Source\\)\" } else { \"docker: nao encontrado\" })",
       "PowerShell($ok = $false; foreach \\($i in 1..24\\) { try { $v = docker version --format '{{.Server.Version}}' 2>$null; if \\($LASTEXITCODE -eq 0 -and $v\\) { \"Docker pronto: $v\"; $ok = $true; break } } catch {}; Start-Sleep -Seconds 5 }; if \\(-not $ok\\) { \"Docker ainda nao respondeu apos ~2 min\" })",
       "PowerShell(docker run --rm -v \"C:\\\\develop\\\\MOBILE\\\\sir-barbecue\\\\supabase\\\\functions:/app\" -w /app denoland/deno:latest deno check process-deletion-requests/index.ts resend-webhook/index.ts 2>&1)",
-      "Bash(cd \"C:/develop/WEB/sir-barbecue-web\" && head -20 src/screens/conta/Conta.tsx)"
+      "Bash(cd \"C:/develop/WEB/sir-barbecue-web\" && head -20 src/screens/conta/Conta.tsx)",
+      "Read(//c/develop/WEB/medcontrol-site/**)",
+      "Bash(mkdir -p \"c:/develop/WEB/sir-barbecue-site/assets/img\" \"c:/develop/WEB/sir-barbecue-site/assets/css\" \"c:/develop/WEB/sir-barbecue-site/assets/js\")",
+      "Bash(cp \"c:/develop/MOBILE/sir-barbecue/docs/design/logo-sir-barbecue.png\" \"c:/develop/WEB/sir-barbecue-site/assets/img/logo-sir-barbecue.png\")",
+      "Bash(cp \"c:/develop/MOBILE/sir-barbecue/assets/favicon.png\" \"c:/develop/WEB/sir-barbecue-site/assets/img/favicon.png\")",
+      "Bash(cp \"c:/develop/MOBILE/sir-barbecue/assets/icon.png\" \"c:/develop/WEB/sir-barbecue-site/assets/img/icon.png\")",
+      "Bash(ls \"c:/develop/WEB/sir-barbecue-web/public\" \"c:/develop/WEB/sir-barbecue-web/src\" 2>/dev/null | head -40; echo \"=== privacidade ===\"; find \"c:/develop/MOBILE/sir-barbecue/docs\" \"c:/develop/WEB/sir-barbecue-web/src\" -iname \"*privac*\" -o -iname \"*termo*\" 2>/dev/null | head; echo \"=== medcontrol priv ===\"; ls \"c:/develop/WEB/medcontrol-site/privacidade\")",
+      "Read(//c/develop/WEB/sir-barbecue-web/public/**)",
+      "Read(//c/develop/WEB/sir-barbecue-web/src/**)",
+      "Read(//c/develop/WEB/medcontrol-site/privacidade/**)",
+      "PowerShell(Get-ChildItem C:\\\\develop\\\\WEB\\\\sir-barbecue-web\\\\src -Directory -Recurse | ForEach-Object { $_.FullName.Replace\\('C:\\\\develop\\\\WEB\\\\sir-barbecue-web\\\\',''\\) }; \"--- public ---\"; Get-ChildItem C:\\\\develop\\\\WEB\\\\sir-barbecue-web\\\\public | Select-Object -ExpandProperty Name; \"--- docs ---\"; Get-ChildItem C:\\\\develop\\\\WEB\\\\sir-barbecue-web\\\\docs -Recurse -File | ForEach-Object { $_.FullName.Replace\\('C:\\\\develop\\\\WEB\\\\sir-barbecue-web\\\\',''\\) })",
+      "PowerShell(Get-Content C:\\\\develop\\\\WEB\\\\sir-barbecue-web\\\\vite.config.ts; \"=== package deps ===\"; \\(Get-Content C:\\\\develop\\\\WEB\\\\sir-barbecue-web\\\\package.json -Raw\\))"
     ]
   }
 }

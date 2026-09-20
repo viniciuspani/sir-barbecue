@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radii, spacing } from '@/design/tokens';
+import { cnpjValidationMessage, formatCnpjInput, unmaskCnpj } from '@/lib/cnpj';
 import { logSilently, reportError } from '@/lib/feedback';
 import { usePermissions } from '@/lib/permissions';
+import { formatPhoneInput, phoneValidationMessage, unmaskPhone } from '@/lib/phone';
 import { showToast } from '@/lib/toast';
 import { inviteMember } from '@/services/functions';
 import {
@@ -32,7 +34,9 @@ export default function Empresa() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [name, setName] = useState('');
   const [cnpj, setCnpj] = useState('');
+  const [cnpjError, setCnpjError] = useState<string | null>(null);
   const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [members, setMembers] = useState<TenantMember[]>([]);
   const [saving, setSaving] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -80,10 +84,51 @@ export default function Empresa() {
     void load();
   }, [load]);
 
+  // Roda ao sair do campo (feedback imediato) e de novo ao salvar (garante que
+  // não escapa por um caminho que pule o blur, como colar e tocar direto no botão).
+  // Devolve a mensagem (ou null se ok) porque o chamador decide o que fazer com
+  // ela: onBlur só deixa no campo, onSave também avisa em toast — sem toast no
+  // blur, um clique que erra o campo por engano viraria alerta incômodo.
+  const validateCnpj = (): string | null => {
+    const cnpjRaw = unmaskCnpj(cnpj);
+    const message = cnpjValidationMessage(cnpjRaw);
+    setCnpjError(message);
+    if (message && cnpjRaw.length === 14) {
+      logSilently(new Error('CNPJ com dígito verificador inválido'), {
+        action: 'Validar CNPJ da empresa',
+        screen: 'empresa',
+        meta: { cnpjDigitado: cnpj },
+      });
+    }
+    return message;
+  };
+
+  // Mesmo padrão do CNPJ, sem o log em error_logs: aqui não existe "dígito
+  // verificador" a falhar — só o tamanho, então não há nada de irregular a
+  // registrar, apenas um campo incompleto.
+  const validatePhone = (): string | null => {
+    const message = phoneValidationMessage(unmaskPhone(phone));
+    setPhoneError(message);
+    return message;
+  };
+
   const onSave = async () => {
     if (!tenantId) return;
     if (!name.trim()) {
       showToast('Informe o nome da empresa.');
+      return;
+    }
+    const cnpjMessage = validateCnpj();
+    if (cnpjMessage) {
+      // O campo já mostra o aviso, mas sem isto um toque em "Salvar" sem efeito
+      // nenhum passa a impressão de que salvou — o usuário precisa de uma
+      // confirmação de que a ação FALHOU, não só de que o campo está com erro.
+      showToast(cnpjMessage);
+      return;
+    }
+    const phoneMessage = validatePhone();
+    if (phoneMessage) {
+      showToast(phoneMessage);
       return;
     }
     setSaving(true);
@@ -225,16 +270,28 @@ export default function Empresa() {
       <TextField
         label="CNPJ — opcional"
         value={cnpj}
-        onChangeText={setCnpj}
+        onChangeText={(t) => {
+          setCnpj(formatCnpjInput(t));
+          if (cnpjError) setCnpjError(null);
+        }}
+        onBlur={validateCnpj}
         editable={isOwner}
-        keyboardType="number-pad"
+        autoCapitalize="characters"
+        maxLength={18}
+        error={cnpjError ?? undefined}
       />
       <TextField
         label="Telefone — opcional"
         value={phone}
-        onChangeText={setPhone}
+        onChangeText={(t) => {
+          setPhone(formatPhoneInput(t));
+          if (phoneError) setPhoneError(null);
+        }}
+        onBlur={validatePhone}
         editable={isOwner}
         keyboardType="phone-pad"
+        maxLength={15}
+        error={phoneError ?? undefined}
       />
       {isOwner ? (
         <Button
