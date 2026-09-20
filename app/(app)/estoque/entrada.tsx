@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { productRepository, stockRepository } from '@/data/repositories';
 import type { Product } from '@/domain/entities/Product';
 import { colors, spacing } from '@/design/tokens';
-import { parseBRL } from '@/lib/currency';
+import { parseBRL, quantityValidationMessage, sanitizeQuantityInput } from '@/lib/currency';
 import { reportError } from '@/lib/feedback';
 import { usePermissions } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
@@ -20,23 +20,39 @@ export default function RegistrarEntrada() {
   const [products, setProducts] = useState<Product[]>([]);
   const [productId, setProductId] = useState<string | undefined>();
   const [quantity, setQuantity] = useState('');
+  const [quantityError, setQuantityError] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => productRepository.observeAll(setProducts), []);
 
+  const onChangeQuantity = (t: string) => {
+    setQuantity(sanitizeQuantityInput(t));
+    if (quantityError) setQuantityError(null);
+  };
+
+  // Roda ao sair do campo (feedback imediato) e de novo ao salvar — mesmo
+  // padrão do CNPJ/Telefone em Minha Empresa e do preço em Produto/Fornecedor.
+  const validateQuantity = (): string | null => {
+    const qty = parseBRL(quantity);
+    const message = qty <= 0 ? 'Informe uma quantidade válida.' : quantityValidationMessage(qty);
+    setQuantityError(message);
+    return message;
+  };
+
   const onSave = async () => {
     setError(null);
-    const qty = parseBRL(quantity); // aceita "50" ou "2,5"
     if (!productId) {
       setError('Selecione o produto.');
       return;
     }
-    if (qty <= 0) {
-      setError('Informe uma quantidade válida.');
+    const quantityMessage = validateQuantity();
+    if (quantityMessage) {
+      showToast(quantityMessage);
       return;
     }
+    const qty = parseBRL(quantity);
     setSaving(true);
     try {
       await stockRepository.registerEntry({
@@ -75,9 +91,11 @@ export default function RegistrarEntrada() {
         <TextField
           label="Quantidade"
           value={quantity}
-          onChangeText={setQuantity}
+          onChangeText={onChangeQuantity}
+          onBlur={validateQuantity}
           placeholder="ex.: 50"
           keyboardType="decimal-pad"
+          error={quantityError ?? undefined}
         />
         <TextField
           label="Observações — opcional"

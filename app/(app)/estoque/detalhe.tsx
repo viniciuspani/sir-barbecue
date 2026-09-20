@@ -8,7 +8,7 @@ import type { ProductSupplier } from '@/domain/entities/ProductSupplier';
 import type { StockEntry } from '@/domain/entities/StockEntry';
 import type { Supplier } from '@/domain/entities/Supplier';
 import { colors, radii, spacing } from '@/design/tokens';
-import { formatBRL, formatQuantity, parseBRL } from '@/lib/currency';
+import { formatBRL, formatQuantity, parseBRL, quantityValidationMessage, sanitizeQuantityInput } from '@/lib/currency';
 import { formatDatePtBR } from '@/lib/dates';
 import { logSilently, reportError } from '@/lib/feedback';
 import { usePermissions } from '@/lib/permissions';
@@ -32,6 +32,7 @@ export default function EstoqueDetalhe() {
   const [productName, setProductName] = useState('—');
   const [quantity, setQuantity] = useState(0);
   const [threshold, setThreshold] = useState('');
+  const [thresholdError, setThresholdError] = useState<string | null>(null);
   const [entries, setEntries] = useState<StockEntry[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierLinks, setSupplierLinks] = useState<ProductSupplier[]>([]);
@@ -72,8 +73,26 @@ export default function EstoqueDetalhe() {
     return { minQty: Math.min(...values), maxQty: Math.max(...values) };
   }, [entries]);
 
+  const onChangeThreshold = (t: string) => {
+    setThreshold(sanitizeQuantityInput(t));
+    if (thresholdError) setThresholdError(null);
+  };
+
+  // Roda ao sair do campo (feedback imediato) e de novo ao salvar — mesmo
+  // padrão do CNPJ/Telefone em Minha Empresa e do preço em Produto/Fornecedor.
+  const validateThreshold = (): string | null => {
+    const message = quantityValidationMessage(parseBRL(threshold));
+    setThresholdError(message);
+    return message;
+  };
+
   const onSaveAlert = async () => {
     if (!productId) return;
+    const thresholdMessage = validateThreshold();
+    if (thresholdMessage) {
+      showToast(thresholdMessage);
+      return;
+    }
     setSaving(true);
     try {
       await stockRepository.setAlertThreshold(productId, parseBRL(threshold));
@@ -101,9 +120,11 @@ export default function EstoqueDetalhe() {
         <TextField
           label="Limite de alerta"
           value={threshold}
-          onChangeText={setThreshold}
+          onChangeText={onChangeThreshold}
+          onBlur={validateThreshold}
           placeholder="ex.: 10"
           keyboardType="decimal-pad"
+          error={thresholdError ?? undefined}
         />
         <Button
           title="Salvar alerta"

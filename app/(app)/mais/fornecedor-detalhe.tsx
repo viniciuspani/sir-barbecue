@@ -8,7 +8,7 @@ import type { Product } from '@/domain/entities/Product';
 import type { ProductSupplier } from '@/domain/entities/ProductSupplier';
 import type { Supplier } from '@/domain/entities/Supplier';
 import { colors, radii, spacing } from '@/design/tokens';
-import { formatBRL, formatMoneyInput, parseBRL } from '@/lib/currency';
+import { formatBRL, formatMoneyInput, moneyValidationMessage, parseBRL } from '@/lib/currency';
 import { logSilently, reportError } from '@/lib/feedback';
 import { usePermissions } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
@@ -24,8 +24,10 @@ export default function FornecedorDetalhe() {
   const [links, setLinks] = useState<ProductSupplier[]>([]);
   const [pickProductId, setPickProductId] = useState<string | undefined>();
   const [price, setPrice] = useState('');
+  const [priceError, setPriceError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState('');
+  const [editPriceError, setEditPriceError] = useState<string | null>(null);
 
   const reloadLinks = () => {
     if (id)
@@ -52,16 +54,37 @@ export default function FornecedorDetalhe() {
   const productName = (pid: string) => products.find((p) => p.id === pid)?.name ?? '—';
   const linkable = products.filter((p) => !links.some((l) => l.productId === p.id));
 
+  // Mesma checagem para os dois campos (associar e editar) — a única diferença
+  // é qual state de erro cada um marca.
+  const purchasePriceMessage = (raw: string): string | null => {
+    const parsed = parseBRL(raw);
+    if (parsed <= 0) return 'Informe o preço de compra.';
+    return moneyValidationMessage(parsed);
+  };
+
+  const validatePrice = (): string | null => {
+    const message = purchasePriceMessage(price);
+    setPriceError(message);
+    return message;
+  };
+
+  const validateEditPrice = (): string | null => {
+    const message = purchasePriceMessage(editPrice);
+    setEditPriceError(message);
+    return message;
+  };
+
   const onAddLink = async () => {
     if (!id || !pickProductId) {
       showToast('Selecione um produto.');
       return;
     }
-    const pp = parseBRL(price);
-    if (pp <= 0) {
-      showToast('Informe o preço de compra.');
+    const priceMessage = validatePrice();
+    if (priceMessage) {
+      showToast(priceMessage);
       return;
     }
+    const pp = parseBRL(price);
     try {
       await supplierRepository.addLink({
         supplierId: id,
@@ -70,6 +93,7 @@ export default function FornecedorDetalhe() {
       });
       setPickProductId(undefined);
       setPrice('');
+      setPriceError(null);
       reloadLinks();
       void runSync(); // reflete rápido no servidor/histórico (no-op offline)
       showToast('Produto associado! ✅');
@@ -116,19 +140,22 @@ export default function FornecedorDetalhe() {
   const onStartEdit = (l: ProductSupplier) => {
     setEditingId(l.id);
     setEditPrice(formatMoneyInput(l.purchasePrice));
+    setEditPriceError(null);
   };
 
   const onSaveEdit = async () => {
     if (!editingId) return;
-    const pp = parseBRL(editPrice);
-    if (pp <= 0) {
-      showToast('Informe o preço de compra.');
+    const priceMessage = validateEditPrice();
+    if (priceMessage) {
+      showToast(priceMessage);
       return;
     }
+    const pp = parseBRL(editPrice);
     try {
       await supplierRepository.updateLink(editingId, { purchasePrice: pp });
       setEditingId(null);
       setEditPrice('');
+      setEditPriceError(null);
       reloadLinks();
       void runSync();
       showToast('Preço atualizado! ✅');
@@ -162,7 +189,16 @@ export default function FornecedorDetalhe() {
         canWriteSuppliers && editingId === l.id ? (
           <View key={l.id} style={styles.editRow}>
             <Text style={styles.linkName}>{productName(l.productId)}</Text>
-            <MoneyField label="Novo preço de compra (R$)" value={editPrice} onChangeText={setEditPrice} />
+            <MoneyField
+              label="Novo preço de compra (R$)"
+              value={editPrice}
+              onChangeText={(t) => {
+                setEditPrice(t);
+                if (editPriceError) setEditPriceError(null);
+              }}
+              onBlur={validateEditPrice}
+              error={editPriceError ?? undefined}
+            />
             <View style={styles.editActions}>
               <Button title="Salvar" onPress={onSaveEdit} disabledReason={readOnlyReason ?? undefined} />
               <Button title="Cancelar" variant="text" onPress={() => setEditingId(null)} />
@@ -212,7 +248,16 @@ export default function FornecedorDetalhe() {
                   />
                 ))}
               </View>
-              <MoneyField label="Preço de compra (R$)" value={price} onChangeText={setPrice} />
+              <MoneyField
+                label="Preço de compra (R$)"
+                value={price}
+                onChangeText={(t) => {
+                  setPrice(t);
+                  if (priceError) setPriceError(null);
+                }}
+                onBlur={validatePrice}
+                error={priceError ?? undefined}
+              />
               <Button title="Associar produto" onPress={onAddLink} />
             </>
           )}

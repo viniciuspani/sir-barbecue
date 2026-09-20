@@ -6,10 +6,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { categoryRepository, productRepository } from '@/data/repositories';
 import type { Category } from '@/domain/entities/Category';
 import { colors, spacing } from '@/design/tokens';
+import { formatMoneyInput, moneyValidationMessage, parseBRL } from '@/lib/currency';
 import { logSilently, reportError } from '@/lib/feedback';
 import { usePermissions } from '@/lib/permissions';
-import { formatMoneyInput, parseBRL } from '@/lib/currency';
 import { WEEKDAYS_PT } from '@/lib/dates';
+import { showToast } from '@/lib/toast';
 import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
@@ -24,6 +25,7 @@ export default function ProdutoForm() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
+  const [priceError, setPriceError] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | undefined>();
   const [isActive, setIsActive] = useState(true);
   const [days, setDays] = useState<number[]>([]);
@@ -50,15 +52,26 @@ export default function ProdutoForm() {
   const toggleDay = (d: number) =>
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
 
+  // Roda ao sair do campo (feedback imediato) e de novo ao salvar — mesmo
+  // padrão do CNPJ/Telefone em Minha Empresa.
+  const validatePrice = (): string | null => {
+    const parsedPrice = parseBRL(price);
+    const message = parsedPrice <= 0 ? 'Informe um preço válido (maior que zero).' : moneyValidationMessage(parsedPrice);
+    setPriceError(message);
+    return message;
+  };
+
   const onSave = async () => {
     setError(null);
-    const parsedPrice = parseBRL(price);
     if (!name.trim()) {
       setError('Informe o nome do produto.');
       return;
     }
-    if (parsedPrice <= 0) {
-      setError('Informe um preço válido (maior que zero).');
+    const priceMessage = validatePrice();
+    if (priceMessage) {
+      // O campo já mostra o aviso, mas sem isto um toque em "Cadastrar/Salvar"
+      // sem efeito nenhum passa a impressão de que salvou.
+      showToast(priceMessage);
       return;
     }
     if (!categoryId) {
@@ -66,7 +79,7 @@ export default function ProdutoForm() {
       return;
     }
     setSaving(true);
-    const payload = { name: name.trim(), price: parsedPrice, isActive, categoryId, visibleDays: days };
+    const payload = { name: name.trim(), price: parseBRL(price), isActive, categoryId, visibleDays: days };
     try {
       if (isEdit && id) await productRepository.update(id, payload);
       else await productRepository.create(payload);
@@ -99,7 +112,16 @@ export default function ProdutoForm() {
           placeholder="ex.: Espetinho de Carne"
           autoCapitalize="words"
         />
-        <MoneyField label="Preço (R$)" value={price} onChangeText={setPrice} />
+        <MoneyField
+          label="Preço (R$)"
+          value={price}
+          onChangeText={(t) => {
+            setPrice(t);
+            if (priceError) setPriceError(null);
+          }}
+          onBlur={validatePrice}
+          error={priceError ?? undefined}
+        />
 
         <Text style={styles.section}>Categoria</Text>
         <View style={styles.chips}>
