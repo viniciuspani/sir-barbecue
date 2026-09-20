@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { categoryRepository, productRepository } from '@/data/repositories';
 import type { Category } from '@/domain/entities/Category';
+import type { Product } from '@/domain/entities/Product';
 import { colors, spacing } from '@/design/tokens';
 import { formatMoneyInput, moneyValidationMessage, parseBRL } from '@/lib/currency';
 import { logSilently, reportError } from '@/lib/feedback';
@@ -23,7 +24,9 @@ export default function ProdutoForm() {
   const { canWriteCatalog, readOnlyReason } = usePermissions();
 
   const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [name, setName] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
   const [price, setPrice] = useState('');
   const [priceError, setPriceError] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | undefined>();
@@ -33,6 +36,7 @@ export default function ProdutoForm() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => categoryRepository.observeAll(setCategories), []);
+  useEffect(() => productRepository.observeAll(setProducts), []);
 
   useEffect(() => {
     if (!id) return;
@@ -52,6 +56,22 @@ export default function ProdutoForm() {
   const toggleDay = (d: number) =>
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
 
+  // Comparação EXATA (sem normalizar caixa/acentos) porque é assim que o banco
+  // compara: constraint products_name_tenant_unique = unique (tenant_id, name).
+  // Exclui o próprio produto (id) para não acusar duplicidade dele consigo mesmo
+  // ao editar sem mudar o nome.
+  const validateName = (): string | null => {
+    const trimmed = name.trim();
+    let message: string | null = null;
+    if (!trimmed) {
+      message = 'Informe o nome do produto.';
+    } else if (products.some((p) => p.name === trimmed && p.id !== id)) {
+      message = 'Já existe um produto cadastrado com esse nome.';
+    }
+    setNameError(message);
+    return message;
+  };
+
   // Roda ao sair do campo (feedback imediato) e de novo ao salvar — mesmo
   // padrão do CNPJ/Telefone em Minha Empresa.
   const validatePrice = (): string | null => {
@@ -63,8 +83,9 @@ export default function ProdutoForm() {
 
   const onSave = async () => {
     setError(null);
-    if (!name.trim()) {
-      setError('Informe o nome do produto.');
+    const nameMessage = validateName();
+    if (nameMessage) {
+      showToast(nameMessage);
       return;
     }
     const priceMessage = validatePrice();
@@ -108,9 +129,14 @@ export default function ProdutoForm() {
         <TextField
           label="Nome"
           value={name}
-          onChangeText={setName}
+          onChangeText={(t) => {
+            setName(t);
+            if (nameError) setNameError(null);
+          }}
+          onBlur={validateName}
           placeholder="ex.: Espetinho de Carne"
           autoCapitalize="words"
+          error={nameError ?? undefined}
         />
         <MoneyField
           label="Preço (R$)"
