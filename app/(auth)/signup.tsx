@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, spacing } from '@/design/tokens';
+import { passwordValidationMessage } from '@/lib/password';
 import { hasPendingInvite, signUpWithEmail } from '@/services/auth';
 import { Button } from '@/ui/Button';
 import { TextField } from '@/ui/TextField';
@@ -54,11 +55,9 @@ export default function SignUp() {
       setError('Informe o nome da empresa.');
       return;
     }
-    // 10 caracteres: uma conta `owner` comprometida dá acesso a todo o
-    // faturamento da empresa e pode excluí-la. Alinhado ao mínimo configurado
-    // no painel do Supabase — ver A07-01 na auditoria de segurança.
-    if (password.length < 10) {
-      setError('A senha deve ter ao menos 10 caracteres.');
+    const passwordMessage = passwordValidationMessage(password);
+    if (passwordMessage) {
+      setError(passwordMessage);
       return;
     }
     if (password !== confirm) {
@@ -124,7 +123,7 @@ export default function SignUp() {
             label="Senha"
             value={password}
             onChangeText={setPassword}
-            placeholder="mínimo 10 caracteres"
+            placeholder="mín. 10 caracteres, com letras e números"
             secureTextEntry
             autoCapitalize="none"
             textContentType="newPassword"

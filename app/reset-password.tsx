@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { supabase } from '@/data/remote/supabaseClient';
 import { colors, spacing } from '@/design/tokens';
+import { passwordValidationMessage } from '@/lib/password';
 import { updatePassword } from '@/services/auth';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/ui/Button';
@@ -72,9 +73,10 @@ export default function ResetPassword() {
 
   const onSubmit = async () => {
     setError(null);
-    // Mesmo mínimo do cadastro (ver A07-01 na auditoria de segurança).
-    if (password.length < 10) {
-      setError('A senha deve ter ao menos 10 caracteres.');
+    // Mesma regra do cadastro — ver lib/password.ts.
+    const passwordMessage = passwordValidationMessage(password);
+    if (passwordMessage) {
+      setError(passwordMessage);
       return;
     }
     if (password !== confirm) {
@@ -121,7 +123,7 @@ export default function ResetPassword() {
                 label="Nova senha"
                 value={password}
                 onChangeText={setPassword}
-                placeholder="mínimo 10 caracteres"
+                placeholder="mín. 10 caracteres, com letras e números"
                 secureTextEntry
                 autoCapitalize="none"
                 textContentType="newPassword"
