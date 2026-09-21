@@ -183,6 +183,13 @@ export default function ProdutoForm() {
           />
         </View>
 
+        <Text style={styles.hint}>
+          Quer cadastrar o preço de custo deste produto? Isso é feito no fornecedor, não aqui.{' '}
+          <Text style={styles.hintLink} onPress={() => router.push('/mais/fornecedores')}>
+            Cadastrar fornecedor
+          </Text>
+        </Text>
+
         {!!error && <Text style={styles.error}>{error}</Text>}
 
         <Button
@@ -203,6 +210,7 @@ const styles = StyleSheet.create({
   title: { color: colors.textPrimary, fontSize: 24, fontWeight: '700', marginBottom: spacing.md },
   section: { color: colors.textPrimary, fontSize: 16, fontWeight: '600', marginTop: spacing.sm },
   hint: { color: colors.textSecondary, fontSize: 13, fontWeight: '400' },
+  hintLink: { color: colors.gold, fontWeight: '600' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
   switchRow: {
     flexDirection: 'row',
