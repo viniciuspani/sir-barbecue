@@ -18,6 +18,12 @@ import { Chip } from '@/ui/Chip';
 import { MoneyField } from '@/ui/MoneyField';
 import { TextField } from '@/ui/TextField';
 
+// tab_items.name (cópia do nome gravada quando o produto entra numa comanda) é
+// varchar(120) — mais apertado que products.name (varchar(200)). Um produto
+// com nome entre 121 e 200 caracteres passaria no cadastro e só quebraria,
+// de forma confusa, ao ser lançado numa comanda. Por isso o limite aqui é 120.
+const MAX_PRODUCT_NAME_LENGTH = 120;
+
 export default function ProdutoForm() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEdit = !!id;
@@ -62,14 +68,36 @@ export default function ProdutoForm() {
   // ao editar sem mudar o nome.
   const validateName = (): string | null => {
     const trimmed = name.trim();
-    let message: string | null = null;
+    let blockingMessage: string | null = null;
     if (!trimmed) {
-      message = 'Informe o nome do produto.';
+      blockingMessage = 'Informe o nome do produto.';
+    } else if (name.length > MAX_PRODUCT_NAME_LENGTH) {
+      // Só acontece editando um produto com nome já acima do limite (cadastrado
+      // antes desta correção) — o maxLength do campo trava a digitação nova,
+      // mas não encurta um valor que já veio maior. Sem bloquear aqui, o
+      // "Salvar" chegaria a bater na mesma "value too long" do banco (22001).
+      blockingMessage = `Nome muito longo — o máximo é ${MAX_PRODUCT_NAME_LENGTH} caracteres.`;
     } else if (products.some((p) => p.name === trimmed && p.id !== id)) {
-      message = 'Já existe um produto cadastrado com esse nome.';
+      blockingMessage = 'Já existe um produto cadastrado com esse nome.';
     }
-    setNameError(message);
-    return message;
+    // Atingir EXATAMENTE o limite não bloqueia — 120 é um nome válido. Só
+    // mantém o aviso visível quando não há um problema mais sério a mostrar.
+    const displayMessage =
+      blockingMessage ??
+      (name.length >= MAX_PRODUCT_NAME_LENGTH
+        ? `Limite de ${MAX_PRODUCT_NAME_LENGTH} caracteres atingido.`
+        : null);
+    setNameError(displayMessage);
+    return blockingMessage;
+  };
+
+  // maxLength no campo já trava a digitação em 120 — isto só avisa o motivo
+  // assim que o limite é alcançado (paste de um nome enorme também cai aqui).
+  const onChangeName = (t: string) => {
+    setName(t);
+    setNameError(
+      t.length >= MAX_PRODUCT_NAME_LENGTH ? `Limite de ${MAX_PRODUCT_NAME_LENGTH} caracteres atingido.` : null,
+    );
   };
 
   // Roda ao sair do campo (feedback imediato) e de novo ao salvar — mesmo
@@ -129,11 +157,9 @@ export default function ProdutoForm() {
         <TextField
           label="Nome"
           value={name}
-          onChangeText={(t) => {
-            setName(t);
-            if (nameError) setNameError(null);
-          }}
+          onChangeText={onChangeName}
           onBlur={validateName}
+          maxLength={MAX_PRODUCT_NAME_LENGTH}
           placeholder="ex.: Espetinho de Carne"
           autoCapitalize="words"
           error={nameError ?? undefined}

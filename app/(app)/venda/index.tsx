@@ -35,6 +35,10 @@ import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
 import { TextField } from '@/ui/TextField';
 
+// tabs.customer_name é varchar(120) no banco — acima disso o servidor recusa
+// com "value too long for type character varying" (22001).
+const MAX_CUSTOMER_NAME_LENGTH = 120;
+
 // RF-05: produto aparece na venda se ativo e visível no dia da semana atual.
 function isVisibleToday(p: Product, weekday: number): boolean {
   return !p.visibleDays || p.visibleDays.length === 0 || p.visibleDays.includes(weekday);
@@ -60,6 +64,7 @@ export default function NovaVenda() {
   const [targetTabId, setTargetTabId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [nameInput, setNameInput] = useState('');
+  const [nameInputError, setNameInputError] = useState<string | null>(null);
 
   const cartItems = useCartStore((s) => s.items);
   const add = useCartStore((s) => s.add);
@@ -164,6 +169,17 @@ export default function NovaVenda() {
     );
   };
 
+  // maxLength no campo já trava a digitação em 120 — isto só avisa o motivo
+  // assim que o limite é alcançado (paste de um nome enorme também cai aqui).
+  const onChangeName = (t: string) => {
+    setNameInput(t);
+    setNameInputError(
+      t.length >= MAX_CUSTOMER_NAME_LENGTH
+        ? `Limite de ${MAX_CUSTOMER_NAME_LENGTH} caracteres atingido.`
+        : null,
+    );
+  };
+
   const onCreateTab = async () => {
     if (readOnly && readOnlyReason) {
       showToast(readOnlyReason);
@@ -177,6 +193,7 @@ export default function NovaVenda() {
     const tab = await tabRepository.open(name);
     setTargetTabId(tab.id);
     setNameInput('');
+    setNameInputError(null);
     setModalOpen(false);
   };
 
@@ -399,7 +416,9 @@ export default function NovaVenda() {
               label="Nome do cliente"
               placeholder="Ex.: João da mesa 3"
               value={nameInput}
-              onChangeText={setNameInput}
+              onChangeText={onChangeName}
+              maxLength={MAX_CUSTOMER_NAME_LENGTH}
+              error={nameInputError ?? undefined}
               autoFocus
               returnKeyType="done"
               onSubmitEditing={onCreateTab}
@@ -410,6 +429,7 @@ export default function NovaVenda() {
               variant="text"
               onPress={() => {
                 setNameInput('');
+                setNameInputError(null);
                 setModalOpen(false);
               }}
             />
