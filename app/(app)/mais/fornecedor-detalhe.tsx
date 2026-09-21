@@ -2,8 +2,9 @@ import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { productRepository, supplierRepository } from '@/data/repositories';
+import { categoryRepository, productRepository, supplierRepository } from '@/data/repositories';
 import { runSync } from '@/data/sync/syncEngine';
+import type { Category } from '@/domain/entities/Category';
 import type { Product } from '@/domain/entities/Product';
 import type { ProductSupplier } from '@/domain/entities/ProductSupplier';
 import type { Supplier } from '@/domain/entities/Supplier';
@@ -13,13 +14,14 @@ import { logSilently, reportError } from '@/lib/feedback';
 import { usePermissions } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/ui/Button';
-import { Chip } from '@/ui/Chip';
 import { MoneyField } from '@/ui/MoneyField';
+import { ProductPicker } from '@/ui/ProductPicker';
 
 export default function FornecedorDetalhe() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { canAccessSuppliers, canWriteSuppliers, readOnlyReason } = usePermissions();
   const [supplier, setSupplier] = useState<Supplier | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [links, setLinks] = useState<ProductSupplier[]>([]);
   const [pickProductId, setPickProductId] = useState<string | undefined>();
@@ -47,8 +49,12 @@ export default function FornecedorDetalhe() {
       .listLinks(id)
       .then(setLinks)
       .catch((e) => logSilently(e, { action: 'Carregar produtos do fornecedor' }));
-    const unsub = productRepository.observeAll(setProducts);
-    return unsub;
+    const unsubCategories = categoryRepository.observeAll(setCategories);
+    const unsubProducts = productRepository.observeAll(setProducts);
+    return () => {
+      unsubCategories();
+      unsubProducts();
+    };
   }, [id]);
 
   const productName = (pid: string) => products.find((p) => p.id === pid)?.name ?? '—';
@@ -238,16 +244,12 @@ export default function FornecedorDetalhe() {
             <Text style={styles.hint}>Todos os produtos já estão associados.</Text>
           ) : (
             <>
-              <View style={styles.chips}>
-                {linkable.map((p) => (
-                  <Chip
-                    key={p.id}
-                    label={p.name}
-                    selected={pickProductId === p.id}
-                    onPress={() => setPickProductId(p.id)}
-                  />
-                ))}
-              </View>
+              <ProductPicker
+                products={linkable}
+                categories={categories}
+                selectedId={pickProductId}
+                onSelect={setPickProductId}
+              />
               <MoneyField
                 label="Preço de compra (R$)"
                 value={price}
@@ -275,7 +277,6 @@ const styles = StyleSheet.create({
   meta: { color: colors.textSecondary, fontSize: 14 },
   section: { color: colors.textPrimary, fontSize: 16, fontWeight: '600', marginTop: spacing.lg },
   hint: { color: colors.textSecondary, fontSize: 13 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
   linkRow: {
     backgroundColor: colors.surface,
     borderRadius: radii.sm,

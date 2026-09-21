@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { productRepository, stockRepository } from '@/data/repositories';
+import { categoryRepository, productRepository, stockRepository } from '@/data/repositories';
+import type { Category } from '@/domain/entities/Category';
 import type { Product } from '@/domain/entities/Product';
 import { colors, spacing } from '@/design/tokens';
 import { parseBRL, quantityValidationMessage, sanitizeQuantityInput } from '@/lib/currency';
@@ -12,11 +13,12 @@ import { usePermissions } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
 import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
-import { Chip } from '@/ui/Chip';
+import { ProductPicker } from '@/ui/ProductPicker';
 import { TextField } from '@/ui/TextField';
 
 export default function RegistrarEntrada() {
   const { readOnlyReason } = usePermissions();
+  const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [productId, setProductId] = useState<string | undefined>();
   const [quantity, setQuantity] = useState('');
@@ -25,6 +27,7 @@ export default function RegistrarEntrada() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => categoryRepository.observeAll(setCategories), []);
   useEffect(() => productRepository.observeAll(setProducts), []);
 
   const onChangeQuantity = (t: string) => {
@@ -76,17 +79,16 @@ export default function RegistrarEntrada() {
         <Text style={styles.title}>Registrar entrada</Text>
 
         <Text style={styles.section}>Produto</Text>
-        <View style={styles.chips}>
-          {products.length === 0 && <Text style={styles.hint}>Nenhum produto cadastrado.</Text>}
-          {products.map((p) => (
-            <Chip
-              key={p.id}
-              label={p.name}
-              selected={productId === p.id}
-              onPress={() => setProductId(p.id)}
-            />
-          ))}
-        </View>
+        {products.length === 0 ? (
+          <Text style={styles.hint}>Nenhum produto cadastrado.</Text>
+        ) : (
+          <ProductPicker
+            products={products}
+            categories={categories}
+            selectedId={productId}
+            onSelect={setProductId}
+          />
+        )}
 
         <TextField
           label="Quantidade"
@@ -132,6 +134,5 @@ const styles = StyleSheet.create({
   section: { color: colors.textPrimary, fontSize: 16, fontWeight: '600', marginTop: spacing.sm },
   hint: { color: colors.textSecondary, fontSize: 13 },
   hintLink: { color: colors.gold, fontWeight: '600' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs, marginBottom: spacing.sm },
   error: { color: colors.danger, fontSize: 14, marginVertical: spacing.sm },
 });
