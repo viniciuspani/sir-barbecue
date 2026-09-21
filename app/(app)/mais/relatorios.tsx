@@ -102,10 +102,17 @@ export default function Relatorios() {
     const start = periodStart(period);
     const inPeriod = sales.filter((s) => s.saleDate >= start);
     const total = inPeriod.reduce((sum, s) => sum + s.totalAmount, 0);
-    const byPayment = inPeriod.reduce<Record<string, number>>((acc, s) => {
-      acc[s.paymentMethod] = (acc[s.paymentMethod] ?? 0) + s.totalAmount;
-      return acc;
-    }, {});
+    // Fonte da verdade é `payments` (soma cada forma de verdade, mesmo dentro
+    // de uma venda dividida). Venda de ANTES da MIGRATION_28 nunca teve linha
+    // em sale_payments — cai de volta no paymentMethod/total de sempre.
+    const byPayment: Record<string, number> = {};
+    for (const s of inPeriod) {
+      if (s.payments.length > 0) {
+        for (const p of s.payments) byPayment[p.method] = (byPayment[p.method] ?? 0) + p.amount;
+      } else {
+        byPayment[s.paymentMethod] = (byPayment[s.paymentMethod] ?? 0) + s.totalAmount;
+      }
+    }
     const byProduct = new Map<string, number>();
     for (const sale of inPeriod) {
       for (const item of sale.items) {

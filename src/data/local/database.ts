@@ -35,6 +35,8 @@ sqlite.execSync(`
     payment_method TEXT NOT NULL,
     consumption_mode TEXT NOT NULL,
     tenant_id TEXT,
+    -- Comanda de origem (total ou parcialmente paga). NULL = venda rápida.
+    tab_client_id TEXT,
     needs_sync INTEGER NOT NULL DEFAULT 1,
     synced_at INTEGER
   );
@@ -44,6 +46,14 @@ sqlite.execSync(`
     product_id TEXT NOT NULL,
     quantity INTEGER NOT NULL,
     unit_price REAL NOT NULL,
+    needs_sync INTEGER NOT NULL DEFAULT 1,
+    synced_at INTEGER
+  );
+  CREATE TABLE IF NOT EXISTS sale_payments (
+    id TEXT PRIMARY KEY NOT NULL,
+    sale_id TEXT NOT NULL,
+    method TEXT NOT NULL,
+    amount REAL NOT NULL,
     needs_sync INTEGER NOT NULL DEFAULT 1,
     synced_at INTEGER
   );
@@ -152,6 +162,8 @@ sqlite.execSync(`
   CREATE INDEX IF NOT EXISTS idx_products_category ON products (category_id);
   CREATE INDEX IF NOT EXISTS idx_sales_needs_sync ON sales (needs_sync);
   CREATE INDEX IF NOT EXISTS idx_sale_items_needs_sync ON sale_items (needs_sync);
+  CREATE INDEX IF NOT EXISTS idx_sale_payments_sale ON sale_payments (sale_id);
+  CREATE INDEX IF NOT EXISTS idx_sale_payments_needs_sync ON sale_payments (needs_sync);
   CREATE INDEX IF NOT EXISTS idx_tab_items_tab ON tab_items (tab_id);
   CREATE INDEX IF NOT EXISTS idx_error_logs_needs_sync ON error_logs (needs_sync);
   CREATE INDEX IF NOT EXISTS idx_error_logs_occurred ON error_logs (occurred_at DESC);
@@ -239,6 +251,15 @@ for (const table of ['categories', 'products', 'sales', 'suppliers', 'product_su
   if (!cols.some((c) => c.name === 'tenant_id')) {
     sqlite.execSync(`ALTER TABLE ${table} ADD COLUMN tenant_id TEXT`);
   }
+}
+
+// Migração incremental: pagamento dividido + pagamento parcial de comanda.
+// sale_payments é tabela nova (já coberta pelo CREATE TABLE IF NOT EXISTS
+// acima, que roda em toda inicialização); só a coluna nova em sales precisa
+// do padrão de ALTER TABLE guardado.
+const saleCols = sqlite.getAllSync<{ name: string }>('PRAGMA table_info(sales)');
+if (!saleCols.some((c) => c.name === 'tab_client_id')) {
+  sqlite.execSync('ALTER TABLE sales ADD COLUMN tab_client_id TEXT');
 }
 
 export const db = drizzle(sqlite, { schema });

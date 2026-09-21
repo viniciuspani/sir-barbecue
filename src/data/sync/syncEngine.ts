@@ -8,6 +8,7 @@ import {
   productSupplierPriceHistory,
   productSuppliers,
   products,
+  salePayments,
   saleItems,
   sales,
   stockEntries,
@@ -303,9 +304,11 @@ async function pushSalesWithItems(tenantId: string): Promise<boolean> {
 
   let allOk = true;
   for (const s of saleRows) {
-    // Itens desta venda (mesmo que já sincronizados — o upsert é idempotente por client_id;
-    // ON CONFLICT DO UPDATE não redispara o AFTER INSERT, então não há dupla dedução).
+    // Itens/pagamentos desta venda (mesmo que já sincronizados — o upsert é idempotente
+    // por client_id; ON CONFLICT DO UPDATE não redispara o AFTER INSERT, então não há
+    // dupla dedução).
     const itemRows = await db.select().from(saleItems).where(eq(saleItems.saleId, s.id));
+    const paymentRows = await db.select().from(salePayments).where(eq(salePayments.saleId, s.id));
     try {
       // Pai primeiro (FK sale_client_id no servidor).
       await withRetry(() =>
@@ -317,6 +320,7 @@ async function pushSalesWithItems(tenantId: string): Promise<boolean> {
             total_amount: s.totalAmount,
             payment_method: s.paymentMethod,
             consumption_mode: s.consumptionMode,
+            tab_client_id: s.tabClientId,
           },
         ]),
       );
@@ -334,12 +338,29 @@ async function pushSalesWithItems(tenantId: string): Promise<boolean> {
           ),
         );
       }
+      if (paymentRows.length > 0) {
+        await withRetry(() =>
+          upsertRemote(
+            'sale_payments',
+            paymentRows.map((r) => ({
+              client_id: r.id,
+              sale_client_id: r.saleId,
+              method: r.method,
+              amount: r.amount,
+            })),
+          ),
+        );
+      }
       const now = Date.now();
       await db.update(sales).set({ needsSync: false, syncedAt: now }).where(eq(sales.id, s.id));
       await db
         .update(saleItems)
         .set({ needsSync: false, syncedAt: now })
         .where(eq(saleItems.saleId, s.id));
+      await db
+        .update(salePayments)
+        .set({ needsSync: false, syncedAt: now })
+        .where(eq(salePayments.saleId, s.id));
     } catch (e) {
       logSilently(e, {
         action: 'Enviar venda para o servidor',

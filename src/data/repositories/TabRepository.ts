@@ -143,6 +143,41 @@ export class DrizzleTabRepository implements TabRepository {
   }
 
   /**
+   * Baixa da comanda o que acabou de ser pago. Generaliza `decrementItem`
+   * (que sempre tira 1) para tirar a quantidade paga de cada item de uma vez,
+   * dentro de uma única transação — mesmo padrão de `pendingDelete` quando a
+   * linha chega a zero. Não mexe em `status`: o chamador decide fechar ou
+   * enfileirar a comanda só quando isto devolver `true` (ficou vazia).
+   */
+  async payPartial(
+    tabId: string,
+    paidItems: { productId: string; quantity: number }[],
+  ): Promise<boolean> {
+    await db.transaction(async (tx) => {
+      const rows = await tx.select().from(tabItems).where(eq(tabItems.tabId, tabId));
+      for (const paid of paidItems) {
+        const line = rows.find((it) => it.productId === paid.productId && !it.pendingDelete);
+        if (!line) continue;
+        if (paid.quantity >= line.quantity) {
+          await tx
+            .update(tabItems)
+            .set({ pendingDelete: true, needsSync: true })
+            .where(eq(tabItems.id, line.id));
+        } else {
+          await tx
+            .update(tabItems)
+            .set({ quantity: line.quantity - paid.quantity, needsSync: true })
+            .where(eq(tabItems.id, line.id));
+        }
+      }
+    });
+    await this.touch(tabId);
+
+    const remaining = await db.select().from(tabItems).where(eq(tabItems.tabId, tabId));
+    return !remaining.some((it) => !it.pendingDelete);
+  }
+
+  /**
    * Pré-pago: o cliente pagou e o pedido foi para a grelha. A comanda SAI da
    * lista de abertas (não reserva mais estoque — a venda já deduziu) e entra na
    * fila da churrasqueira, visível no aparelho de quem assa pelo tempo real.

@@ -3,13 +3,14 @@ import * as Crypto from 'expo-crypto';
 import { addDatabaseChangeListener } from 'expo-sqlite';
 
 import { db } from '@/data/local/database';
-import { saleItems, sales } from '@/data/local/schema';
+import { salePayments, saleItems, sales } from '@/data/local/schema';
 import type {
   ConsumptionMode,
   NewSale,
   PaymentMethod,
   Sale,
   SaleItem,
+  SalePayment,
 } from '@/domain/entities/Sale';
 import type { SaleRepository } from '@/domain/repositories/SaleRepository';
 import { getActiveTenantId, getActiveTenantIdOrThrow } from '@/lib/activeTenant';
@@ -26,15 +27,20 @@ export class DrizzleSaleRepository implements SaleRepository {
     const saleDate = input.saleDate ?? Date.now();
     const totalAmount = input.items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
     const items: SaleItem[] = input.items.map((i) => ({ id: Crypto.randomUUID(), ...i }));
+    // Mesma regra do servidor (create_sale): 1 forma grava o método real, 2+
+    // gravam 'split' — sale_payments é que guarda o detalhe de cada uma.
+    const paymentMethod: PaymentMethod | 'split' =
+      input.payments.length === 1 ? input.payments[0].method : 'split';
 
     await db.transaction(async (tx) => {
       await tx.insert(sales).values({
         id: saleId,
         saleDate,
         totalAmount,
-        paymentMethod: input.paymentMethod,
+        paymentMethod,
         consumptionMode: input.consumptionMode,
         tenantId,
+        tabClientId: input.tabId,
         needsSync: true,
       });
       for (const item of items) {
@@ -47,13 +53,23 @@ export class DrizzleSaleRepository implements SaleRepository {
           needsSync: true,
         });
       }
+      for (const payment of input.payments) {
+        await tx.insert(salePayments).values({
+          id: Crypto.randomUUID(),
+          saleId,
+          method: payment.method,
+          amount: payment.amount,
+          needsSync: true,
+        });
+      }
     });
 
     return {
       id: saleId,
       saleDate,
       totalAmount,
-      paymentMethod: input.paymentMethod,
+      paymentMethod,
+      payments: input.payments,
       consumptionMode: input.consumptionMode,
       needsSync: true,
       items,
@@ -68,12 +84,16 @@ export class DrizzleSaleRepository implements SaleRepository {
     if (saleRows.length === 0) return [];
     const ids = saleRows.map((s) => s.id);
     const itemRows = await db.select().from(saleItems).where(inArray(saleItems.saleId, ids));
+    const paymentRows = await db.select().from(salePayments).where(inArray(salePayments.saleId, ids));
 
     return saleRows.map((s) => ({
       id: s.id,
       saleDate: s.saleDate,
       totalAmount: s.totalAmount,
-      paymentMethod: s.paymentMethod as PaymentMethod,
+      paymentMethod: s.paymentMethod as PaymentMethod | 'split',
+      payments: paymentRows
+        .filter((p) => p.saleId === s.id)
+        .map((p): SalePayment => ({ method: p.method as PaymentMethod, amount: p.amount })),
       consumptionMode: s.consumptionMode as ConsumptionMode,
       needsSync: s.needsSync,
       syncedAt: s.syncedAt ?? undefined,
@@ -96,7 +116,7 @@ export class DrizzleSaleRepository implements SaleRepository {
     };
     emit();
     const subscription = addDatabaseChangeListener((event) => {
-      if (event.tableName === 'sales' || event.tableName === 'sale_items') emit();
+      if (['sales', 'sale_items', 'sale_payments'].includes(event.tableName)) emit();
     });
     return () => subscription.remove();
   }

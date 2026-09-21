@@ -92,15 +92,17 @@ export default function Inicio() {
     const monthStart = new Date(ref.getFullYear(), ref.getMonth(), 1).getTime();
     const monthSales = sales.filter((s) => s.saleDate >= monthStart);
     const total = monthSales.reduce((sum, s) => sum + s.totalAmount, 0);
-    const byPayment = PAYMENT_ORDER.reduce<Record<PaymentMethod, number>>(
-      (acc, method) => {
-        acc[method] = monthSales
-          .filter((s) => s.paymentMethod === method)
-          .reduce((sum, s) => sum + s.totalAmount, 0);
-        return acc;
-      },
-      { pix: 0, cash: 0, credit_card: 0, debit_card: 0 },
-    );
+    // Fonte da verdade é `payments` (soma cada forma de verdade, mesmo dentro
+    // de uma venda dividida). Venda de ANTES da MIGRATION_28 nunca teve linha
+    // em sale_payments — cai de volta no paymentMethod/total de sempre.
+    const byPayment: Record<PaymentMethod, number> = { pix: 0, cash: 0, credit_card: 0, debit_card: 0 };
+    for (const s of monthSales) {
+      if (s.payments.length > 0) {
+        for (const p of s.payments) byPayment[p.method] += p.amount;
+      } else if (s.paymentMethod !== 'split') {
+        byPayment[s.paymentMethod] += s.totalAmount;
+      }
+    }
     return { count: monthSales.length, total, byPayment };
   }, [sales]);
 

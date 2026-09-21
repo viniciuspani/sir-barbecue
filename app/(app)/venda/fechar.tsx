@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -5,11 +6,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { saleRepository, stockRepository, tabRepository } from '@/data/repositories';
 import { refreshPendingCount, runSync } from '@/data/sync/syncEngine';
-import type { ConsumptionMode, PaymentMethod } from '@/domain/entities/Sale';
+import type { ConsumptionMode, PaymentMethod, SalePayment } from '@/domain/entities/Sale';
 import type { StockItem } from '@/domain/entities/StockItem';
 import type { Tab } from '@/domain/entities/Tab';
 import { colors, radii, spacing } from '@/design/tokens';
-import { formatBRL } from '@/lib/currency';
+import { formatBRL, parseBRL } from '@/lib/currency';
 import { logSilently, reportError } from '@/lib/feedback';
 import { usePermissions } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
@@ -17,6 +18,7 @@ import { useCartStore, type CartItem } from '@/store/cartStore';
 import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
+import { MoneyField } from '@/ui/MoneyField';
 
 const PAYMENTS: { value: PaymentMethod; label: string }[] = [
   { value: 'pix', label: 'Pix' },
@@ -25,10 +27,39 @@ const PAYMENTS: { value: PaymentMethod; label: string }[] = [
   { value: 'debit_card', label: 'Débito' },
 ];
 
+/** Máximo de formas de pagamento numa venda: uma por método existente. */
+const MAX_SALE_PAYMENTS = PAYMENTS.length;
+
 const CONSUMPTION: { value: ConsumptionMode; label: string }[] = [
   { value: 'on_site', label: 'No local' },
   { value: 'takeaway', label: 'Para viagem' },
 ];
+
+/** Linha extra de pagamento: a 1ª forma sempre absorve o que sobrar (ver `firstAmount`). */
+type ExtraPayment = { rowId: string; method: PaymentMethod; amountText: string };
+
+type PaymentSplitError = 'duplicate' | 'over-allocated' | 'zero-amount' | 'empty';
+
+/** Mesma regra usada no servidor (create_sale) e no web (core/rules/sale.ts). */
+function paymentSplitError(
+  payments: SalePayment[],
+  extraPayments: SalePayment[],
+  remainder: number,
+): PaymentSplitError | null {
+  if (new Set(payments.map((p) => p.method)).size !== payments.length) return 'duplicate';
+  if (remainder < 0) return 'over-allocated';
+  if (extraPayments.some((p) => p.amount <= 0)) return 'zero-amount';
+  if (payments.length === 0) return 'empty';
+  return null;
+}
+
+const PAYMENT_SPLIT_ERROR_MESSAGES: Record<PaymentSplitError, (remainder: number) => string> = {
+  duplicate: () => 'Não repita a mesma forma de pagamento em duas linhas.',
+  'over-allocated': (remainder) =>
+    `A soma das formas de pagamento passou do total em ${formatBRL(-remainder)}.`,
+  'zero-amount': () => 'Informe um valor maior que zero em cada forma de pagamento.',
+  empty: () => 'Informe ao menos uma forma de pagamento.',
+};
 
 export default function FecharVenda() {
   // tabId presente → fechamento de comanda; ausente → venda rápida (carrinho).
@@ -44,7 +75,12 @@ export default function FecharVenda() {
     tabId ? [] : useCartStore.getState().items.map((i) => ({ ...i })),
   );
 
-  const [payment, setPayment] = useState<PaymentMethod>('pix');
+  // Quantidade original de cada produto NA COMANDA, capturada uma vez junto do
+  // seed de `lines`. Sem isto o stepper deixaria "pagar" mais do que a comanda
+  // realmente tem — o que sobrar dela deve continuar lá, não ser inventado.
+  const [originalTabQty, setOriginalTabQty] = useState<Map<string, number>>(new Map());
+  const [firstMethod, setFirstMethod] = useState<PaymentMethod>('pix');
+  const [extraPayments, setExtraPayments] = useState<ExtraPayment[]>([]);
   const [consumption, setConsumption] = useState<ConsumptionMode>('on_site');
   const [saving, setSaving] = useState(false);
   const [stock, setStock] = useState<StockItem[]>([]);
@@ -67,6 +103,7 @@ export default function FecharVenda() {
               quantity: i.quantity,
             })),
           );
+          setOriginalTabQty(new Map(t.items.map((i) => [i.productId, i.quantity])));
         }
       })
       .catch((e) => logSilently(e, { action: 'Carregar a comanda', meta: { tabId } }));
@@ -74,6 +111,25 @@ export default function FecharVenda() {
 
   const stockQty = (id: string) => stock.find((s) => s.productId === id)?.quantity ?? 0;
   const total = lines.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
+
+  // O que ainda falta alocar entre as formas extras entra na 1ª forma — ela
+  // nunca é digitada, é sempre o que sobra. Garante a soma = total por
+  // construção, em vez de exigir o operador acertar a conta na mão.
+  const extraAsPayments: SalePayment[] = extraPayments.map((p) => ({
+    method: p.method,
+    amount: parseBRL(p.amountText),
+  }));
+  const firstAmount = total - extraAsPayments.reduce((sum, p) => sum + p.amount, 0);
+  const payments: SalePayment[] = [{ method: firstMethod, amount: firstAmount }, ...extraAsPayments]
+    .filter((p) => p.amount > 0); // forma sem valor não é enviada (CHECK amount > 0 no servidor)
+  const usedMethods = new Set([firstMethod, ...extraPayments.map((p) => p.method)]);
+  // Sobrou item de fora de `lines` (removido pelo "−") ou alguma linha ficou
+  // abaixo do que a comanda tinha: o que não está sendo pago agora continua
+  // aberto — os botões e o aviso na tela precisam deixar isso claro.
+  const isPartialTabPayment =
+    !!tabId &&
+    (lines.length < originalTabQty.size ||
+      lines.some((l) => l.quantity < (originalTabQty.get(l.productId) ?? 0)));
 
   // Opção B: o saldo disponível para ESTA finalização é o estoque menos o que já está
   // comprometido em OUTRAS fontes abertas (carrinho + demais comandas). Assim nunca
@@ -98,8 +154,16 @@ export default function FecharVenda() {
   const availableFor = (productId: string) => stockQty(productId) - committedElsewhere(productId);
 
   const increment = (id: string) => {
-    if ((lines.find((l) => l.productId === id)?.quantity ?? 0) >= availableFor(id)) {
-      showToast('Estoque insuficiente. Registre uma entrada de estoque antes de vender.');
+    const current = lines.find((l) => l.productId === id)?.quantity ?? 0;
+    // Numa comanda, o teto não é só o estoque — é também o que ela realmente
+    // tem daquele produto. Sem isto dava pra "pagar" mais do que existe na mesa.
+    const tabCeiling = tabId ? (originalTabQty.get(id) ?? 0) : Infinity;
+    if (current >= Math.min(availableFor(id), tabCeiling)) {
+      showToast(
+        tabId && current >= tabCeiling
+          ? 'A comanda não tem mais desse item.'
+          : 'Estoque insuficiente. Registre uma entrada de estoque antes de vender.',
+      );
       return;
     }
     setLines((prev) =>
@@ -115,6 +179,26 @@ export default function FecharVenda() {
         return [{ ...l, quantity: l.quantity - 1 }];
       }),
     );
+  };
+
+  const addPaymentRow = () => {
+    const unused = PAYMENTS.find((o) => !usedMethods.has(o.value));
+    if (!unused) return; // já usou as 4 formas — não cabe mais nenhuma
+    setExtraPayments((prev) => [
+      ...prev,
+      { rowId: Crypto.randomUUID(), method: unused.value, amountText: '' },
+    ]);
+  };
+
+  const removePaymentRow = (rowId: string) => {
+    setExtraPayments((prev) => prev.filter((x) => x.rowId !== rowId));
+  };
+
+  const updatePaymentRow = (
+    rowId: string,
+    patch: Partial<Pick<ExtraPayment, 'method' | 'amountText'>>,
+  ) => {
+    setExtraPayments((prev) => prev.map((x) => (x.rowId === rowId ? { ...x, ...patch } : x)));
   };
 
   /**
@@ -134,11 +218,21 @@ export default function FecharVenda() {
       );
       return;
     }
+    const paymentError = paymentSplitError(
+      [{ method: firstMethod, amount: firstAmount }, ...extraAsPayments],
+      extraAsPayments,
+      firstAmount,
+    );
+    if (paymentError) {
+      showToast(PAYMENT_SPLIT_ERROR_MESSAGES[paymentError](firstAmount));
+      return;
+    }
     setSaving(true);
     try {
       const sale = await saleRepository.create({
-        paymentMethod: payment,
+        payments,
         consumptionMode: consumption,
+        tabId: tabId ?? undefined,
         items: lines.map((i) => ({
           productId: i.productId,
           quantity: i.quantity,
@@ -150,11 +244,18 @@ export default function FecharVenda() {
       await stockRepository.deductForSale(
         lines.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       );
-      // Encerra a fonte: a comanda paga vai para a fila ou fecha; a venda
-      // rápida limpa o carrinho.
+      // Encerra a fonte: a comanda paga vai para a fila ou fecha, MAS só quando
+      // o pagamento esgota a comanda — parcial deixa o resto aberto, sem status
+      // novo (a comanda já "toca" sozinha via payPartial, pro sync pegar).
       if (tabId) {
-        if (queue) await tabRepository.markPaid(tabId, sale.id);
-        else await tabRepository.markDelivered(tabId, sale.id);
+        const exhausted = await tabRepository.payPartial(
+          tabId,
+          lines.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+        );
+        if (exhausted) {
+          if (queue) await tabRepository.markPaid(tabId, sale.id);
+          else await tabRepository.markDelivered(tabId, sale.id);
+        }
       } else {
         clearCart();
       }
@@ -198,7 +299,12 @@ export default function FecharVenda() {
           <View key={i.productId} style={styles.item}>
             <View style={styles.itemMain}>
               <Text style={styles.itemName}>{i.name}</Text>
-              <Text style={styles.itemUnit}>{formatBRL(i.unitPrice)} · un</Text>
+              <Text style={styles.itemUnit}>
+                {formatBRL(i.unitPrice)} · un
+                {tabId && i.quantity < (originalTabQty.get(i.productId) ?? 0)
+                  ? ` · pagando ${i.quantity} de ${originalTabQty.get(i.productId)} — resto fica na comanda`
+                  : ''}
+              </Text>
             </View>
             <View style={styles.qtyRow}>
               <Pressable
@@ -223,15 +329,57 @@ export default function FecharVenda() {
 
         <Text style={styles.section}>Pagamento</Text>
         <View style={styles.chips}>
-          {PAYMENTS.map((p) => (
+          {PAYMENTS.filter((p) => p.value === firstMethod || !usedMethods.has(p.value)).map((p) => (
             <Chip
               key={p.value}
               label={p.label}
-              selected={payment === p.value}
-              onPress={() => setPayment(p.value)}
+              selected={firstMethod === p.value}
+              onPress={() => setFirstMethod(p.value)}
             />
           ))}
         </View>
+        <Text style={styles.hint}>
+          {extraPayments.length === 0
+            ? formatBRL(total)
+            : `${formatBRL(Math.max(0, firstAmount))} (o que sobrar das outras formas)`}
+        </Text>
+
+        {extraPayments.map((p) => (
+          <View key={p.rowId} style={styles.extraPaymentRow}>
+            <View style={styles.extraPaymentFields}>
+              <View style={styles.chips}>
+                {PAYMENTS.filter((o) => o.value === p.method || !usedMethods.has(o.value)).map(
+                  (o) => (
+                    <Chip
+                      key={o.value}
+                      label={o.label}
+                      selected={p.method === o.value}
+                      onPress={() => updatePaymentRow(p.rowId, { method: o.value })}
+                    />
+                  ),
+                )}
+              </View>
+              <MoneyField
+                label={`Valor no ${PAYMENTS.find((o) => o.value === p.method)?.label}`}
+                value={p.amountText}
+                onChangeText={(v) => updatePaymentRow(p.rowId, { amountText: v })}
+              />
+            </View>
+            <Pressable
+              style={styles.qtyBtn}
+              onPress={() => removePaymentRow(p.rowId)}
+              accessibilityLabel="Remover esta forma de pagamento"
+            >
+              <Text style={styles.qtyBtnText}>×</Text>
+            </Pressable>
+          </View>
+        ))}
+
+        {1 + extraPayments.length < MAX_SALE_PAYMENTS && (
+          <Pressable onPress={addPaymentRow} accessibilityRole="button">
+            <Text style={styles.addPayment}>+ Adicionar forma de pagamento</Text>
+          </Pressable>
+        )}
 
         <Text style={styles.section}>Consumo</Text>
         <View style={styles.chips}>
@@ -250,23 +398,34 @@ export default function FecharVenda() {
           <Text style={styles.totalValue}>{formatBRL(total)}</Text>
         </View>
 
+        {isPartialTabPayment && (
+          <Text style={styles.hint}>
+            Isto paga só o que está marcado acima. O restante continua na comanda, em aberto.
+          </Text>
+        )}
+
         {/* Numa comanda o pagamento tem dois desfechos, e o primário é o
             pré-pago: esquecer de enfileirar SOME com o pedido e deixa o
             churrasqueiro no escuro, enquanto enfileirar à toa custa um toque em
             "Entregue". Venda rápida não tem fila — o pedido pré-pago precisa do
-            nome do cliente, que só a comanda tem. */}
+            nome do cliente, que só a comanda tem. Pagamento parcial nunca vai pra
+            fila (não fecha a comanda, então não há "pedido" para o churrasqueiro
+            ver) — só o botão de receber muda de rótulo. */}
         {tabId ? (
           <>
+            {!isPartialTabPayment && (
+              <Button
+                title="Receber e mandar p/ churrasqueira"
+                onPress={() => onConfirm(true)}
+                loading={saving}
+                disabledReason={readOnlyReason ?? undefined}
+              />
+            )}
             <Button
-              title="Receber e mandar p/ churrasqueira"
-              onPress={() => onConfirm(true)}
-              loading={saving}
-              disabledReason={readOnlyReason ?? undefined}
-            />
-            <Button
-              title="Receber e encerrar"
-              variant="outline"
+              title={isPartialTabPayment ? 'Receber pagamento parcial' : 'Receber e encerrar'}
+              variant={isPartialTabPayment ? 'gold' : 'outline'}
               onPress={() => onConfirm(false)}
+              loading={isPartialTabPayment ? saving : false}
               disabled={saving}
               disabledReason={readOnlyReason ?? undefined}
             />
@@ -315,6 +474,15 @@ const styles = StyleSheet.create({
   lineTotal: { color: colors.gold, fontSize: 15, fontWeight: '700', minWidth: 70, textAlign: 'right' },
   section: { color: colors.textPrimary, fontSize: 16, fontWeight: '600', marginTop: spacing.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
+  hint: { color: colors.textSecondary, fontSize: 13, marginTop: spacing.xs },
+  extraPaymentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  extraPaymentFields: { flex: 1, gap: spacing.xs },
+  addPayment: { color: colors.gold, fontSize: 13, fontWeight: '600', marginTop: spacing.xs },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

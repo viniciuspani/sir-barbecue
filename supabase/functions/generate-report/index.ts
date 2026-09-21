@@ -85,11 +85,16 @@ async function getCallerTenant(
 }
 
 type SaleItem = { product_client_id: string; quantity: number; unit_price: number };
+type SalePaymentRow = { method: string; amount: number };
 type SaleRow = {
   total_amount: number;
   payment_method: string;
   sale_date: string;
   sale_items: SaleItem[];
+  // Detalhe por forma (MIGRATION_28) — sempre populado em vendas novas, mesmo
+  // com 1 forma só. Vendas de ANTES da migração vêm com [] (nunca tiveram
+  // linha aqui) e caem no fallback via `payment_method` abaixo.
+  sale_payments: SalePaymentRow[];
 };
 type ProductRow = { client_id: string; name: string };
 type ProductSupplierRow = {
@@ -167,7 +172,9 @@ Deno.serve(async (req: Request) => {
 
     const { data: salesData, error } = await u
       .from('sales')
-      .select('total_amount, payment_method, sale_date, sale_items(product_client_id, quantity, unit_price)')
+      .select(
+        'total_amount, payment_method, sale_date, sale_items(product_client_id, quantity, unit_price), sale_payments(method, amount)',
+      )
       .gte('sale_date', start.toISOString())
       .lte('sale_date', end.toISOString());
     if (error) throw error;
@@ -196,7 +203,16 @@ Deno.serve(async (req: Request) => {
     const byProduct: Record<string, ProductStat> = {};
     for (const s of sales) {
       total += Number(s.total_amount);
-      byPayment[s.payment_method] = (byPayment[s.payment_method] ?? 0) + Number(s.total_amount);
+      // Fonte da verdade é sale_payments (guarda cada forma de verdade, mesmo
+      // dentro de uma venda dividida); payment_method só entra como fallback
+      // para venda antiga, de antes de a tabela existir.
+      if (s.sale_payments?.length) {
+        for (const pmt of s.sale_payments) {
+          byPayment[pmt.method] = (byPayment[pmt.method] ?? 0) + Number(pmt.amount);
+        }
+      } else {
+        byPayment[s.payment_method] = (byPayment[s.payment_method] ?? 0) + Number(s.total_amount);
+      }
       for (const it of s.sale_items ?? []) {
         const id = it.product_client_id;
         const p = (byProduct[id] ??= { id, qty: 0, revenue: 0, cost: 0, hasCost: false });

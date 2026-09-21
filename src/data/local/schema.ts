@@ -33,6 +33,8 @@ export const sales = sqliteTable('sales', {
   paymentMethod: text('payment_method').notNull(),
   consumptionMode: text('consumption_mode').notNull(),
   tenantId: text('tenant_id'),
+  // Comanda de origem (total ou parcialmente paga). NULL = venda rápida.
+  tabClientId: text('tab_client_id'),
   needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
   syncedAt: integer('synced_at'),
 });
@@ -43,6 +45,18 @@ export const saleItems = sqliteTable('sale_items', {
   productId: text('product_id').notNull(),
   quantity: integer('quantity').notNull(),
   unitPrice: real('unit_price').notNull(),
+  needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
+  syncedAt: integer('synced_at'),
+});
+
+// Uma ou mais formas de pagamento por venda (split). Sempre populada, mesmo
+// numa venda com 1 forma só — é a fonte única de verdade de forma de
+// pagamento (sales.payment_method vira 'split' quando há 2+ linhas aqui).
+export const salePayments = sqliteTable('sale_payments', {
+  id: text('id').primaryKey(),
+  saleId: text('sale_id').notNull(), // -> sales.id (client_id)
+  method: text('method').notNull(),
+  amount: real('amount').notNull(),
   needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
   syncedAt: integer('synced_at'),
 });
@@ -184,6 +198,8 @@ export type SaleRow = typeof sales.$inferSelect;
 export type NewSaleRow = typeof sales.$inferInsert;
 export type SaleItemRow = typeof saleItems.$inferSelect;
 export type NewSaleItemRow = typeof saleItems.$inferInsert;
+export type SalePaymentRow = typeof salePayments.$inferSelect;
+export type NewSalePaymentRow = typeof salePayments.$inferInsert;
 export type StockItemRow = typeof stockItems.$inferSelect;
 export type StockEntryRow = typeof stockEntries.$inferSelect;
 export type SupplierRow = typeof suppliers.$inferSelect;

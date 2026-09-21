@@ -23,6 +23,13 @@ export interface TabRepository {
   addItem(tabId: string, item: NewTabItem, quantity?: number): Promise<void>;
   /** Reduz 1 unidade; remove a linha ao chegar a zero. */
   decrementItem(tabId: string, productId: string): Promise<void>;
+  /**
+   * Baixa da comanda o que acabou de ser pago (pagamento total ou parcial —
+   * quantidade paga de cada item nunca excede o que a linha tem). Não mexe em
+   * `status`: quem decide fechar/enfileirar é o chamador, com base no retorno.
+   * @returns true se a comanda ficou sem itens (pagamento total).
+   */
+  payPartial(tabId: string, paidItems: { productId: string; quantity: number }[]): Promise<boolean>;
   /** Pago e enviado para a churrasqueira: entra na fila em vez de encerrar. */
   markPaid(tabId: string, saleId: string): Promise<void>;
   /** Churrasqueiro sinaliza que o pedido saiu da grelha. */
