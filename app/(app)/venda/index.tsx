@@ -63,6 +63,7 @@ export default function NovaVenda() {
 
   const cartItems = useCartStore((s) => s.items);
   const add = useCartStore((s) => s.add);
+  const decrement = useCartStore((s) => s.decrement);
   const clear = useCartStore((s) => s.clear);
   const cartTotal = useCartStore((s) => s.total);
   const cartCount = useCartStore((s) => s.count);
@@ -125,6 +126,21 @@ export default function NovaVenda() {
       tabRepository.addItem(selectedTab.id, { productId: p.id, name: p.name, unitPrice: p.price });
     } else {
       add({ productId: p.id, name: p.name, unitPrice: p.price });
+    }
+  };
+
+  // Tira 1 unidade direto no card — sem isto, corrigir um toque a mais só dava
+  // pra cancelar a venda inteira ou abrir a tela de Fechar. Ação reversível de
+  // baixo custo (um toque no card soma de novo), então não pede confirmação.
+  const onDecrement = (p: Product) => {
+    if (readOnly && readOnlyReason) {
+      showToast(readOnlyReason);
+      return;
+    }
+    if (selectedTab) {
+      tabRepository.decrementItem(selectedTab.id, p.id);
+    } else {
+      decrement(p.id);
     }
   };
 
@@ -256,8 +272,17 @@ export default function NovaVenda() {
               accessibilityLabel={`Adicionar ${item.name}`}
             >
               {inTarget > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{inTarget}</Text>
+                <View style={styles.qtyBar}>
+                  <Pressable
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    onPress={() => onDecrement(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Reduzir quantidade de ${item.name}`}
+                    style={styles.decButton}
+                  >
+                    <Text style={styles.decButtonText}>−</Text>
+                  </Pressable>
+                  <Text style={styles.qtyBarCount}>{inTarget}</Text>
                 </View>
               )}
               <Text style={styles.cardName} numberOfLines={2}>
@@ -324,7 +349,7 @@ export default function NovaVenda() {
             accessibilityLabel="Fechar venda"
           >
             <Text style={styles.closeButtonText}>{cartCount()} item(ns)</Text>
-            <Text style={styles.closeButtonCta}>Fechar · {formatBRL(cartTotal())}</Text>
+            <Text style={styles.closeButtonCta}>Fechar Venda · {formatBRL(cartTotal())}</Text>
           </Pressable>
         </View>
       )}
@@ -355,7 +380,7 @@ export default function NovaVenda() {
             <Text style={styles.closeButtonText}>
               {selectedTab.customerName} · {tabCount(selectedTab)} item(ns)
             </Text>
-            <Text style={styles.closeButtonCta}>Fechar · {formatBRL(tabTotal(selectedTab))}</Text>
+            <Text style={styles.closeButtonCta}>Fechar Venda · {formatBRL(tabTotal(selectedTab))}</Text>
           </Pressable>
         </View>
       )}
@@ -445,19 +470,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   cardOut: { opacity: 0.55 },
-  badge: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.gold,
+  // Só aparece quando o produto já está no carrinho/comanda (inTarget > 0) — o
+  // "−" tira 1 unidade sem sair do card; o resto do card continua somando.
+  qtyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  decButton: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.red,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 6,
   },
-  badgeText: { color: colors.onGold, fontSize: 12, fontWeight: '700' },
+  decButtonText: { color: colors.textPrimary, fontSize: 18, fontWeight: '700', lineHeight: 20 },
+  qtyBarCount: { color: colors.gold, fontSize: 15, fontWeight: '700' },
   cardName: { color: colors.textPrimary, fontSize: 15, fontWeight: '600' },
   cardPrice: { color: colors.gold, fontSize: 15, fontWeight: '700', marginTop: spacing.sm },
   cardStock: { color: colors.green, fontSize: 14 },
@@ -485,9 +518,10 @@ const styles = StyleSheet.create({
   cancelButtonText: { color: colors.textPrimary, fontSize: 16, fontWeight: '700' },
   closeButton: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: 2,
     backgroundColor: colors.green,
     borderRadius: radii.md,
     paddingVertical: spacing.md,
