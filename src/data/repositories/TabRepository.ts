@@ -144,19 +144,32 @@ export class DrizzleTabRepository implements TabRepository {
 
   /**
    * Baixa da comanda o que acabou de ser pago. Generaliza `decrementItem`
-   * (que sempre tira 1) para tirar a quantidade paga de cada item de uma vez,
-   * dentro de uma única transação — mesmo padrão de `pendingDelete` quando a
-   * linha chega a zero. Não mexe em `status`: o chamador decide fechar ou
-   * enfileirar a comanda só quando isto devolver `true` (ficou vazia).
+   * (que sempre tira 1) para tirar a quantidade paga de cada item de uma vez.
+   * Não mexe em `status`: o chamador decide fechar ou enfileirar a comanda só
+   * quando isto devolver `true` (pagamento total).
+   *
+   * Pagamento TOTAL não toca em `tab_items` — de propósito: a fila da
+   * churrasqueira (`observeQueue`, status 'paid'/'ready') lê exatamente essas
+   * linhas pra saber o que preparar. Apagá-las aqui e só ligar `markPaid`
+   * depois deixava a comanda chegar vazia na tela do churrasqueiro (o mesmo
+   * bug corrigido no servidor, ver MIGRATION_28). Só um pagamento PARCIAL de
+   * verdade — que deixa a comanda `open` com o resto — decrementa a tabela.
    */
   async payPartial(
     tabId: string,
     paidItems: { productId: string; quantity: number }[],
   ): Promise<boolean> {
+    const rows = await db.select().from(tabItems).where(eq(tabItems.tabId, tabId));
+    const live = rows.filter((it) => !it.pendingDelete);
+    const isFullPayment = live.every((line) => {
+      const paid = paidItems.find((p) => p.productId === line.productId);
+      return paid != null && paid.quantity >= line.quantity;
+    });
+    if (isFullPayment) return true;
+
     await db.transaction(async (tx) => {
-      const rows = await tx.select().from(tabItems).where(eq(tabItems.tabId, tabId));
       for (const paid of paidItems) {
-        const line = rows.find((it) => it.productId === paid.productId && !it.pendingDelete);
+        const line = live.find((it) => it.productId === paid.productId);
         if (!line) continue;
         if (paid.quantity >= line.quantity) {
           await tx
@@ -172,9 +185,7 @@ export class DrizzleTabRepository implements TabRepository {
       }
     });
     await this.touch(tabId);
-
-    const remaining = await db.select().from(tabItems).where(eq(tabItems.tabId, tabId));
-    return !remaining.some((it) => !it.pendingDelete);
+    return false;
   }
 
   /**

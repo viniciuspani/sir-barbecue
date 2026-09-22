@@ -123,7 +123,7 @@ declare
   v_payment_method  varchar(20);
   v_payments_count  integer;
   v_distinct_methods integer;
-  v_tab_emptied     boolean;
+  v_is_full_payment boolean;
 begin
   if p_items is null or jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then
     raise exception 'venda sem itens';
@@ -257,39 +257,27 @@ begin
   from jsonb_array_elements(p_items) as i;
 
   if p_tab_client_id is not null then
-    -- Apaga PRIMEIRO o que foi consumido por inteiro (paid_qty = quantity —
-    -- a guarda acima já garante paid_qty <= quantity). Fazer isso como UPDATE
-    -- para quantity=0 violaria o CHECK (quantity > 0) na hora, antes de um
-    -- DELETE seguinte conseguir limpar a linha — o motivo do 23514 no teste.
-    delete from public.tab_items ti
-      using (
-        select (i->>'product_client_id')::uuid as product_client_id,
-               (i->>'quantity')::numeric as paid_qty
-          from jsonb_array_elements(p_items) as i
-      ) x
-     where ti.tab_client_id = p_tab_client_id
-       and ti.product_client_id = x.product_client_id
-       and ti.quantity <= x.paid_qty;
-
-    -- O que sobra (linhas que a DELETE acima não tocou) só decrementa —
-    -- nunca chega a zero, porque quem chegaria já foi removido.
-    update public.tab_items ti
-       set quantity = ti.quantity - x.paid_qty,
-           updated_at = now()
-      from (
-        select (i->>'product_client_id')::uuid as product_client_id,
-               (i->>'quantity')::numeric as paid_qty
-          from jsonb_array_elements(p_items) as i
-      ) x
-     where ti.tab_client_id = p_tab_client_id
-       and ti.product_client_id = x.product_client_id;
-
+    -- "Total" = p_items cobre CADA linha da comanda por inteiro (nenhuma fica
+    -- de fora, nenhuma sobra quantidade) — calculado ANTES de mexer em
+    -- tab_items, porque as duas ramificações abaixo tratam a tabela de jeitos
+    -- opostos.
     select not exists (
-      select 1 from public.tab_items where tab_client_id = p_tab_client_id
-    ) into v_tab_emptied;
+      select 1
+        from public.tab_items ti
+       where ti.tab_client_id = p_tab_client_id
+         and not exists (
+           select 1
+             from jsonb_array_elements(p_items) as i
+            where (i->>'product_client_id')::uuid = ti.product_client_id
+              and (i->>'quantity')::numeric >= ti.quantity
+         )
+    ) into v_is_full_payment;
 
-    if v_tab_emptied then
-      -- Pagou tudo: comportamento de sempre — fecha ou enfileira a comanda.
+    if v_is_full_payment then
+      -- Pagou tudo: tab_items fica INTOCADO de propósito. A fila da
+      -- churrasqueira (status='paid'/'ready') lê exatamente essas linhas pra
+      -- saber o que preparar — apagá-las (como esta função fazia antes desta
+      -- correção) deixava a comanda chegar vazia na tela do churrasqueiro.
       if p_queue then
         update public.tabs
            set status = 'paid', paid_at = now(), sale_client_id = p_client_id, updated_at = now()
@@ -304,7 +292,37 @@ begin
            and status = 'open';
       end if;
     else
-      -- Pagamento parcial: a comanda continua aberta com o restante.
+      -- Pagamento parcial de verdade: baixa só o que foi pago; a comanda
+      -- continua 'open' com o restante (nunca fecha/enfileira aqui, mesmo que
+      -- p_queue tenha vindo true).
+      --
+      -- Apaga PRIMEIRO o que foi consumido por inteiro (a guarda acima já
+      -- garante paid_qty <= quantity). Fazer isso como UPDATE para quantity=0
+      -- violaria o CHECK (quantity > 0) na hora, antes de um DELETE seguinte
+      -- conseguir limpar a linha.
+      delete from public.tab_items ti
+        using (
+          select (i->>'product_client_id')::uuid as product_client_id,
+                 (i->>'quantity')::numeric as paid_qty
+            from jsonb_array_elements(p_items) as i
+        ) x
+       where ti.tab_client_id = p_tab_client_id
+         and ti.product_client_id = x.product_client_id
+         and ti.quantity <= x.paid_qty;
+
+      -- O que sobra (linhas que a DELETE acima não tocou) só decrementa —
+      -- nunca chega a zero, porque quem chegaria já foi removido.
+      update public.tab_items ti
+         set quantity = ti.quantity - x.paid_qty,
+             updated_at = now()
+        from (
+          select (i->>'product_client_id')::uuid as product_client_id,
+                 (i->>'quantity')::numeric as paid_qty
+            from jsonb_array_elements(p_items) as i
+        ) x
+       where ti.tab_client_id = p_tab_client_id
+         and ti.product_client_id = x.product_client_id;
+
       update public.tabs
          set updated_at = now()
        where client_id = p_tab_client_id
