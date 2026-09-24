@@ -124,6 +124,18 @@ sqlite.execSync(`
     needs_sync INTEGER NOT NULL DEFAULT 1,
     synced_at INTEGER
   );
+  CREATE TABLE IF NOT EXISTS kitchen_tickets (
+    id TEXT PRIMARY KEY NOT NULL,
+    sale_id TEXT NOT NULL,
+    tab_id TEXT NOT NULL,
+    customer_name TEXT NOT NULL,
+    items TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at INTEGER NOT NULL,
+    tenant_id TEXT,
+    needs_sync INTEGER NOT NULL DEFAULT 1,
+    synced_at INTEGER
+  );
   CREATE TABLE IF NOT EXISTS tab_items (
     id TEXT PRIMARY KEY NOT NULL,
     tab_id TEXT NOT NULL,
@@ -165,6 +177,8 @@ sqlite.execSync(`
   CREATE INDEX IF NOT EXISTS idx_sale_payments_sale ON sale_payments (sale_id);
   CREATE INDEX IF NOT EXISTS idx_sale_payments_needs_sync ON sale_payments (needs_sync);
   CREATE INDEX IF NOT EXISTS idx_tab_items_tab ON tab_items (tab_id);
+  CREATE INDEX IF NOT EXISTS idx_kitchen_tickets_needs_sync ON kitchen_tickets (needs_sync);
+  CREATE INDEX IF NOT EXISTS idx_kitchen_tickets_status ON kitchen_tickets (status);
   CREATE INDEX IF NOT EXISTS idx_error_logs_needs_sync ON error_logs (needs_sync);
   CREATE INDEX IF NOT EXISTS idx_error_logs_occurred ON error_logs (occurred_at DESC);
 `);

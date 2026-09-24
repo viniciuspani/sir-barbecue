@@ -10,39 +10,31 @@ export interface TabItem {
 }
 
 /**
- * Ciclo de vida da comanda. Dois caminhos saem de `open`, conforme o pedido é
- * pago DEPOIS ou ANTES de ser produzido:
+ * Ciclo de vida da comanda (MIGRATION_29): ela NUNCA fecha sozinha por causa
+ * de um pagamento — só quando o operador fecha de propósito ("Receber e
+ * encerrar" com pagamento total, ou "Encerrar comanda" numa comanda já sem
+ * itens pendentes). Um pedido pré-pago ("mandar p/ churrasqueira") gera um
+ * KitchenTicket (ver KitchenTicket.ts) em vez de mudar o status da comanda —
+ * assim o mesmo cliente pode pedir de novo na mesma comanda sem o operador
+ * recriá-la a cada rodada.
  *
- *                  ┌─ "Receber e encerrar" ──────────────────────► closed
- *   open ─(paga)───┤
- *     │            └─ "Mandar p/ churrasqueira" ─► paid ─► ready ─► closed
- *     │                                              └──"Entregue"──┘
- *     └─ descartar ───────────────────────────────────────────────► cancelled
+ *   open ─(pagamento total, sem fila: "Receber e encerrar")──► closed
+ *   open ─(fecha vazia: "Encerrar comanda")───────────────────► closed
+ *   open ─(descartar)──────────────────────────────────────────► cancelled
  *
- * `paid`/`ready` existem porque no pico de movimento a atendente cobra primeiro
- * para não perder o pagamento, e o pedido só então vai para a grelha: sem esses
- * estados a comanda morreria no pagamento e o churrasqueiro ficaria sem saber o
- * que assar. `cancelled` separa comanda descartada de comanda paga e entregue,
- * que antes compartilhavam o `closed`.
+ * (pagamento parcial, com ou sem fila, e pagamento total COM fila: a comanda
+ * continua `open`.)
  */
-export type TabStatus = 'open' | 'paid' | 'ready' | 'closed' | 'cancelled';
-
-/** Comandas que ocupam a churrasqueira: pagas, ainda não entregues. */
-export const QUEUE_STATUSES = ['paid', 'ready'] as const satisfies readonly TabStatus[];
+export type TabStatus = 'open' | 'closed' | 'cancelled';
 
 /** Status que continuam existindo no aparelho (os demais o sync apaga). */
-export const LIVE_STATUSES = ['open', ...QUEUE_STATUSES] as const satisfies readonly TabStatus[];
+export const LIVE_STATUSES = ['open'] as const satisfies readonly TabStatus[];
 
 export interface Tab {
   id: string;
   customerName: string; // rótulo da comanda; não é cadastro de cliente (venda anônima — Q9)
   openedAt: number; // epoch ms
   status: TabStatus;
-  /** Quando o cliente pagou. Presente a partir de `paid`; ordena a fila. */
-  paidAt?: number;
-  readyAt?: number;
-  /** Venda que cobrou esta comanda (só no fluxo pré-pago). */
-  saleId?: string;
   items: TabItem[];
 }
 

@@ -229,12 +229,15 @@ export default function FecharVenda() {
     }
     setSaving(true);
     try {
-      const sale = await saleRepository.create({
+      await saleRepository.create({
         payments,
         consumptionMode: consumption,
         tabId: tabId ?? undefined,
+        customerName: params.customerName,
+        queue,
         items: lines.map((i) => ({
           productId: i.productId,
+          name: i.name,
           quantity: i.quantity,
           unitPrice: i.unitPrice,
         })),
@@ -244,18 +247,15 @@ export default function FecharVenda() {
       await stockRepository.deductForSale(
         lines.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       );
-      // Encerra a fonte: a comanda paga vai para a fila ou fecha, MAS só quando
-      // o pagamento esgota a comanda — parcial deixa o resto aberto, sem status
-      // novo (a comanda já "toca" sozinha via payPartial, pro sync pegar).
+      // payPartial sempre baixa o que foi pago. A comanda só fecha quando NÃO
+      // há fila (pré-pago nunca fecha, é assim que o mesmo cliente pede de
+      // novo) E o pagamento esgotou o que ela tinha.
       if (tabId) {
         const exhausted = await tabRepository.payPartial(
           tabId,
           lines.map((i) => ({ productId: i.productId, quantity: i.quantity })),
         );
-        if (exhausted) {
-          if (queue) await tabRepository.markPaid(tabId, sale.id);
-          else await tabRepository.markDelivered(tabId, sale.id);
-        }
+        if (!queue && exhausted) await tabRepository.close(tabId);
       } else {
         clearCart();
       }
@@ -404,28 +404,23 @@ export default function FecharVenda() {
           </Text>
         )}
 
-        {/* Numa comanda o pagamento tem dois desfechos, e o primário é o
-            pré-pago: esquecer de enfileirar SOME com o pedido e deixa o
-            churrasqueiro no escuro, enquanto enfileirar à toa custa um toque em
-            "Entregue". Venda rápida não tem fila — o pedido pré-pago precisa do
-            nome do cliente, que só a comanda tem. Pagamento parcial nunca vai pra
-            fila (não fecha a comanda, então não há "pedido" para o churrasqueiro
-            ver) — só o botão de receber muda de rótulo. */}
+        {/* Numa comanda o pagamento tem dois desfechos. O pré-pago ("mandar p/
+            churrasqueira") NUNCA fecha a comanda — total ou parcial do que ela
+            tem agora, ela continua aberta pra o mesmo cliente pedir de novo (o
+            ticket de cozinha é da VENDA, não da comanda). Só "Receber e
+            encerrar" fecha, e só quando o pagamento é total. */}
         {tabId ? (
           <>
-            {!isPartialTabPayment && (
-              <Button
-                title="Receber e mandar p/ churrasqueira"
-                onPress={() => onConfirm(true)}
-                loading={saving}
-                disabledReason={readOnlyReason ?? undefined}
-              />
-            )}
+            <Button
+              title="Receber e mandar p/ churrasqueira"
+              onPress={() => onConfirm(true)}
+              loading={saving}
+              disabledReason={readOnlyReason ?? undefined}
+            />
             <Button
               title={isPartialTabPayment ? 'Receber pagamento parcial' : 'Receber e encerrar'}
-              variant={isPartialTabPayment ? 'gold' : 'outline'}
+              variant="outline"
               onPress={() => onConfirm(false)}
-              loading={isPartialTabPayment ? saving : false}
               disabled={saving}
               disabledReason={readOnlyReason ?? undefined}
             />

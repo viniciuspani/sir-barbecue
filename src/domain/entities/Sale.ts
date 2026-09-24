@@ -33,7 +33,10 @@ export interface Sale {
   items: SaleItem[];
 }
 
-export type NewSaleItem = Omit<SaleItem, 'id'>;
+// `name` só é usado quando a venda gera um ticket de cozinha (`queue: true`) —
+// vira o snapshot de itens do KitchenTicket. Nas demais vendas o campo é
+// ignorado (sale_items não guarda nome, igual ao servidor).
+export type NewSaleItem = Omit<SaleItem, 'id'> & { name: string };
 
 export interface NewSale {
   payments: SalePayment[];
@@ -42,4 +45,12 @@ export interface NewSale {
   saleDate?: number; // default: agora
   /** Comanda sendo paga (total ou parcialmente). Ver TabRepository.payPartial. */
   tabId?: string;
+  /** Nome da comanda em `tabId` — só usado com `queue` (rótulo do ticket). */
+  customerName?: string;
+  /**
+   * Pedido PRÉ-PAGO: gera um ticket de cozinha em vez de fechar a comanda. A
+   * comanda NUNCA fecha neste caminho, mesmo pagando tudo que ela tem agora —
+   * é assim que o mesmo cliente pede de novo sem o operador recriá-la.
+   */
+  queue?: boolean;
 }

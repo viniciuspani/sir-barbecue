@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { tabRepository } from '@/data/repositories';
+import { kitchenTicketRepository, tabRepository } from '@/data/repositories';
+import type { KitchenTicket } from '@/domain/entities/KitchenTicket';
 import type { Tab } from '@/domain/entities/Tab';
 import { colors, radii, spacing } from '@/design/tokens';
 import { formatBRL, formatQuantity } from '@/lib/currency';
@@ -22,16 +23,22 @@ function elapsedLabel(since: number): string {
 
 const TICK_MS = 60_000; // atualiza os tempos de tela em tela
 
+// SectionList precisa de um item por linha; as duas seções têm tipos
+// diferentes (ticket de cozinha × comanda), então cada linha carrega o seu.
+type Row = { kind: 'ticket'; ticket: KitchenTicket } | { kind: 'tab'; tab: Tab };
+
 /**
- * Duas listas que parecem uma só, porque para quem está no balcão são dois
- * momentos do mesmo atendimento:
+ * Duas listas independentes (MIGRATION_29 — "ticket de cozinha" desacoplado
+ * da comanda):
  *
- *  • NA CHURRASQUEIRA — pedidos PRÉ-PAGOS. No pico de movimento a atendente
- *    cobra antes de o pedido ser produzido, para não perder o pagamento
- *    enquanto a fila cresce. Estes vêm primeiro porque são os que estão na
- *    grelha agora, e o relógio deles conta desde o PAGAMENTO: o cliente já
- *    pagou e está esperando de pé.
- *  • EM ABERTO — comandas de consumo, que pagam no fim (fluxo de sempre).
+ *  • NA CHURRASQUEIRA — tickets de cozinha PRÉ-PAGOS, um por RODADA de
+ *    pedido (não por comanda: o mesmo cliente pedindo de novo gera outro
+ *    ticket, a comanda dele continua aberta e aparece nas duas listas ao
+ *    mesmo tempo). O relógio conta desde o PAGAMENTO: o cliente já pagou e
+ *    está esperando de pé.
+ *  • EM ABERTO — comandas de consumo (pagam no fim, ou continuam abertas pra
+ *    receber o próximo pedido). Só sai daqui quando o operador encerra de
+ *    propósito.
  *
  * Esta tela é lida na bancada, não navegada: o item aparece inteiro, a
  * quantidade vem antes do nome e em caixa grande — é o que a churrasqueira lê
@@ -43,12 +50,12 @@ const TICK_MS = 60_000; // atualiza os tempos de tela em tela
  * Ordem dentro de cada seção: mais antiga primeiro, que é a ordem de atendimento.
  */
 export default function Comandas() {
-  const [queue, setQueue] = useState<Tab[]>([]);
+  const [queue, setQueue] = useState<KitchenTicket[]>([]);
   const [open, setOpen] = useState<Tab[]>([]);
   const [, setTick] = useState(0);
   const { readOnlyReason } = usePermissions();
 
-  useEffect(() => tabRepository.observeQueue(setQueue), []);
+  useEffect(() => kitchenTicketRepository.observeQueue(setQueue), []);
   useEffect(() => tabRepository.observeAll(setOpen), []);
 
   // Só para os rótulos de tempo não congelarem com a tela aberta na bancada.
@@ -59,6 +66,7 @@ export default function Comandas() {
 
   const tabTotal = (tab: Tab) => tab.items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
   const tabCount = (tab: Tab) => tab.items.reduce((sum, i) => sum + i.quantity, 0);
+  const ticketCount = (t: KitchenTicket) => t.items.reduce((sum, i) => sum + i.quantity, 0);
 
   const guard = (run: () => void) => () => {
     if (readOnlyReason) {
@@ -68,15 +76,30 @@ export default function Comandas() {
     run();
   };
 
-  const onDeliver = (tab: Tab) =>
-    Alert.alert('Entregar pedido', `Entregar o pedido de ${tab.customerName}?`, [
+  const onDeliver = (ticket: KitchenTicket) =>
+    Alert.alert('Entregar pedido', `Entregar o pedido de ${ticket.customerName}?`, [
       { text: 'Voltar', style: 'cancel' },
-      { text: 'Entregue', onPress: () => tabRepository.markDelivered(tab.id) },
+      { text: 'Entregue', onPress: () => kitchenTicketRepository.markDelivered(ticket.id) },
     ]);
 
+  const onClose = (tab: Tab) => {
+    if (tab.items.length > 0) {
+      showToast('Ainda tem item não pago nesta comanda.');
+      return;
+    }
+    Alert.alert('Encerrar comanda', `Encerrar a comanda de ${tab.customerName}?`, [
+      { text: 'Voltar', style: 'cancel' },
+      { text: 'Encerrar', onPress: () => tabRepository.close(tab.id) },
+    ]);
+  };
+
   const sections = [
-    { key: 'queue' as const, title: 'Na churrasqueira', data: queue },
-    { key: 'open' as const, title: 'Em aberto', data: open },
+    {
+      key: 'queue' as const,
+      title: 'Na churrasqueira',
+      data: queue.map((ticket): Row => ({ kind: 'ticket', ticket })),
+    },
+    { key: 'open' as const, title: 'Em aberto', data: open.map((tab): Row => ({ kind: 'tab', tab })) },
   ].filter((s) => s.data.length > 0);
 
   return (
@@ -91,7 +114,7 @@ export default function Comandas() {
 
       <SectionList
         sections={sections}
-        keyExtractor={(t) => t.id}
+        keyExtractor={(row) => (row.kind === 'ticket' ? row.ticket.id : row.tab.id)}
         contentContainerStyle={styles.list}
         stickySectionHeadersEnabled={false}
         ListEmptyComponent={
@@ -100,100 +123,172 @@ export default function Comandas() {
         renderSectionHeader={({ section }) => (
           <Text style={styles.sectionTitle}>{section.title}</Text>
         )}
-        renderItem={({ item: tab, section }) => {
-          const inQueue = section.key === 'queue';
-          return (
-            <View style={[styles.card, inQueue && styles.cardQueue]}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.customer} numberOfLines={1}>
-                  {tab.customerName}
-                </Text>
-                {tab.status === 'ready' && (
-                  <View style={styles.readyBadge}>
-                    <Text style={styles.readyBadgeText}>PRONTO</Text>
-                  </View>
-                )}
-                <View style={styles.elapsedRow}>
-                  <Ionicons
-                    name={inQueue ? 'flame-outline' : 'time-outline'}
-                    size={14}
-                    color={inQueue ? colors.gold : colors.textSecondary}
-                  />
-                  <Text style={[styles.elapsed, inQueue && styles.elapsedQueue]}>
-                    {elapsedLabel(inQueue ? (tab.paidAt ?? tab.openedAt) : tab.openedAt)}
-                  </Text>
-                </View>
-              </View>
-
-              {tab.items.length === 0 ? (
-                <Text style={styles.hint}>Sem itens ainda.</Text>
-              ) : (
-                <View style={styles.items}>
-                  {tab.items.map((line) => (
-                    <View key={line.id} style={styles.itemRow}>
-                      {/* Quantidade primeiro e grande: é o que a churrasqueira lê
-                          de longe para saber quantos espetos pôr na grelha. */}
-                      <View style={styles.qtyBox}>
-                        <Text style={styles.qtyText}>{formatQuantity(line.quantity)}</Text>
-                      </View>
-                      <Text style={styles.itemName} numberOfLines={1}>
-                        {line.name}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              <View style={styles.cardFooter}>
-                {inQueue ? (
-                  <>
-                    <Text style={styles.footerInfo}>{tabCount(tab)} item(ns) · pago</Text>
-                    <View style={styles.actions}>
-                      {/* "Pronto" é opcional: no pico, um toque a menos vale mais
-                          que o rastro, então "Entregue" já está aqui desde 'paid'. */}
-                      {tab.status === 'paid' && (
-                        <Pressable
-                          onPress={guard(() => tabRepository.markReady(tab.id))}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Marcar o pedido de ${tab.customerName} como pronto`}
-                          hitSlop={8}
-                          style={styles.actionGhost}
-                        >
-                          <Text style={styles.actionGhostText}>Pronto</Text>
-                        </Pressable>
-                      )}
-                      <Pressable
-                        onPress={guard(() => onDeliver(tab))}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Entregar o pedido de ${tab.customerName}`}
-                        hitSlop={8}
-                        style={styles.actionPrimary}
-                      >
-                        <Text style={styles.actionPrimaryText}>Entregue</Text>
-                      </Pressable>
-                    </View>
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.footerInfo}>
-                      {tabCount(tab)} item(ns) · {formatBRL(tabTotal(tab))}
-                    </Text>
-                    <Pressable
-                      onPress={() => router.push('/venda')}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Lançar itens na comanda de ${tab.customerName}`}
-                      hitSlop={8}
-                    >
-                      <Text style={styles.footerAction}>Lançar itens</Text>
-                    </Pressable>
-                  </>
-                )}
-              </View>
-            </View>
-          );
-        }}
+        renderItem={({ item }) =>
+          item.kind === 'ticket' ? (
+            <TicketCard
+              ticket={item.ticket}
+              count={ticketCount(item.ticket)}
+              onReady={guard(() => kitchenTicketRepository.markReady(item.ticket.id))}
+              onDeliver={guard(() => onDeliver(item.ticket))}
+            />
+          ) : (
+            <OpenTabCard
+              tab={item.tab}
+              count={tabCount(item.tab)}
+              total={tabTotal(item.tab)}
+              onClose={guard(() => onClose(item.tab))}
+            />
+          )
+        }
       />
     </SafeAreaView>
+  );
+}
+
+function TicketCard({
+  ticket,
+  count,
+  onReady,
+  onDeliver,
+}: {
+  ticket: KitchenTicket;
+  count: number;
+  onReady: () => void;
+  onDeliver: () => void;
+}) {
+  return (
+    <View style={[styles.card, styles.cardQueue]}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.customer} numberOfLines={1}>
+          {ticket.customerName}
+        </Text>
+        {ticket.status === 'ready' && (
+          <View style={styles.readyBadge}>
+            <Text style={styles.readyBadgeText}>PRONTO</Text>
+          </View>
+        )}
+        <View style={styles.elapsedRow}>
+          <Ionicons name="flame-outline" size={14} color={colors.gold} />
+          <Text style={[styles.elapsed, styles.elapsedQueue]}>{elapsedLabel(ticket.createdAt)}</Text>
+        </View>
+      </View>
+
+      {ticket.items.length === 0 ? (
+        <Text style={styles.hint}>Sem itens ainda.</Text>
+      ) : (
+        <View style={styles.items}>
+          {ticket.items.map((line, index) => (
+            <View key={index} style={styles.itemRow}>
+              {/* Quantidade primeiro e grande: é o que a churrasqueira lê de
+                  longe para saber quantos espetos pôr na grelha. */}
+              <View style={styles.qtyBox}>
+                <Text style={styles.qtyText}>{formatQuantity(line.quantity)}</Text>
+              </View>
+              <Text style={styles.itemName} numberOfLines={1}>
+                {line.name}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      <View style={styles.cardFooter}>
+        <Text style={styles.footerInfo}>{count} item(ns) · pago</Text>
+        <View style={styles.actions}>
+          {/* "Pronto" é opcional: no pico, um toque a menos vale mais que o
+              rastro, então "Entregue" já está aqui desde 'pending'. */}
+          {ticket.status === 'pending' && (
+            <Pressable
+              onPress={onReady}
+              accessibilityRole="button"
+              accessibilityLabel={`Marcar o pedido de ${ticket.customerName} como pronto`}
+              hitSlop={8}
+              style={styles.actionGhost}
+            >
+              <Text style={styles.actionGhostText}>Pronto</Text>
+            </Pressable>
+          )}
+          <Pressable
+            onPress={onDeliver}
+            accessibilityRole="button"
+            accessibilityLabel={`Entregar o pedido de ${ticket.customerName}`}
+            hitSlop={8}
+            style={styles.actionPrimary}
+          >
+            <Text style={styles.actionPrimaryText}>Entregue</Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function OpenTabCard({
+  tab,
+  count,
+  total,
+  onClose,
+}: {
+  tab: Tab;
+  count: number;
+  total: number;
+  onClose: () => void;
+}) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.customer} numberOfLines={1}>
+          {tab.customerName}
+        </Text>
+        <View style={styles.elapsedRow}>
+          <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
+          <Text style={styles.elapsed}>{elapsedLabel(tab.openedAt)}</Text>
+        </View>
+      </View>
+
+      {tab.items.length === 0 ? (
+        <Text style={styles.hint}>Sem itens ainda.</Text>
+      ) : (
+        <View style={styles.items}>
+          {tab.items.map((line) => (
+            <View key={line.id} style={styles.itemRow}>
+              <View style={styles.qtyBox}>
+                <Text style={styles.qtyText}>{formatQuantity(line.quantity)}</Text>
+              </View>
+              <Text style={styles.itemName} numberOfLines={1}>
+                {line.name}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      <View style={styles.cardFooter}>
+        <Text style={styles.footerInfo}>
+          {count} item(ns) · {formatBRL(total)}
+        </Text>
+        <View style={styles.actions}>
+          {tab.items.length === 0 && (
+            <Pressable
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel={`Encerrar a comanda de ${tab.customerName}`}
+              hitSlop={8}
+            >
+              <Text style={styles.footerActionMuted}>Encerrar comanda</Text>
+            </Pressable>
+          )}
+          <Pressable
+            onPress={() => router.push('/venda')}
+            accessibilityRole="button"
+            accessibilityLabel={`Lançar itens na comanda de ${tab.customerName}`}
+            hitSlop={8}
+          >
+            <Text style={styles.footerAction}>Lançar itens</Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -264,7 +359,8 @@ const styles = StyleSheet.create({
   },
   footerInfo: { color: colors.textSecondary, fontSize: 13 },
   footerAction: { color: colors.gold, fontSize: 13, fontWeight: '600' },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  footerActionMuted: { color: colors.textSecondary, fontSize: 13, fontWeight: '600' },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
   // Alvos generosos: quem toca aqui está de luva, com a mão ocupada na grelha.
   actionGhost: {
     minHeight: 40,

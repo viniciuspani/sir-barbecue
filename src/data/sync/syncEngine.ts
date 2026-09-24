@@ -5,6 +5,7 @@ import { db } from '@/data/local/database';
 import {
   categories,
   errorLogs,
+  kitchenTickets,
   productSupplierPriceHistory,
   productSuppliers,
   products,
@@ -75,9 +76,15 @@ type RemoteTab = {
   customer_name: string;
   opened_at: string;
   status: TabStatus;
-  paid_at: string | null;
-  ready_at: string | null;
-  sale_client_id: string | null;
+};
+type RemoteKitchenTicket = {
+  client_id: string;
+  sale_client_id: string;
+  tab_client_id: string | null;
+  customer_name: string;
+  items: { name: string; quantity: number }[];
+  status: string;
+  created_at: string;
 };
 type RemoteTabItem = {
   client_id: string;
@@ -488,29 +495,16 @@ function safeParseJson(raw: string): unknown {
  *  3. itens vivos (upsert pela chave natural comanda+produto, igual ao app,
  *     que mantém UMA linha por produto).
  *
- * Depois de propagada, a comanda ENCERRADA é apagada do banco local: já virou
- * venda entregue (ou foi descartada) e só ocuparia espaço no aparelho do PDV.
- * A comanda PAGA e ainda não entregue permanece — é o pedido na grelha.
+ * Depois de propagada, a comanda ENCERRADA (fechada ou descartada) é apagada
+ * do banco local — já virou venda ou foi descartada, e só ocuparia espaço no
+ * aparelho. Comanda ABERTA nunca é apagada aqui, mesmo sem itens no momento
+ * (MIGRATION_29: ela pode ficar assim entre uma rodada de pedido e outra).
  */
 async function pushTabs(tenantId: string): Promise<void> {
   const tabScope = and(eq(tabs.needsSync, true), eq(tabs.tenantId, tenantId));
   const tabRows = await db.select().from(tabs).where(tabScope);
 
   if (tabRows.length > 0) {
-    // `sale_client_id` é FK para sales.client_id: enviá-lo antes de a venda
-    // chegar ao servidor derrubaria o upsert da comanda inteira. E a comanda
-    // NÃO pode ficar refém do push da venda — é o status 'paid' que coloca o
-    // pedido na tela de quem está na churrasqueira. Então sobe sem o vínculo e
-    // continua pendente; o ciclo seguinte, com a venda já no servidor, amarra os dois.
-    const unsyncedSales = new Set(
-      (await db.select({ id: sales.id }).from(sales).where(eq(sales.needsSync, true))).map(
-        (s) => s.id,
-      ),
-    );
-    const linkable = (t: (typeof tabRows)[number]) =>
-      t.saleId && !unsyncedSales.has(t.saleId) ? t.saleId : null;
-    const settled = tabRows.filter((t) => !t.saleId || linkable(t) !== null).map((t) => t.id);
-
     await withRetry(() =>
       upsertRemote(
         'tabs',
@@ -520,19 +514,11 @@ async function pushTabs(tenantId: string): Promise<void> {
           customer_name: t.customerName,
           status: t.status,
           opened_at: new Date(t.openedAt).toISOString(),
-          paid_at: t.paidAt ? new Date(t.paidAt).toISOString() : null,
-          ready_at: t.readyAt ? new Date(t.readyAt).toISOString() : null,
-          sale_client_id: linkable(t),
           closed_at: t.closedAt ? new Date(t.closedAt).toISOString() : null,
         })),
       ),
     );
-    if (settled.length > 0) {
-      await db
-        .update(tabs)
-        .set({ needsSync: false, syncedAt: Date.now() })
-        .where(and(tabScope, inArray(tabs.id, settled)));
-    }
+    await db.update(tabs).set({ needsSync: false, syncedAt: Date.now() }).where(tabScope);
   }
 
   // ISOLAMENTO: tab_items não tem tenant_id (o dono é a comanda). Restringir aos
@@ -584,8 +570,8 @@ async function pushTabs(tenantId: string): Promise<void> {
     await db.update(tabItems).set({ needsSync: false, syncedAt: Date.now() }).where(itemScope);
   }
 
-  // Faxina: comanda encerrada e já sincronizada não precisa mais existir local.
-  // Comanda PAGA fica: ela é o pedido na grelha, e some daqui só quando entregue.
+  // Faxina: comanda encerrada (fechada/descartada) e já sincronizada não
+  // precisa mais existir local. Comanda ABERTA nunca entra aqui.
   const closed = await db
     .select()
     .from(tabs)
@@ -600,6 +586,34 @@ async function pushTabs(tenantId: string): Promise<void> {
     await db.delete(tabItems).where(eq(tabItems.tabId, t.id));
     await db.delete(tabs).where(eq(tabs.id, t.id));
   }
+}
+
+/**
+ * Tickets de cozinha (MIGRATION_29): sobe criação (na venda pré-paga) e
+ * mudanças de status ("Pronto"/"Entregue"). Upsert simples por client_id —
+ * não tem item filho nem ordem de FK a respeitar (sale_client_id já existe
+ * quando o ticket nasce, na mesma transação local de SaleRepository.create).
+ */
+async function pushKitchenTickets(tenantId: string): Promise<void> {
+  const scope = and(eq(kitchenTickets.needsSync, true), eq(kitchenTickets.tenantId, tenantId));
+  const rows = await db.select().from(kitchenTickets).where(scope);
+  if (rows.length === 0) return;
+
+  await withRetry(() =>
+    upsertRemote(
+      'kitchen_tickets',
+      rows.map((r) => ({
+        client_id: r.id,
+        tenant_id: tenantId,
+        sale_client_id: r.saleId,
+        tab_client_id: r.tabId,
+        customer_name: r.customerName,
+        items: JSON.parse(r.items),
+        status: r.status,
+      })),
+    ),
+  );
+  await db.update(kitchenTickets).set({ needsSync: false, syncedAt: Date.now() }).where(scope);
 }
 
 // ---- PULL (servidor → local, server-wins) ------------------------------------
@@ -853,18 +867,18 @@ async function pullStockItems(tenantId: string): Promise<void> {
 }
 
 /**
- * Comandas VIVAS do servidor → local (server-wins): abertas e as pagas que ainda
- * estão na churrasqueira ('paid'/'ready').
+ * Comandas VIVAS do servidor → local (server-wins): as abertas (MIGRATION_29
+ * — uma comanda paga não sai mais de 'open', então "viva" é só isso agora).
  *
  * Linha com alteração local pendente é PULADA: o push roda antes, mas pode ter
  * falhado (offline) — sobrescrevê-la aqui apagaria o pedido que o atendente
- * acabou de lançar. Comanda que sumiu da lista de vivas (entregue ou descartada
+ * acabou de lançar. Comanda que sumiu da lista de vivas (fechada ou descartada
  * em outro aparelho) é removida daqui, junto com os itens.
  */
 async function pullTabs(tenantId: string): Promise<void> {
   const { data, error } = await supabase
     .from('tabs')
-    .select('client_id, customer_name, opened_at, status, paid_at, ready_at, sale_client_id')
+    .select('client_id, customer_name, opened_at, status')
     .eq('tenant_id', tenantId)
     .in('status', LIVE_STATUSES)
     .returns<RemoteTab[]>();
@@ -872,17 +886,11 @@ async function pullTabs(tenantId: string): Promise<void> {
   if (!data) return;
   const now = Date.now();
   const openIds = data.map((t) => t.client_id);
-  const msOrNull = (iso: string | null) => (iso ? new Date(iso).getTime() : null);
 
   for (const r of data) {
-    // O status vem do servidor: é assim que o "Pronto"/"Entregue" tocado no
-    // aparelho da churrasqueira chega ao caixa, e vice-versa.
     const state = {
       customerName: r.customer_name,
       status: r.status,
-      paidAt: msOrNull(r.paid_at),
-      readyAt: msOrNull(r.ready_at),
-      saleId: r.sale_client_id,
       tenantId,
       needsSync: false,
       syncedAt: now,
@@ -948,6 +956,61 @@ async function pullTabs(tenantId: string): Promise<void> {
     if (openIds.includes(t.id)) continue;
     await db.delete(tabItems).where(eq(tabItems.tabId, t.id));
     await db.delete(tabs).where(eq(tabs.id, t.id));
+  }
+}
+
+/**
+ * Tickets de cozinha ATIVOS do servidor → local (server-wins): é assim que o
+ * "Pronto"/"Entregue" tocado num aparelho chega ao outro. Linha com alteração
+ * local pendente é PULADA (mesmo motivo de pullTabs). Ticket que saiu da lista
+ * de ativos (entregue em outro aparelho) é removido daqui.
+ */
+async function pullKitchenTickets(tenantId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('kitchen_tickets')
+    .select('client_id, sale_client_id, tab_client_id, customer_name, items, status, created_at')
+    .eq('tenant_id', tenantId)
+    .in('status', ['pending', 'ready'])
+    .returns<RemoteKitchenTicket[]>();
+  if (error) throw new Error(`[sync:pull kitchen_tickets] ${error.message}`);
+  if (!data) return;
+  const now = Date.now();
+  const activeIds = data.map((t) => t.client_id);
+
+  for (const r of data) {
+    const state = {
+      saleId: r.sale_client_id,
+      tabId: r.tab_client_id ?? '',
+      customerName: r.customer_name,
+      items: JSON.stringify(r.items),
+      status: r.status,
+      createdAt: new Date(r.created_at).getTime(),
+      tenantId,
+      needsSync: false,
+      syncedAt: now,
+    };
+    const existing = await db.select().from(kitchenTickets).where(eq(kitchenTickets.id, r.client_id));
+    if (existing.length) {
+      if (existing[0].needsSync) continue; // alteração local ainda não enviada
+      await db.update(kitchenTickets).set(state).where(eq(kitchenTickets.id, r.client_id));
+    } else {
+      await db.insert(kitchenTickets).values({ id: r.client_id, ...state });
+    }
+  }
+
+  const localActive = await db
+    .select()
+    .from(kitchenTickets)
+    .where(
+      and(
+        inArray(kitchenTickets.status, ['pending', 'ready']),
+        eq(kitchenTickets.tenantId, tenantId),
+        eq(kitchenTickets.needsSync, false),
+      ),
+    );
+  for (const t of localActive) {
+    if (activeIds.includes(t.id)) continue;
+    await db.delete(kitchenTickets).where(eq(kitchenTickets.id, t.id));
   }
 }
 
@@ -1062,7 +1125,8 @@ async function pullSales(tenantId: string): Promise<void> {
 let tabsSyncing = false;
 
 /**
- * Sincroniza SÓ as comandas, na hora. Chamado pelo tempo real (tabsLive).
+ * Sincroniza SÓ comandas e tickets de cozinha, na hora. Chamado pelo tempo
+ * real (tabsLive).
  *
  * Sobe o que estiver pendente antes de puxar: se o atendente lançou um item e a
  * notificação de outro aparelho chegou em seguida, o pull não pode passar por
@@ -1078,7 +1142,9 @@ export async function syncTabsNow(): Promise<void> {
   tabsSyncing = true;
   try {
     await pushTabs(tenantId);
+    await pushKitchenTickets(tenantId);
     await pullTabs(tenantId);
+    await pullKitchenTickets(tenantId);
   } finally {
     tabsSyncing = false;
   }
@@ -1091,7 +1157,7 @@ export async function syncTabsNow(): Promise<void> {
  * existido no servidor.
  */
 export async function countPending(): Promise<number> {
-  const [p, sup, ps, s, si, se, st] = await Promise.all([
+  const [p, sup, ps, s, si, se, st, kt] = await Promise.all([
     db.select().from(products).where(eq(products.needsSync, true)),
     db.select().from(suppliers).where(eq(suppliers.needsSync, true)),
     db.select().from(productSuppliers).where(eq(productSuppliers.needsSync, true)),
@@ -1099,8 +1165,9 @@ export async function countPending(): Promise<number> {
     db.select().from(saleItems).where(eq(saleItems.needsSync, true)),
     db.select().from(stockEntries).where(eq(stockEntries.needsSync, true)),
     db.select().from(stockItems).where(eq(stockItems.needsSync, true)),
+    db.select().from(kitchenTickets).where(eq(kitchenTickets.needsSync, true)),
   ]);
-  return p.length + sup.length + ps.length + s.length + si.length + se.length + st.length;
+  return p.length + sup.length + ps.length + s.length + si.length + se.length + st.length + kt.length;
 }
 
 export async function refreshPendingCount(): Promise<void> {
@@ -1180,6 +1247,7 @@ export async function runSync(): Promise<void> {
     ok = (await runStep('sales', () => pushSalesWithItems(tenantId))) && ok;
     // Comandas: atendimento em andamento — todo membro opera, como as vendas.
     ok = (await runStep('tabs', () => pushTabs(tenantId))) && ok;
+    ok = (await runStep('kitchen_tickets', () => pushKitchenTickets(tenantId))) && ok;
     if (canPushCatalog) ok = (await runStep('stock_thresholds', () => pushStockThresholds(tenantId))) && ok;
     // Pulls server-wins (depois dos pushes, para a quantidade já refletir as vendas/entradas).
     ok = (await runStep('pull categories', () => pullCategories(tenantId))) && ok;
@@ -1192,6 +1260,7 @@ export async function runSync(): Promise<void> {
       )) && ok;
     ok = (await runStep('pull stock_items', () => pullStockItems(tenantId))) && ok;
     ok = (await runStep('pull tabs', () => pullTabs(tenantId))) && ok;
+    ok = (await runStep('pull kitchen_tickets', () => pullKitchenTickets(tenantId))) && ok;
     // Vendas: traz também as registradas pelo app web, senão a Home e os
     // Relatórios do celular mostram um faturamento menor do que o real.
     ok = (await runStep('pull sales', () => pullSales(tenantId))) && ok;

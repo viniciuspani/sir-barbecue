@@ -13,9 +13,12 @@ import { logSilently } from '@/lib/feedback';
  * o cliente pedir, o que quebra o atendimento. Vale para PWA↔Android e também
  * entre dois Androids.
  *
- * Estratégia: assina as mudanças de `tabs`/`tab_items` no Postgres e, a cada
- * evento, puxa SÓ as comandas — não o sync inteiro, que é pesado e desnecessário
- * aqui. O ciclo de 5 minutos continua existindo como rede de segurança.
+ * Estratégia: assina as mudanças de `tabs`/`tab_items`/`kitchen_tickets` no
+ * Postgres e, a cada evento, puxa SÓ isso — não o sync inteiro, que é pesado e
+ * desnecessário aqui. `kitchen_tickets` entrou na MIGRATION_29: é o "Pronto"/
+ * "Entregue" tocado no aparelho da churrasqueira chegando ao caixa, e o pedido
+ * pago no caixa chegando à churrasqueira. O ciclo de 5 minutos continua
+ * existindo como rede de segurança.
  */
 
 // Fallback quando o socket não está conectado (rede instável, servidor de
@@ -40,6 +43,7 @@ export function startTabsLive(tenantId: string): () => void {
       .channel(`tabs:${tenantId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tabs' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_items' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kitchen_tickets' }, refresh)
       .subscribe((status) => {
         connected = status === 'SUBSCRIBED';
         // Ao (re)conectar, busca o que mudou enquanto o socket esteve fora.

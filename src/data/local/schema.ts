@@ -130,20 +130,14 @@ export const syncCheckpoints = sqliteTable('sync_checkpoints', {
 // Comandas (tabs), identificadas pelo nome do cliente.
 // SINCRONIZADAS desde a F5 do plano web: o balcão pode ser atendido por dois
 // aparelhos (Android e o PWA no iPhone) e ambos precisam ver a mesma comanda.
-// A comanda vira `sales`/`sale_items` no pagamento e é marcada como fechada.
 export const tabs = sqliteTable('tabs', {
   id: text('id').primaryKey(),
   customerName: text('customer_name').notNull(),
   openedAt: integer('opened_at').notNull(), // epoch ms
-  // 'open' | 'paid' | 'ready' | 'closed' | 'cancelled' (ver TabStatus).
+  // 'open' | 'closed' | 'cancelled' (ver TabStatus). A comanda NUNCA fecha
+  // sozinha por pagamento (MIGRATION_29) — só por ação explícita do operador.
   // Encerrada ('closed'/'cancelled') continua aqui até o sync levar o fim adiante.
   status: text('status').notNull().default('open'),
-  // Pedido pré-pago: pago e na grelha. É por paid_at que a fila da churrasqueira
-  // se ordena — o que importa para quem assa é há quanto tempo o cliente pagou.
-  paidAt: integer('paid_at'),
-  readyAt: integer('ready_at'),
-  // Venda que cobrou esta comanda. Vira `tabs.sale_client_id` no servidor.
-  saleId: text('sale_id'),
   closedAt: integer('closed_at'),
   tenantId: text('tenant_id'),
   needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
@@ -161,6 +155,23 @@ export const tabItems = sqliteTable('tab_items', {
   // Item removido da comanda (quantidade zerada): a linha some da tela mas fica
   // aqui até o sync apagá-la no servidor — senão o outro aparelho a ressuscita.
   pendingDelete: integer('pending_delete', { mode: 'boolean' }).notNull().default(false),
+  needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
+  syncedAt: integer('synced_at'),
+});
+
+// Ticket de cozinha (MIGRATION_29) — uma linha por venda pré-paga (não por
+// comanda: o mesmo cliente pedindo de novo gera outro ticket). `items` guarda
+// o snapshot [{name, quantity}] serializado — mesmo espírito de tab_items.name,
+// pra a tela da fila não precisar de join com produtos.
+export const kitchenTickets = sqliteTable('kitchen_tickets', {
+  id: text('id').primaryKey(),
+  saleId: text('sale_id').notNull(),
+  tabId: text('tab_id').notNull(),
+  customerName: text('customer_name').notNull(),
+  items: text('items').notNull(), // JSON: [{ name, quantity }, ...]
+  status: text('status').notNull().default('pending'), // 'pending' | 'ready' | 'delivered'
+  createdAt: integer('created_at').notNull(), // epoch ms
+  tenantId: text('tenant_id'),
   needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
   syncedAt: integer('synced_at'),
 });
@@ -207,5 +218,7 @@ export type ProductSupplierRow = typeof productSuppliers.$inferSelect;
 export type ProductSupplierPriceHistoryRow = typeof productSupplierPriceHistory.$inferSelect;
 export type TabRow = typeof tabs.$inferSelect;
 export type TabItemRow = typeof tabItems.$inferSelect;
+export type KitchenTicketRow = typeof kitchenTickets.$inferSelect;
+export type NewKitchenTicketRow = typeof kitchenTickets.$inferInsert;
 export type ErrorLogRow = typeof errorLogs.$inferSelect;
 export type NewErrorLogRow = typeof errorLogs.$inferInsert;

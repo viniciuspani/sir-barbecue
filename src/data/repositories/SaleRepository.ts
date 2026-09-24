@@ -3,7 +3,7 @@ import * as Crypto from 'expo-crypto';
 import { addDatabaseChangeListener } from 'expo-sqlite';
 
 import { db } from '@/data/local/database';
-import { salePayments, saleItems, sales } from '@/data/local/schema';
+import { kitchenTickets, salePayments, saleItems, sales } from '@/data/local/schema';
 import type {
   ConsumptionMode,
   NewSale,
@@ -59,6 +59,22 @@ export class DrizzleSaleRepository implements SaleRepository {
           saleId,
           method: payment.method,
           amount: payment.amount,
+          needsSync: true,
+        });
+      }
+      // Pré-pago: gera o ticket de cozinha na MESMA transação. A comanda NÃO
+      // fecha aqui — quem decide isso é o chamador (ver TabRepository.payPartial),
+      // com base em ter sobrado item ou não.
+      if (input.queue && input.tabId) {
+        await tx.insert(kitchenTickets).values({
+          id: Crypto.randomUUID(),
+          saleId,
+          tabId: input.tabId,
+          customerName: input.customerName ?? '',
+          items: JSON.stringify(input.items.map((i) => ({ name: i.name, quantity: i.quantity }))),
+          status: 'pending',
+          createdAt: saleDate,
+          tenantId,
           needsSync: true,
         });
       }

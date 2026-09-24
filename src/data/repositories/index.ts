@@ -1,5 +1,6 @@
 // Instâncias únicas dos repositórios (DI-lite). As telas dependem da interface de domínio.
 import { DrizzleCategoryRepository } from './CategoryRepository';
+import { DrizzleKitchenTicketRepository } from './KitchenTicketRepository';
 import { DrizzleProductRepository } from './ProductRepository';
 import { DrizzleSaleRepository } from './SaleRepository';
 import { DrizzleStockRepository } from './StockRepository';
@@ -7,6 +8,7 @@ import { DrizzleSupplierRepository } from './SupplierRepository';
 import { DrizzleTabRepository } from './TabRepository';
 
 import type { CategoryRepository } from '@/domain/repositories/CategoryRepository';
+import type { KitchenTicketRepository } from '@/domain/repositories/KitchenTicketRepository';
 import type { ProductRepository } from '@/domain/repositories/ProductRepository';
 import type { SaleRepository } from '@/domain/repositories/SaleRepository';
 import type { StockRepository } from '@/domain/repositories/StockRepository';
@@ -19,3 +21,4 @@ export const saleRepository: SaleRepository = new DrizzleSaleRepository();
 export const stockRepository: StockRepository = new DrizzleStockRepository();
 export const supplierRepository: SupplierRepository = new DrizzleSupplierRepository();
 export const tabRepository: TabRepository = new DrizzleTabRepository();
+export const kitchenTicketRepository: KitchenTicketRepository = new DrizzleKitchenTicketRepository();
