@@ -18,7 +18,7 @@ export type Tenant = {
 
 export type TenantRole = 'owner' | 'manager' | 'employee';
 /** `active: false` = vínculo INATIVADO (tenant_members.removed_at preenchido). */
-export type TenantMember = { userId: string; role: TenantRole; active: boolean };
+export type TenantMember = { userId: string; role: TenantRole; active: boolean; name: string };
 
 function msg(e: unknown): string {
   if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message);
@@ -102,16 +102,25 @@ export async function updateTenant(
 }
 
 export async function fetchMembers(tenantId: string): Promise<TenantMember[]> {
-  const { data, error } = await supabase
-    .from('tenant_members')
-    .select('user_id, role, removed_at')
-    .eq('tenant_id', tenantId);
+  // RPC (não select direto): nome/e-mail moram em auth.users, que um usuário
+  // comum não lê para outra pessoa — list_tenant_members (MIGRATION_31) faz
+  // esse join com SECURITY DEFINER, restrito a owner/manager da empresa.
+  const { data, error } = await supabase.rpc('list_tenant_members', { p_tenant_id: tenantId });
   record(error, 'Buscar a equipe da empresa');
   if (error || !data) return [];
-  return (data as { user_id: string; role: string; removed_at: string | null }[]).map((r) => ({
+  return (
+    data as {
+      user_id: string;
+      role: string;
+      removed_at: string | null;
+      email: string | null;
+      display_name: string | null;
+    }[]
+  ).map((r) => ({
     userId: r.user_id,
     role: r.role as TenantRole,
     active: r.removed_at === null,
+    name: r.display_name?.trim() || r.email || r.user_id.slice(0, 8),
   }));
 }
 

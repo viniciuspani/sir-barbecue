@@ -4,11 +4,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radii, spacing } from '@/design/tokens';
+import { formatIsoDate } from '@/lib/dates';
 import { cnpjValidationMessage, formatCnpjInput, unmaskCnpj } from '@/lib/cnpj';
 import { logSilently, reportError } from '@/lib/feedback';
-import { usePermissions } from '@/lib/permissions';
+import { roleLabel, usePermissions } from '@/lib/permissions';
 import { formatPhoneInput, phoneValidationMessage, unmaskPhone } from '@/lib/phone';
 import { showToast } from '@/lib/toast';
+import type { AccessReason } from '@/services/access';
 import { inviteMember } from '@/services/functions';
 import {
   deactivateMember,
@@ -19,16 +21,29 @@ import {
   type TenantMember,
 } from '@/services/tenant';
 import { setCachedTenantName } from '@/services/tenantBranding';
+import { useAccessStore } from '@/store/accessStore';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
 import { TextField } from '@/ui/TextField';
+
+// Rótulo de cada motivo possível ENQUANTO a tela é alcançável (accessStatus
+// 'allowed' — se fosse 'blocked' o app nem chegaria aqui, ver AccessBlocked).
+// Os demais reasons existem no tipo mas não ocorrem nesse estado; o fallback
+// cobre isso sem quebrar a tela.
+const SUBSCRIPTION_LABELS: Partial<Record<AccessReason, string>> = {
+  trial: 'Período de teste',
+  active: 'Ativa',
+  payment_overdue: 'Pagamento atrasado — carência',
+};
 
 export default function Empresa() {
   const { canAccessCompany, readOnlyReason } = usePermissions();
   const tenantId = useAuthStore((s) => s.currentTenantId);
   const session = useAuthStore((s) => s.session);
   const userId = useAuthStore((s) => s.user?.id);
+  const accessReason = useAccessStore((s) => s.reason);
+  const accessEndsAt = useAccessStore((s) => s.endsAt);
 
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -265,6 +280,26 @@ export default function Empresa() {
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      {accessReason && (
+        <View style={styles.subscriptionCard}>
+          <Text style={styles.subscriptionLabel}>Assinatura</Text>
+          <Text
+            style={[
+              styles.subscriptionStatus,
+              accessReason === 'active' && styles.subscriptionStatusActive,
+              accessReason === 'payment_overdue' && styles.subscriptionStatusOverdue,
+            ]}
+          >
+            {SUBSCRIPTION_LABELS[accessReason] ?? accessReason}
+          </Text>
+          {accessReason === 'trial' && (
+            <Text style={styles.subscriptionHint}>
+              Termina em {formatIsoDate(accessEndsAt)} — depois disso, escolha um plano para continuar.
+            </Text>
+          )}
+        </View>
+      )}
+
       <Text style={styles.section}>Dados da empresa</Text>
       <TextField label="Nome" value={name} onChangeText={setName} editable={isOwner} autoCapitalize="words" />
       <TextField
@@ -276,6 +311,7 @@ export default function Empresa() {
         }}
         onBlur={validateCnpj}
         editable={isOwner}
+        placeholder="00.000.000/0000-00"
         autoCapitalize="characters"
         maxLength={18}
         error={cnpjError ?? undefined}
@@ -289,6 +325,7 @@ export default function Empresa() {
         }}
         onBlur={validatePhone}
         editable={isOwner}
+        placeholder="(00) 00000-0000"
         keyboardType="phone-pad"
         maxLength={15}
         error={phoneError ?? undefined}
@@ -310,8 +347,10 @@ export default function Empresa() {
         .map((member) => (
           <View key={member.userId} style={styles.memberRow}>
             <View style={styles.memberMain}>
-              <Text style={styles.memberId}>{member.userId.slice(0, 8)}…</Text>
-              <Text style={styles.memberRole}>{member.role}</Text>
+              <Text style={styles.memberId} numberOfLines={1}>
+                {member.name}
+              </Text>
+              <Text style={styles.memberRole}>{roleLabel(member.role)}</Text>
             </View>
             {isOwner && member.userId !== userId && (
               <Pressable
@@ -336,10 +375,10 @@ export default function Empresa() {
             .map((member) => (
               <View key={member.userId} style={styles.memberRow}>
                 <View style={styles.memberMain}>
-                  <Text style={[styles.memberId, styles.memberInactive]}>
-                    {member.userId.slice(0, 8)}…
+                  <Text style={[styles.memberId, styles.memberInactive]} numberOfLines={1}>
+                    {member.name}
                   </Text>
-                  <Text style={styles.memberRole}>{member.role} · sem acesso</Text>
+                  <Text style={styles.memberRole}>{roleLabel(member.role)} · sem acesso</Text>
                 </View>
                 <Pressable
                   onPress={() => onReactivate(member)}
@@ -393,6 +432,17 @@ const styles = StyleSheet.create({
   emptyTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '700', textAlign: 'center' },
   emptyText: { color: colors.textSecondary, fontSize: 15, textAlign: 'center', lineHeight: 22 },
   content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xxl },
+  subscriptionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    gap: 2,
+  },
+  subscriptionLabel: { color: colors.textSecondary, fontSize: 13, fontWeight: '600' },
+  subscriptionStatus: { color: colors.gold, fontSize: 18, fontWeight: '700' },
+  subscriptionStatusActive: { color: colors.green },
+  subscriptionStatusOverdue: { color: colors.danger },
+  subscriptionHint: { color: colors.textSecondary, fontSize: 13, marginTop: 2 },
   section: { color: colors.textPrimary, fontSize: 16, fontWeight: '600', marginTop: spacing.md },
   hint: { color: colors.textSecondary, fontSize: 13, marginTop: spacing.sm },
   chips: { flexDirection: 'row', gap: spacing.sm, marginVertical: spacing.sm },
