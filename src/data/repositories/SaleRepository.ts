@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import * as Crypto from 'expo-crypto';
 import { addDatabaseChangeListener } from 'expo-sqlite';
 
@@ -62,21 +62,47 @@ export class DrizzleSaleRepository implements SaleRepository {
           needsSync: true,
         });
       }
-      // Pré-pago: gera o ticket de cozinha na MESMA transação. A comanda NÃO
-      // fecha aqui — quem decide isso é o chamador (ver TabRepository.payPartial),
-      // com base em ter sobrado item ou não.
+      // Pré-pago: entra no ticket de cozinha da comanda na MESMA transação. A
+      // comanda NÃO fecha aqui — quem decide isso é o chamador (ver
+      // TabRepository.payPartial), com base em ter sobrado item ou não.
       if (input.queue && input.tabId) {
-        await tx.insert(kitchenTickets).values({
-          id: Crypto.randomUUID(),
-          saleId,
-          tabId: input.tabId,
-          customerName: input.customerName ?? '',
-          items: JSON.stringify(input.items.map((i) => ({ name: i.name, quantity: i.quantity }))),
-          status: 'pending',
-          createdAt: saleDate,
-          tenantId,
-          needsSync: true,
-        });
+        const newItems = input.items.map((i) => ({ name: i.name, quantity: i.quantity }));
+        // Cliente pedindo de novo, pagando antes de cada rodada (pré-pago):
+        // se já existe um ticket ATIVO (pendente ou pronto) desta comanda, o
+        // pedido novo entra NELE — não cria um segundo cartão na fila. Só
+        // nasce ticket novo quando não há nenhum ativo (nunca pediu, ou o
+        // último já foi entregue).
+        const [existingTicket] = await tx
+          .select()
+          .from(kitchenTickets)
+          .where(
+            and(
+              eq(kitchenTickets.tabId, input.tabId),
+              inArray(kitchenTickets.status, ['pending', 'ready']),
+            ),
+          );
+        if (existingTicket) {
+          const mergedItems = [
+            ...(JSON.parse(existingTicket.items) as { name: string; quantity: number }[]),
+            ...newItems,
+          ];
+          await tx
+            .update(kitchenTickets)
+            .set({ items: JSON.stringify(mergedItems), status: 'pending', needsSync: true })
+            .where(eq(kitchenTickets.id, existingTicket.id));
+        } else {
+          await tx.insert(kitchenTickets).values({
+            id: Crypto.randomUUID(),
+            saleId,
+            tabId: input.tabId,
+            customerName: input.customerName ?? '',
+            items: JSON.stringify(newItems),
+            status: 'pending',
+            createdAt: saleDate,
+            tenantId,
+            needsSync: true,
+          });
+        }
       }
     });
 
