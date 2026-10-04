@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { productRepository, stockRepository, supplierRepository } from '@/data/repositories';
 import type { ProductSupplier } from '@/domain/entities/ProductSupplier';
+import type { ProductSupplierPriceHistory } from '@/domain/entities/ProductSupplierPriceHistory';
 import type { StockEntry } from '@/domain/entities/StockEntry';
 import type { Supplier } from '@/domain/entities/Supplier';
 import { colors, radii, spacing } from '@/design/tokens';
@@ -26,6 +27,18 @@ function pickCurrentCost(links: ProductSupplier[]): ProductSupplier | null {
   return links.reduce((min, l) => (l.purchasePrice < min.purchasePrice ? l : min));
 }
 
+// Preço vigente de um fornecedor NA DATA da entrada — reconstruído do histórico
+// (product_supplier_price_history), não guardado na própria entrada (o custo
+// mora só no fornecedor; a entrada só referencia QUEM entregou o lote).
+function priceAt(history: ProductSupplierPriceHistory[], supplierId: string, atMs: number): number | null {
+  let best: ProductSupplierPriceHistory | null = null;
+  for (const h of history) {
+    if (h.supplierId !== supplierId || h.recordedAt > atMs) continue;
+    if (!best || h.recordedAt > best.recordedAt) best = h;
+  }
+  return best?.purchasePrice ?? null;
+}
+
 export default function EstoqueDetalhe() {
   const { readOnlyReason } = usePermissions();
   const { productId } = useLocalSearchParams<{ productId?: string }>();
@@ -36,6 +49,7 @@ export default function EstoqueDetalhe() {
   const [entries, setEntries] = useState<StockEntry[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierLinks, setSupplierLinks] = useState<ProductSupplier[]>([]);
+  const [priceHistory, setPriceHistory] = useState<ProductSupplierPriceHistory[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -60,6 +74,9 @@ export default function EstoqueDetalhe() {
     stockRepository.listEntries(productId).then(setEntries).catch(onLoadFail);
     supplierRepository.list().then(setSuppliers).catch(onLoadFail);
     supplierRepository.listLinksByProduct(productId).then(setSupplierLinks).catch(onLoadFail);
+    // Limite generoso: só precisa cobrir a data das últimas 10 entradas (listEntries),
+    // não as 15 mudanças de preço mais recentes mostradas na tela de histórico.
+    supplierRepository.listPriceHistory(productId, 200).then(setPriceHistory).catch(onLoadFail);
   }, [productId]);
 
   const currentCost = useMemo(() => pickCurrentCost(supplierLinks), [supplierLinks]);
@@ -67,11 +84,24 @@ export default function EstoqueDetalhe() {
     ? (suppliers.find((s) => s.id === currentCost.supplierId)?.name ?? '—')
     : null;
 
-  const { minQty, maxQty } = useMemo(() => {
-    if (entries.length === 0) return { minQty: null, maxQty: null };
-    const values = entries.map((e) => e.quantity);
-    return { minQty: Math.min(...values), maxQty: Math.max(...values) };
-  }, [entries]);
+  // Preço real de CADA entrada (não o custo atual repetido em toda linha) e a
+  // tendência (subiu/desceu) contra a entrada anterior que também tem preço
+  // resolvido — `entries` já vem mais nova primeiro (listEntries).
+  const entryRows = useMemo(() => {
+    const withPrice = entries.map((e) => ({
+      entry: e,
+      price: e.supplierId ? priceAt(priceHistory, e.supplierId, e.entryDate) : null,
+      supplierName: e.supplierId ? (suppliers.find((s) => s.id === e.supplierId)?.name ?? '—') : null,
+    }));
+    return withPrice.map((row, i) => {
+      let trend: 'up' | 'down' | null = null;
+      if (row.price != null) {
+        const prev = withPrice.slice(i + 1).find((r) => r.price != null);
+        if (prev && prev.price !== row.price) trend = row.price > prev.price! ? 'up' : 'down';
+      }
+      return { ...row, trend };
+    });
+  }, [entries, priceHistory, suppliers]);
 
   const onChangeThreshold = (t: string) => {
     setThreshold(sanitizeQuantityInput(t));
@@ -138,29 +168,25 @@ export default function EstoqueDetalhe() {
           <Text style={styles.hint}>Fornecedor atual: {currentSupplierName}</Text>
         )}
         {entries.length === 0 && <Text style={styles.hint}>Nenhuma entrada registrada.</Text>}
-        {entries.map((e) => {
-          const isMin = minQty != null && e.quantity === minQty;
-          const isMax = maxQty != null && e.quantity === maxQty;
-          const highlighted = minQty !== maxQty && (isMin || isMax);
-          return (
-            <View key={e.id} style={styles.entry}>
-              <View style={styles.entryMain}>
-                <Text style={styles.entryQty}>+{formatQuantity(e.quantity)}</Text>
+        {entryRows.map(({ entry: e, price, supplierName, trend }) => (
+          <View key={e.id} style={styles.entry}>
+            <View style={styles.entryMain}>
+              <Text style={styles.entryQty}>+{formatQuantity(e.quantity)}</Text>
+              <View>
                 <Text style={styles.entryDate}>{formatDatePtBR(new Date(e.entryDate))}</Text>
-              </View>
-              <View style={styles.entryEnd}>
-                {currentCost && (
-                  <Text style={styles.entryCost}>{formatBRL(currentCost.purchasePrice)}</Text>
-                )}
-                {highlighted && (
-                  <Text style={isMax ? styles.badgeMax : styles.badgeMin}>
-                    {isMax ? 'maior' : 'menor'}
-                  </Text>
-                )}
+                {!!supplierName && <Text style={styles.entrySupplier}>{supplierName}</Text>}
               </View>
             </View>
-          );
-        })}
+            <View style={styles.entryEnd}>
+              <Text style={styles.entryCost}>{price != null ? formatBRL(price) : '—'}</Text>
+              {trend && (
+                <Text style={trend === 'up' ? styles.badgeMax : styles.badgeMin}>
+                  {trend === 'up' ? 'maior' : 'menor'}
+                </Text>
+              )}
+            </View>
+          </View>
+        ))}
 
         <Button
           title="Ver histórico de preço de compra completo"
@@ -203,6 +229,7 @@ const styles = StyleSheet.create({
   entryMain: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.md },
   entryQty: { color: colors.green, fontSize: 16, fontWeight: '700' },
   entryDate: { color: colors.textSecondary, fontSize: 13 },
+  entrySupplier: { color: colors.textSecondary, fontSize: 12, marginTop: 1 },
   entryEnd: { alignItems: 'flex-end', gap: 2 },
   entryCost: { color: colors.gold, fontSize: 15, fontWeight: '700' },
   badgeMax: { color: colors.green, fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },

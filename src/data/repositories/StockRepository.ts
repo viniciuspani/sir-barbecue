@@ -33,6 +33,7 @@ function toEntry(row: StockEntryRow): StockEntry {
     quantity: row.quantity,
     entryDate: row.entryDate,
     notes: row.notes ?? undefined,
+    supplierId: row.supplierId ?? undefined,
     needsSync: row.needsSync,
     syncedAt: row.syncedAt ?? undefined,
   };
@@ -59,6 +60,7 @@ export class DrizzleStockRepository implements StockRepository {
         productId: input.productId,
         quantity: input.quantity,
         notes: input.notes ?? null,
+        supplierId: input.supplierId ?? null,
         entryDate,
         tenantId,
         needsSync: true,

@@ -1,11 +1,13 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { categoryRepository, productRepository, stockRepository } from '@/data/repositories';
+import { categoryRepository, productRepository, stockRepository, supplierRepository } from '@/data/repositories';
 import type { Category } from '@/domain/entities/Category';
+import type { ProductSupplier } from '@/domain/entities/ProductSupplier';
 import type { Product } from '@/domain/entities/Product';
+import type { Supplier } from '@/domain/entities/Supplier';
 import { colors, spacing } from '@/design/tokens';
 import { parseBRL, quantityValidationMessage, sanitizeQuantityInput } from '@/lib/currency';
 import { reportError } from '@/lib/feedback';
@@ -13,6 +15,7 @@ import { usePermissions } from '@/lib/permissions';
 import { showToast } from '@/lib/toast';
 import { BrandLogo } from '@/ui/BrandLogo';
 import { Button } from '@/ui/Button';
+import { Chip } from '@/ui/Chip';
 import { ProductPicker } from '@/ui/ProductPicker';
 import { TextField } from '@/ui/TextField';
 
@@ -24,11 +27,31 @@ export default function RegistrarEntrada() {
   const [quantity, setQuantity] = useState('');
   const [quantityError, setQuantityError] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [productSupplierLinks, setProductSupplierLinks] = useState<ProductSupplier[]>([]);
+  const [supplierId, setSupplierId] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => categoryRepository.observeAll(setCategories), []);
   useEffect(() => productRepository.observeAll(setProducts), []);
+  useEffect(() => supplierRepository.observeAll(setSuppliers), []);
+
+  // Fornecedores do lote (opcional) — só os já associados a ESTE produto, pra
+  // não listar o fornecedor de outro produto por engano. Troca de produto
+  // limpa a escolha: o fornecedor selecionado pode não servir mais.
+  useEffect(() => {
+    setSupplierId(undefined);
+    if (!productId) {
+      setProductSupplierLinks([]);
+      return;
+    }
+    supplierRepository.listLinksByProduct(productId).then(setProductSupplierLinks).catch(() => {});
+  }, [productId]);
+
+  const linkedSupplierNames = productSupplierLinks
+    .map((l) => ({ link: l, name: suppliers.find((s) => s.id === l.supplierId)?.name }))
+    .filter((x): x is { link: ProductSupplier; name: string } => !!x.name);
 
   const onChangeQuantity = (t: string) => {
     setQuantity(sanitizeQuantityInput(t));
@@ -62,6 +85,7 @@ export default function RegistrarEntrada() {
         productId,
         quantity: qty,
         notes: notes.trim() || undefined,
+        supplierId,
       });
       showToast('Entrada registrada! ✅');
       router.back();
@@ -106,6 +130,36 @@ export default function RegistrarEntrada() {
           placeholder="ex.: compra no atacado"
         />
 
+        {!!productId && (
+          <>
+            <Text style={styles.section}>Fornecedor do lote — opcional</Text>
+            {linkedSupplierNames.length === 0 ? (
+              <Text style={styles.hint}>
+                Nenhum fornecedor cadastrado para este produto.{' '}
+                <Text style={styles.hintLink} onPress={() => router.push('/mais/fornecedores')}>
+                  Cadastrar fornecedor
+                </Text>
+              </Text>
+            ) : (
+              <>
+                <View style={styles.supplierRow}>
+                  {linkedSupplierNames.map(({ link, name }) => (
+                    <Chip
+                      key={link.id}
+                      label={name}
+                      selected={supplierId === link.supplierId}
+                      onPress={() => setSupplierId(supplierId === link.supplierId ? undefined : link.supplierId)}
+                    />
+                  ))}
+                </View>
+                <Text style={styles.hint}>
+                  Só pra saber de onde veio o lote — o preço continua vindo do cadastro do fornecedor.
+                </Text>
+              </>
+            )}
+          </>
+        )}
+
         <Text style={styles.hint}>
           O custo do produto é cadastrado no fornecedor, não aqui.{' '}
           <Text style={styles.hintLink} onPress={() => router.push('/mais/fornecedores')}>
@@ -134,5 +188,6 @@ const styles = StyleSheet.create({
   section: { color: colors.textPrimary, fontSize: 16, fontWeight: '600', marginTop: spacing.sm },
   hint: { color: colors.textSecondary, fontSize: 13 },
   hintLink: { color: colors.gold, fontWeight: '600' },
+  supplierRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   error: { color: colors.danger, fontSize: 14, marginVertical: spacing.sm },
 });

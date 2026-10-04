@@ -17,6 +17,12 @@ export interface SupplierRepository {
   addLink(input: NewProductSupplier): Promise<void>;
   /** Edita o preço de compra (e/ou preferido) de um vínculo já existente. */
   updateLink(id: string, patch: { purchasePrice?: number; isPreferred?: boolean }): Promise<void>;
+  /**
+   * Marca este vínculo como o fornecedor ATUAL do produto — e desmarca qualquer
+   * outro vínculo do MESMO produto que estivesse preferido (só um atual por
+   * produto; um fornecedor pode ser atual de vários produtos diferentes).
+   */
+  setPreferred(linkId: string, productId: string): Promise<void>;
   /** Inativa o vínculo (troca de fornecedor): some das telas de uso e do custo, fica no histórico. */
   inactivateLink(id: string): Promise<void>;
   /** Exclusão definitiva (corrige cadastro errado): marca p/ apagar no servidor via sync. */

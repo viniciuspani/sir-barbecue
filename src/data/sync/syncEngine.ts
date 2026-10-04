@@ -394,6 +394,7 @@ async function pushStockEntries(tenantId: string): Promise<void> {
         client_id: r.id,
         tenant_id: tenantId,
         product_client_id: r.productId,
+        supplier_client_id: r.supplierId,
         quantity: r.quantity,
         entry_date: new Date(r.entryDate).toISOString(),
         notes: r.notes,

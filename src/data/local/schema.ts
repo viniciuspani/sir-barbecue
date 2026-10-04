@@ -117,6 +117,10 @@ export const stockEntries = sqliteTable('stock_entries', {
   quantity: real('quantity').notNull(),
   entryDate: integer('entry_date').notNull(), // epoch ms
   notes: text('notes'),
+  // Referência opcional a quem entregou este lote. SÓ referência — nunca duplica
+  // preço aqui (o custo mora em product_suppliers/product_supplier_price_history;
+  // ver src/data/local/database.ts sobre a remoção de unit_cost desta tabela).
+  supplierId: text('supplier_id'),
   tenantId: text('tenant_id'),
   needsSync: integer('needs_sync', { mode: 'boolean' }).notNull().default(true),
   syncedAt: integer('synced_at'),

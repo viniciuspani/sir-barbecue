@@ -189,11 +189,38 @@ export class DrizzleSupplierRepository implements SupplierRepository {
     await db.update(productSuppliers).set(set).where(eq(productSuppliers.id, id));
   }
 
+  // Desmarca qualquer outro vínculo preferido do MESMO produto antes de marcar
+  // este — o índice único parcial no servidor (MIGRATION_33) barraria dois
+  // "atual" no mesmo produto, então aqui também não pode deixar os dois
+  // marcados nem que seja por um instante entre as duas escritas.
+  async setPreferred(linkId: string, productId: string): Promise<void> {
+    const tenantId = getActiveTenantIdOrThrow();
+    await db.transaction(async (tx) => {
+      const siblings = await tx
+        .select()
+        .from(productSuppliers)
+        .where(and(eq(productSuppliers.productId, productId), eq(productSuppliers.isPreferred, true)));
+      for (const s of siblings) {
+        if (s.id === linkId) continue;
+        await tx
+          .update(productSuppliers)
+          .set({ isPreferred: false, tenantId, needsSync: true })
+          .where(eq(productSuppliers.id, s.id));
+      }
+      await tx
+        .update(productSuppliers)
+        .set({ isPreferred: true, tenantId, needsSync: true })
+        .where(eq(productSuppliers.id, linkId));
+    });
+  }
+
   // Inativa (soft): o sync propaga is_active=false; o vínculo continua guardado.
+  // Também solta o "atual" se este vínculo era o preferido — um fornecedor
+  // inativo não deve seguir sendo o fornecedor atual de ninguém.
   async inactivateLink(id: string): Promise<void> {
     await db
       .update(productSuppliers)
-      .set({ isActive: false, tenantId: getActiveTenantIdOrThrow(), needsSync: true })
+      .set({ isActive: false, isPreferred: false, tenantId: getActiveTenantIdOrThrow(), needsSync: true })
       .where(eq(productSuppliers.id, id));
   }
 

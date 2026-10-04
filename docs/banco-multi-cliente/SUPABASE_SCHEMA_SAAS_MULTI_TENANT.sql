@@ -199,6 +199,12 @@ create table if not exists public.product_suppliers (
   constraint product_suppliers_unique unique (product_client_id, supplier_client_id)
 );
 
+-- Um único fornecedor "atual"/preferido por produto (MIGRATION_33) — um
+-- fornecedor pode ser atual de vários produtos, mas um produto só tem UM atual.
+create unique index if not exists product_suppliers_one_preferred_per_product
+  on public.product_suppliers (product_client_id)
+  where is_preferred;
+
 -- 5b) product_supplier_price_history — append-only, alimentada só pelo
 --     trigger trg_log_price_history (ver seção TRIGGERS de negócio abaixo).
 --     product_suppliers guarda só o preço VIGENTE; esta tabela guarda a
@@ -274,7 +280,7 @@ create table if not exists public.reports (
   tenant_id     uuid not null references public.tenants (id) on delete cascade,
   client_id     uuid not null unique,
   user_id       uuid not null default auth.uid() references auth.users (id) on delete restrict,
-  type          varchar(50) not null check (type in ('daily_sales','monthly_sales','products_sold','financial_summary')),
+  type          varchar(50) not null check (type in ('daily_sales','monthly_sales','period_sales','products_sold','financial_summary')),
   status        varchar(20) not null default 'pending' check (status in ('pending','processing','ready','failed')),
   parameters    jsonb not null default '{}',
   pdf_url       text,

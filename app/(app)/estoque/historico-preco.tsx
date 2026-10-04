@@ -22,8 +22,9 @@ export default function HistoricoPreco() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   // Sempre carregado do mais novo para o mais antigo; o toggle abaixo só inverte em memória.
   const [history, setHistory] = useState<ProductSupplierPriceHistory[]>([]);
-  // Fornecedores que AINDA são vínculo ativo do produto — para o selo "atual".
-  const [activeSupplierIds, setActiveSupplierIds] = useState<Set<string>>(new Set());
+  // Fornecedor marcado como ATUAL do produto (is_preferred) — não confundir com
+  // "ainda ativo": o produto pode ter 2+ fornecedores ativos, mas só um atual.
+  const [preferredSupplierId, setPreferredSupplierId] = useState<string | null>(null);
   const [order, setOrder] = useState<'desc' | 'asc'>('desc');
 
   useEffect(() => {
@@ -40,7 +41,7 @@ export default function HistoricoPreco() {
     supplierRepository.listPriceHistory(productId, MAX_ITEMS).then(setHistory).catch(onLoadFail);
     supplierRepository
       .listLinksByProduct(productId)
-      .then((links) => setActiveSupplierIds(new Set(links.map((l) => l.supplierId))))
+      .then((links) => setPreferredSupplierId(links.find((l) => l.isPreferred)?.supplierId ?? null))
       .catch(onLoadFail);
   }, [productId]);
 
@@ -51,10 +52,21 @@ export default function HistoricoPreco() {
     [history, order],
   );
 
-  const { minPrice, maxPrice } = useMemo(() => {
-    if (history.length === 0) return { minPrice: null, maxPrice: null };
-    const values = history.map((h) => h.purchasePrice);
-    return { minPrice: Math.min(...values), maxPrice: Math.max(...values) };
+  // Tendência (subiu/desceu) contra o registro anterior, não contra o
+  // mínimo/máximo da janela carregada — "history" é sempre do mais novo pro
+  // mais antigo (independente do toggle `order`, que só afeta a exibição).
+  const trends = useMemo(() => {
+    const map = new Map<string, 'up' | 'down' | null>();
+    for (let i = 0; i < history.length; i++) {
+      const cur = history[i];
+      const prev = history[i + 1];
+      if (!prev || prev.purchasePrice === cur.purchasePrice) {
+        map.set(cur.id, null);
+        continue;
+      }
+      map.set(cur.id, cur.purchasePrice > prev.purchasePrice ? 'up' : 'down');
+    }
+    return map;
   }, [history]);
 
   return (
@@ -78,23 +90,21 @@ export default function HistoricoPreco() {
           <Text style={styles.hint}>Nenhuma mudança de preço registrada ainda.</Text>
         )}
         {displayed.map((h) => {
-          const isMin = minPrice != null && h.purchasePrice === minPrice;
-          const isMax = maxPrice != null && h.purchasePrice === maxPrice;
-          const highlighted = minPrice !== maxPrice && (isMin || isMax);
+          const trend = trends.get(h.id) ?? null;
           return (
             <View key={h.id} style={styles.row}>
               <View style={styles.rowMain}>
                 <View style={styles.supplierRow}>
                   <Text style={styles.supplier}>{supplierName(h.supplierId)}</Text>
-                  {activeSupplierIds.has(h.supplierId) && <Text style={styles.badgeAtual}>atual</Text>}
+                  {h.supplierId === preferredSupplierId && <Text style={styles.badgeAtual}>atual</Text>}
                 </View>
                 <Text style={styles.date}>{formatDatePtBR(new Date(h.recordedAt))}</Text>
               </View>
               <View style={styles.rowEnd}>
                 <Text style={styles.price}>{formatBRL(h.purchasePrice)}</Text>
-                {highlighted && (
-                  <Text style={isMax ? styles.badgeMax : styles.badgeMin}>
-                    {isMax ? 'maior' : 'menor'}
+                {trend && (
+                  <Text style={trend === 'up' ? styles.badgeMax : styles.badgeMin}>
+                    {trend === 'up' ? 'maior' : 'menor'}
                   </Text>
                 )}
               </View>

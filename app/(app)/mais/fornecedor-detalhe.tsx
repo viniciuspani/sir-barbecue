@@ -108,6 +108,17 @@ export default function FornecedorDetalhe() {
     }
   };
 
+  const onSetPreferred = async (linkId: string, productId: string) => {
+    try {
+      await supplierRepository.setPreferred(linkId, productId);
+      reloadLinks();
+      void runSync();
+      showToast('Marcado como fornecedor atual! ✅');
+    } catch (e) {
+      await reportError(e, { action: 'Marcar fornecedor como atual' });
+    }
+  };
+
   const onInactivate = async (linkId: string) => {
     try {
       await supplierRepository.inactivateLink(linkId);
@@ -213,11 +224,23 @@ export default function FornecedorDetalhe() {
         ) : (
           <View key={l.id} style={styles.linkRow}>
             <View style={styles.linkTop}>
-              <Text style={styles.linkName}>{productName(l.productId)}</Text>
+              <View style={styles.linkNameRow}>
+                <Text style={styles.linkName}>{productName(l.productId)}</Text>
+                {l.isPreferred && <Text style={styles.badgeAtual}>Atual</Text>}
+              </View>
               <Text style={styles.linkPrice}>{formatBRL(l.purchasePrice)}</Text>
             </View>
             {canWriteSuppliers && (
               <View style={styles.linkActions}>
+                {!l.isPreferred && (
+                  <Pressable
+                    onPress={() => onSetPreferred(l.id, l.productId)}
+                    accessibilityLabel="Marcar como fornecedor atual deste produto"
+                    hitSlop={8}
+                  >
+                    <Text style={styles.markCurrent}>Marcar como atual</Text>
+                  </Pressable>
+                )}
                 <Pressable onPress={() => onStartEdit(l)} accessibilityLabel="Editar preço" hitSlop={8}>
                   <Text style={styles.edit}>Editar</Text>
                 </Pressable>
@@ -289,9 +312,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  linkActions: { flexDirection: 'row', gap: spacing.lg },
-  linkName: { flex: 1, color: colors.textPrimary, fontSize: 15, fontWeight: '600' },
+  linkActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
+  linkNameRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  linkName: { color: colors.textPrimary, fontSize: 15, fontWeight: '600' },
   linkPrice: { color: colors.gold, fontSize: 15, fontWeight: '700' },
+  badgeAtual: {
+    color: colors.onGold,
+    backgroundColor: colors.gold,
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: radii.pill,
+    overflow: 'hidden',
+  },
+  markCurrent: { color: colors.gold, fontSize: 13, fontWeight: '600' },
   edit: { color: colors.gold, fontSize: 13, fontWeight: '600' },
   inactivate: { color: colors.textSecondary, fontSize: 13, fontWeight: '600' },
   remove: { color: colors.danger, fontSize: 13, fontWeight: '600' },

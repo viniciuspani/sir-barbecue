@@ -85,7 +85,7 @@ export default function Inicio() {
   );
 
   const now = new Date();
-  const monthLabel = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(now);
+  const monthLabel = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }).format(now);
 
   const stats = useMemo(() => {
     const ref = new Date();

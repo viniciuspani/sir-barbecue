@@ -196,6 +196,13 @@ const stockEntryCols = sqlite.getAllSync<{ name: string }>('PRAGMA table_info(st
 if (stockEntryCols.some((c) => c.name === 'unit_cost')) {
   sqlite.execSync('ALTER TABLE stock_entries DROP COLUMN unit_cost');
 }
+// Migração incremental: entrada de estoque passa a guardar de qual fornecedor
+// veio o lote (REFERÊNCIA só — sem preço aqui, ver nota acima). A tela de
+// histórico usa isso + product_supplier_price_history para mostrar o preço
+// real daquela entrada, em vez de repetir o custo atual em toda linha.
+if (!stockEntryCols.some((c) => c.name === 'supplier_id')) {
+  sqlite.execSync('ALTER TABLE stock_entries ADD COLUMN supplier_id TEXT');
+}
 
 // Migração incremental: inativação/exclusão de vínculo produto↔fornecedor.
 // is_active (soft delete p/ troca de fornecedor) e pending_delete (marca de

@@ -1,8 +1,7 @@
 import { Redirect } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
 
 import { productRepository, saleRepository } from '@/data/repositories';
 import { usePermissions } from '@/lib/permissions';
@@ -15,13 +14,17 @@ import { showToast } from '@/lib/toast';
 import { generateReport, getReportSignedUrl } from '@/services/functions';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
+import { DateField } from '@/ui/DateField';
+import { FullscreenModal } from '@/ui/FullscreenModal';
+import { ReportViewer } from '@/ui/ReportViewer';
 
-type Period = 'today' | 'week' | 'month';
+type Period = 'today' | 'week' | 'month' | 'custom';
 
 const PERIODS: { value: Period; label: string }[] = [
   { value: 'today', label: 'Hoje' },
-  { value: 'week', label: '7 dias' },
-  { value: 'month', label: 'Mês' },
+  { value: 'week', label: 'Esta semana' },
+  { value: 'month', label: 'Este mês' },
+  { value: 'custom', label: 'Personalizado' },
 ];
 const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   pix: 'Pix',
@@ -30,18 +33,34 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   debit_card: 'Débito',
 };
 
-function periodStart(period: Period): number {
-  const d = new Date();
-  if (period === 'today') {
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
-  }
+function startOfDay(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function endOfDay(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+/** Início/fim (em ms) do período selecionado. `custom` usa as datas escolhidas pela pessoa. */
+function periodRange(period: Period, customFrom: Date, customTo: Date): { start: number; end: number } {
+  const now = new Date();
+  if (period === 'today') return { start: startOfDay(now).getTime(), end: now.getTime() };
   if (period === 'week') {
-    d.setDate(d.getDate() - 6);
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
+    // Semana começando na segunda-feira (padrão comercial no Brasil).
+    const weekday = now.getDay(); // 0=domingo..6=sábado
+    const diffToMonday = weekday === 0 ? 6 : weekday - 1;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diffToMonday);
+    return { start: startOfDay(monday).getTime(), end: now.getTime() };
   }
-  return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  if (period === 'month') {
+    return { start: new Date(now.getFullYear(), now.getMonth(), 1).getTime(), end: now.getTime() };
+  }
+  return { start: startOfDay(customFrom).getTime(), end: endOfDay(customTo).getTime() };
 }
 
 export default function Relatorios() {
@@ -49,9 +68,13 @@ export default function Relatorios() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [period, setPeriod] = useState<Period>('month');
+  const [customFrom, setCustomFrom] = useState<Date>(() => startOfDay(new Date()));
+  const [customTo, setCustomTo] = useState<Date>(() => startOfDay(new Date()));
   const [generating, setGenerating] = useState(false);
   const [reportHtml, setReportHtml] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
+
+  const customRangeInvalid = period === 'custom' && customFrom.getTime() > customTo.getTime();
 
   useEffect(() => {
     const unsubSales = saleRepository.observeAll(setSales);
@@ -65,13 +88,17 @@ export default function Relatorios() {
   const productName = (id: string) => products.find((p) => p.id === id)?.name ?? '—';
 
   const onGenerate = async () => {
+    if (customRangeInvalid) {
+      showToast('A data inicial deve ser anterior à final.');
+      return;
+    }
     setGenerating(true);
-    const start = new Date(periodStart(period));
-    const reportType = period === 'today' ? 'daily_sales' : 'monthly_sales';
+    const { start, end } = periodRange(period, customFrom, customTo);
+    const reportType = period === 'today' ? 'daily_sales' : period === 'month' ? 'monthly_sales' : 'period_sales';
     const { path, error } = await generateReport({
       type: reportType,
-      from: start.toISOString(),
-      to: new Date().toISOString(),
+      from: new Date(start).toISOString(),
+      to: new Date(end).toISOString(),
     });
     if (error || !path) {
       setGenerating(false);
@@ -99,8 +126,8 @@ export default function Relatorios() {
   };
 
   const report = useMemo(() => {
-    const start = periodStart(period);
-    const inPeriod = sales.filter((s) => s.saleDate >= start);
+    const { start, end } = periodRange(period, customFrom, customTo);
+    const inPeriod = sales.filter((s) => s.saleDate >= start && s.saleDate <= end);
     const total = inPeriod.reduce((sum, s) => sum + s.totalAmount, 0);
     // Fonte da verdade é `payments` (soma cada forma de verdade, mesmo dentro
     // de uma venda dividida). Venda de ANTES da MIGRATION_28 nunca teve linha
@@ -121,7 +148,7 @@ export default function Relatorios() {
     }
     const topProducts = [...byProduct.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
     return { count: inPeriod.length, total, byPayment, topProducts };
-  }, [sales, period]);
+  }, [sales, period, customFrom, customTo]);
 
   // employee não acessa Relatórios (guarda de deep-link; a RLS confirma no servidor).
   if (!canAccessReports) return <Redirect href="/mais" />;
@@ -138,6 +165,16 @@ export default function Relatorios() {
           />
         ))}
       </View>
+
+      {period === 'custom' && (
+        <View style={styles.customRange}>
+          <DateField label="De" value={customFrom} maximumDate={customTo} onChange={setCustomFrom} />
+          <DateField label="Até" value={customTo} minimumDate={customFrom} maximumDate={new Date()} onChange={setCustomTo} />
+        </View>
+      )}
+      {customRangeInvalid && (
+        <Text style={styles.warning}>A data inicial deve ser anterior à final.</Text>
+      )}
 
       <View style={styles.card}>
         <Text style={styles.cardLabel}>Faturamento</Text>
@@ -171,16 +208,17 @@ export default function Relatorios() {
         ))}
       </View>
 
-      <Button title="Gerar relatório (HTML)" onPress={onGenerate} loading={generating} />
+      <Button
+        title="Gerar relatório (HTML)"
+        onPress={onGenerate}
+        loading={generating}
+        disabled={customRangeInvalid}
+      />
       <Text style={styles.hint}>
         Gera relatório no servidor. Requer conexão.
       </Text>
 
-      <Modal
-        visible={reportHtml !== null}
-        animationType="slide"
-        onRequestClose={() => setReportHtml(null)}
-      >
+      <FullscreenModal visible={reportHtml !== null} onRequestClose={() => setReportHtml(null)}>
         <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Relatório</Text>
@@ -188,23 +226,18 @@ export default function Relatorios() {
               <Text style={styles.modalClose}>Fechar</Text>
             </TouchableOpacity>
           </View>
-          <WebView
-            source={{ html: reportHtml ?? '' }}
-            style={styles.webview}
-            originWhitelist={['about:']}
-            javaScriptEnabled={false}
-            domStorageEnabled={false}
-            setSupportMultipleWindows={false}
-          />
+          <ReportViewer html={reportHtml ?? ''} />
         </View>
-      </Modal>
+      </FullscreenModal>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xxl },
-  chips: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
+  customRange: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+  warning: { color: colors.danger, fontSize: 13, marginBottom: spacing.sm },
   card: { backgroundColor: colors.surface, borderRadius: radii.md, padding: spacing.lg, alignItems: 'center' },
   cardLabel: { color: colors.textSecondary, fontSize: 13 },
   cardValue: { color: colors.gold, fontSize: 30, fontWeight: '700', marginTop: spacing.xs },
@@ -215,7 +248,7 @@ const styles = StyleSheet.create({
   rowLabel: { flex: 1, color: colors.textSecondary, fontSize: 15 },
   rowValue: { color: colors.textPrimary, fontSize: 15, fontWeight: '600' },
   hint: { color: colors.textSecondary, fontSize: 13, marginTop: spacing.md },
-  modalContainer: { flex: 1, backgroundColor: '#fff' },
+  modalContainer: { flex: 1, backgroundColor: colors.bg },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -227,5 +260,4 @@ const styles = StyleSheet.create({
   },
   modalTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
   modalClose: { color: colors.gold, fontSize: 15 },
-  webview: { flex: 1 },
 });
